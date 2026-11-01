@@ -33,7 +33,7 @@
   <form method="post" class="wq-form panel" id="character-form" action="{{ mp }}/characters">{{ csrf_field() }}
     {% if e %}<input type="hidden" name="character_id" value="{{ e.id }}">
     <h2 class="sub">Edit {{ e.name }}</h2>
-    <p class="note">Changing the name, edition, ruleset, realm, faction, race or class resets any Blizzard check on this character.</p>
+    <p class="note">Changing the name, edition, ruleset, realm, faction, race or class resets any Blizzard check on this character. The edition can't change once the character has been in an event (a Forever and a Retail character are different characters), and changes that would no longer fit an event it's signed up for are refused until you leave that event.</p>
     {% else %}<h2 class="sub">Add a character</h2>{% endif %}
     <label>Edition <select name="edition" data-edition-select>{% for k, ed in editions.items() %}<option value="{{ k }}" data-uses-realms="{{ 1 if ed.uses_realms else 0 }}"{% if e and e.edition == k %} selected{% endif %}>{{ ed.name }}</option>{% endfor %}</select></label>
     {% for k, ed in editions.items() %}{% if not ed.uses_realms %}

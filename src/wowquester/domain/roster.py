@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from types import SimpleNamespace
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -146,6 +147,35 @@ def _own(s: Session, actor: Actor, character_id: int) -> Character:
     return ch
 
 
+def _check_events_still_fit(s: Session, cfg: Config, ch: Character, vals: dict) -> None:
+    """A character edit must not leave it in events it can't be in.
+    - Edition: a Forever character and a Retail character are different characters in game, so the edition
+      can only change if every event it was ever in (any signup) is in the new edition. A character that has
+      never joined anything can switch freely, which is how a wrong pick gets fixed.
+    - Ruleset, realm, region, faction: in-game transfers and faction changes are real, so these may change,
+      but not while it's signed up to an upcoming event the new values don't fit. Leave those first."""
+    from ..models import Event, Signup
+    from .signups import ACTIVE, fit_problems
+    rows = s.execute(select(Signup, Event).join(Event, Event.id == Signup.event_id)
+                     .where(Signup.character_id == ch.id)).all()
+    if not rows:
+        return
+    probe = SimpleNamespace(**{k: vals.get(k, getattr(ch, k)) for k in
+                               ("edition", "region", "ruleset", "realm_slug", "faction")})
+    if vals["edition"] != ch.edition:
+        other = sorted({ev.title for _, ev in rows if ev.edition != vals["edition"]})
+        if other:
+            raise Invalid(f"{ch.name} has been in {cfg.edition(ch.edition).name} events ({', '.join(other[:5])}), "
+                          f"so it can't become a {cfg.edition(vals['edition']).name} character. A character in "
+                          f"another edition is a different character in game: add it as a new one instead.")
+    blocked = sorted({ev.title for su, ev in rows if su.state in ACTIVE
+                      and ev.state in ("draft", "scheduled", "in_progress") and fit_problems(cfg, ev, probe)})
+    if blocked:
+        raise Invalid(f"{ch.name} is signed up for {', '.join(blocked[:5])}, which the changed character "
+                      f"wouldn't fit. Leave {'that event' if len(blocked) == 1 else 'those events'} first, "
+                      f"then save the change.")
+
+
 def update_character(s: Session, cfg: Config, actor: Actor, character_id: int, data: dict) -> Character:
     require_member(cfg, actor)
     actor = ensure_member(s, actor)
@@ -157,6 +187,7 @@ def update_character(s: Session, cfg: Config, actor: Actor, character_id: int, d
     if "member_id" in data and data["member_id"] != ch.member_id:
         raise PermissionDenied("Character ownership cannot be changed.")
     vals = _validate(s, cfg, merged)
+    _check_events_still_fit(s, cfg, ch, vals)
     identity_changed = any(vals[k] != getattr(ch, k) for k in ("name", "edition", "region", "realm_slug", "ruleset",
                                                                "race_key", "class_key", "faction"))
     for k, v in vals.items():

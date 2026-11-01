@@ -218,3 +218,31 @@ def test_name_rule_explains_blizzards_policy(seeded, cfg):
             char(s, cfg, actor(62), "Zanra3")
         assert char(s, cfg, actor(62), "Zanra Stormhide").name == "Zanra Stormhide"
         assert char(s, cfg, actor(62), "Ñandú").name == "Ñandú"
+
+
+def test_character_edit_cant_strand_its_signups(seeded, cfg):
+    """Regression: a Forever character signed up for a Forever event was edited to Retail and stayed on the roster."""
+    import pytest
+    from helpers import char, event
+    from conftest import actor
+    from wowquester.domain import roster as rs, signups as sg
+    from wowquester.domain.errors import Invalid
+    host, p = actor(63, "event_creator"), actor(64)
+    with seeded.tx() as s:
+        ev = event(s, cfg, host, start=40, title="Test")
+        c = char(s, cfg, p, "Zanra")
+        sg.join(s, cfg, p, ev.id, c.id)
+        to_retail = {"edition": "retail", "realm_slug": "area-52", "ruleset": None}
+        with pytest.raises(Invalid, match="has been in WoW: Forever events \\(Test\\).*add it as a new one"):
+            rs.update_character(s, cfg, p, c.id, to_retail)
+        with pytest.raises(Invalid, match="signed up for Test.*Leave that event first"):
+            rs.update_character(s, cfg, p, c.id, {"ruleset": "rp"})
+        assert rs.update_character(s, cfg, p, c.id, {"level": 42, "spec": "Feral"}).level == 42   # harmless edits fine
+        sg.leave(s, cfg, p, ev.id)
+        assert rs.update_character(s, cfg, p, c.id, {"ruleset": "rp"}).ruleset == "rp"         # after leaving: ok
+        with pytest.raises(Invalid, match="can't become a WoW \\(Retail\\) character"):
+            rs.update_character(s, cfg, p, c.id, to_retail)                                   # history still counts
+        fresh = char(s, cfg, p, "Voljin")                     # never joined anything: a wrong pick can be fixed
+        assert rs.update_character(s, cfg, p, fresh.id, to_retail).edition == "retail"
+        back = rs.update_character(s, cfg, p, fresh.id, {"edition": "forever", "realm_slug": None, "ruleset": "pvp"})
+        assert back.edition == "forever"
