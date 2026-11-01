@@ -45,7 +45,9 @@ fi
 # 2. Directories. Config root:wowquester 0640; credentials live in /etc/credstore.encrypted (root 0700).
 run install -d -o root -g root -m 0755 "$BASE" "$BASE/releases"
 run install -d -o root -g "$USER_NAME" -m 0750 "$ETC"
-run install -d -o root -g root -m 0700 /etc/credstore.encrypted /var/backups/$APP
+# /etc/credstore.encrypted is shared with other services: create it if missing, never re-own or re-mode it.
+[[ -d /etc/credstore.encrypted ]] || run install -d -o root -g root -m 0700 /etc/credstore.encrypted
+run install -d -o root -g root -m 0700 /var/backups/$APP
 if [[ ! -e "$ETC/config.toml" ]]; then
   run install -o root -g "$USER_NAME" -m 0640 "$REPO/deploy/config.example.toml" "$ETC/config.toml"
   echo "!! edit $ETC/config.toml (guild_id, application_id, role IDs, channel IDs) before starting"

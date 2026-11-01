@@ -74,16 +74,38 @@ Edit `/etc/wowquester/config.toml`: guild, application and channel IDs, role IDs
 branding. Then install credentials (see `configuration.md` for the list):
 
 ```sh
-for n in discord-bot-token discord-client-secret field-key; do
-  sudo systemd-creds encrypt --with-key=host --name=wowquester.$n - /etc/credstore.encrypted/wowquester.$n
-done
+# 4a. Field key (generated on the host, never displayed) and database passwords from step 2
+sudo install -m 0600 /dev/null /root/wowquester_db/field-key
+sudo sh -c '/opt/wowquester/current/venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" > /root/wowquester_db/field-key'
+sudo systemd-creds encrypt --with-key=host --name=wowquester.field-key /root/wowquester_db/field-key /etc/credstore.encrypted/wowquester.field-key
 for r in admin app worker; do
   sudo systemd-creds encrypt --with-key=host --name=wowquester.db-$r-password /root/wowquester_db/$r /etc/credstore.encrypted/wowquester.db-$r-password
 done
-# keep an offline copy of all four first (see backup_restore.md), then:
+
+# 4b. Discord secrets, typed into a hidden prompt (not echoed, not in shell history)
+sudo -v
+for n in discord-bot-token discord-client-secret; do
+  read -rsp "$n: " v; echo
+  printf '%s' "$v" | sudo systemd-creds encrypt --with-key=host --name=wowquester.$n - /etc/credstore.encrypted/wowquester.$n
+  unset v
+done
+
+# 4c. Match the other credentials' mode, then check each decrypts (prints lengths only)
+sudo chmod 600 /etc/credstore.encrypted/wowquester.*
+for f in /etc/credstore.encrypted/wowquester.*; do
+  n=${f##*/}; printf '%s: ' "$n"; sudo systemd-creds decrypt --name="$n" "$f" - 2>/dev/null | wc -c
+done
+# expected: field-key 45, db-*-password 65 each; Discord values: bot token ~70, client secret 32
+
+# 4d. Keep an offline copy of the field key and all four database passwords (backup_restore.md), then:
 sudo shred -u /root/wowquester_db/*; sudo rmdir /root/wowquester_db
 sudo -u wowquester wowquester-admin check-config
 ```
+
+`systemd-creds` warns that `/var/lib/systemd/credential.secret` "is not located on encrypted media". That is
+expected on this host (no TPM, no disk encryption): the credentials protect against copying files off the
+host, not against root on the host. `/etc/credstore.encrypted/` is shared with other services; the installer
+creates it only if it is missing and never changes its owner or mode.
 
 ## 5. Discord application (approval: Discord)
 
