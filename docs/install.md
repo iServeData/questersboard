@@ -18,6 +18,9 @@ sudo -u postgres psql -Atc "select rolname from pg_roles where rolname='root'" 2
 
 ## 1. Packages (approval: system packages)
 
+Preflight on 2026-10-31: Python 3.12.3, systemd 255, nginx 1.24.0 and `python3.12-venv` present;
+PostgreSQL not installed and nothing on port 5432, so the full `pg_hba.conf` can be installed (no merge).
+
 ```sh
 sudo apt install postgresql-16 python3.12-venv gnupg
 ```
