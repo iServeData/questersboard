@@ -170,3 +170,17 @@ def test_seed_catalog_reports_rows_added_then_zero(db, cfg):
         again = catalog.seed_edition(s, cfg, "forever")
     assert first == total > 0
     assert again == 0
+
+
+def test_host_can_sign_up_their_own_character(seeded, cfg):
+    """The organizer is also a player: joining their own event must not clash with their host hold."""
+    host = actor(1, "event_creator")
+    with seeded.tx() as s:
+        mine = char(s, cfg, host, "Hosty")
+        ev = event(s, cfg, host, 0, 2)
+        su = signups.join(s, cfg, host, ev.id, mine.id, role_key=None)
+        assert su.state == "confirmed"
+    with seeded.tx() as s:
+        ev2 = event(s, cfg, host, 5, 2)
+        su2 = signups.join(s, cfg, host, ev2.id, char(s, cfg, host, "Hostess").id, tentative=True)
+        assert su2.state == "tentative"

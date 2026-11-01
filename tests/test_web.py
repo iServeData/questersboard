@@ -476,3 +476,27 @@ def test_host_flow_through_the_browser_forms(app):
     r = member.post(page + "/join", data=join)
     assert r.status_code == 303, r.text[:300]
     assert member.get(page).status_code == 200 and host.get(page).status_code == 200
+
+
+def test_host_joins_own_event_and_wrong_characters_are_explained(app):
+    host = login(app, 93, "event_creator")
+    tok = csrf(host)
+    new = host.get("/wow/quester/events/new").text
+    data = {**_form_defaults(new, "/wow/quester/events/new"), "title": "Own run", "location": "Test",
+            "edition": "forever", "faction": "horde", "date": "2026-11-12", "start_time": "19:00",
+            "timezone": "America/Los_Angeles"}
+    page = host.post("/wow/quester/events/new", data=data).headers["location"]
+    assert host.post(page + "/publish", data={"csrf": tok}).status_code == 303
+    # an Alliance character must not be offered for a Horde event, and the page says why
+    host.post("/wow/quester/characters", data={"csrf": tok, "edition": "forever", "ruleset": "pvp", "name": "Elune",
+                                                "faction": "alliance", "race_key": "Night Elf", "class_key": "Druid"})
+    html = host.get(page).text
+    assert "Horde WoW: Forever character" in html and "Elune: WoW: Forever PVP Alliance" in html
+    assert page + "/join" not in html
+    host.post("/wow/quester/characters", data={"csrf": tok, "edition": "forever", "ruleset": "pvp", "name": "Grom",
+                                                "faction": "horde", "race_key": "Orc", "class_key": "Warrior"})
+    html = host.get(page).text
+    assert "Grom" in html and "Elune" not in re.search(r'<select name="character_id">.*?</select>', html, re.S).group(0)
+    r = host.post(page + "/join", data=_form_defaults(html, page + "/join"))
+    assert r.status_code == 303, r.text[:300]
+    assert "Grom" in host.get(page).text

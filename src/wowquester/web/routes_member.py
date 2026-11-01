@@ -253,8 +253,11 @@ def router(cfg: Config) -> APIRouter:
             rows = signups.roster(s, ev.id)
             mine = next((x for x in rows if a and x.member_id == a.member_id and x.state in signups.ACTIVE), None)
             chars = roster.list_characters(s, a.member_id) if a else []
-            fit = [c for c in chars if c.edition == ev.edition and (not ev.ruleset or c.ruleset == ev.ruleset)
-                   and (not ev.realm_slug or c.realm_slug == ev.realm_slug)]
+            # same rules as signups._check_character, so every listed character can actually join
+            fit = [c for c in chars if c.edition == ev.edition and c.region == ev.region
+                   and (not ev.ruleset or c.ruleset == ev.ruleset)
+                   and (not ev.realm_slug or c.realm_slug == ev.realm_slug)
+                   and (not ev.faction or c.faction == ev.faction)]
             entry = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == ev.id))
             conflicts = []
             if manager and ev.state == "draft":
@@ -264,6 +267,7 @@ def router(cfg: Config) -> APIRouter:
             ctx = {"title": ev.title, "ev": ev, "rows": rows, "mine": mine, "fit": fit, "manager": manager,
                    "recognition_default": bool(me and me.recognition_default),
                    "entry": entry, "conflicts": conflicts, "ed": w.cfg.edition(ev.edition),
+                   "chars": chars, "editions": w.cfg.editions,
                    "show_names": manager or (a is not None and roster.staff_can_view_roster(w.cfg, a))}
             return render(request, "event.html", ctx)   # rendered inside the session (lazy loads)
 

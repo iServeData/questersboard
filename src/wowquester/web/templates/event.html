@@ -57,7 +57,7 @@
         <button class="btn" type="submit">{{ "Request to join" if ev.signup_policy == "approval" else "Join" }}</button>
       </form>
     {% else %}
-      <p class="note">Add a {{ ed.name }} character{% if ev.ruleset %} on the {{ ev.ruleset|upper }} ruleset{% endif %}{% if ev.realm_slug %} on {{ ev.realm_slug }}{% endif %} to join.</p>
+      <p class="note">To join, you need a {% if ev.faction %}{{ ev.faction|title }} {% endif %}{{ ed.name }} character{% if ev.ruleset %} on the {{ ev.ruleset|upper }} ruleset{% endif %}{% if ev.realm_slug %} on {{ ev.realm_slug }}{% endif %}.{% if chars %} None of yours fit yet{% if chars|length <= 3 %} ({% for c in chars %}{{ c.name }}: {{ editions[c.edition].name if c.edition in editions else c.edition }}{% if c.ruleset %} {{ c.ruleset|upper }}{% endif %} {{ c.faction|title }}{% if not loop.last %}; {% endif %}{% endfor %}){% endif %}.{% endif %}</p>
       <a class="btn ghost" href="{{ mp }}/characters">Add a character</a>
     {% endif %}
   </div>
