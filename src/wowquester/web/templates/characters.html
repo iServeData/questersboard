@@ -6,8 +6,8 @@
 <div class="wq-grid">
 <section>
   {% for c in chars %}
-  <div class="panel wq-card">
-    <h3>{{ c.name }} <span class="note">{{ editions[c.edition].name }}{% if c.ruleset %} · {{ c.ruleset|upper }}{% endif %}{% if c.realm_slug %} · {{ c.realm_name or c.realm_slug }}{% endif %}</span></h3>
+  <div class="panel wq-card{% if editing and editing.id == c.id %} wq-editing{% endif %}">
+    <h3><a class="wq-char-link" href="{{ mp }}/characters?edit={{ c.id }}#character-form" title="Edit {{ c.name }}">{{ c.name }}</a> <span class="note">{{ editions[c.edition].name }}{% if c.ruleset %} · {{ c.ruleset|upper }}{% endif %}{% if c.realm_slug %} · {{ c.realm_name or c.realm_slug }}{% endif %}</span></h3>
     <p>{{ c.faction|title }} {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} · level {{ c.level }}{% endif %}{% if c.spec %} · {{ c.spec }}{% endif %}</p>
     <p class="note">Roles: {{ c.eligible_roles|join(", ") or "—" }}{% if c.preferred_role %} (prefers {{ c.preferred_role }}){% endif %}{% if c.focus_tags %} · Interests: {{ c.focus_tags|join(", ") }}{% endif %}</p>
     <p class="note">API: {{ {"api_matched":"matched in Blizzard's API (existence only, not proof it's yours)","ownership_verified":"verified as yours via Battle.net login","self_reported":"self-reported, not checked","unverified":"not checked","not_found":"not found in Blizzard's API","unsupported":"no Blizzard API for this edition yet"}.get(c.verification, c.verification) }}</p>
@@ -15,6 +15,7 @@
     {% if bz_enabled and ed.capability("character") != "unsupported" %}
     <form method="post" action="{{ mp }}/characters/{{ c.id }}/lookup">{{ csrf_field() }}<button class="linkish" type="submit">Check with Blizzard</button></form>
     {% endif %}
+    <p class="btns wq-card-actions"><a class="linkish" href="{{ mp }}/characters?edit={{ c.id }}#character-form">Edit</a></p>
     <form method="post" action="{{ mp }}/characters/{{ c.id }}/remove">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Remove {{ c.name }}? Characters with event history are archived instead.">Remove</button></form>
   </div>
   {% else %}<p class="note">No characters yet.</p>{% endfor %}
@@ -28,30 +29,35 @@
   {% endif %}
 </section>
 <aside class="side">
-  <form method="post" class="wq-form panel" action="{{ mp }}/characters">{{ csrf_field() }}
-    <h2 class="sub">Add a character</h2>
-    <label>Edition <select name="edition" data-edition-select>{% for k, ed in editions.items() %}<option value="{{ k }}" data-uses-realms="{{ 1 if ed.uses_realms else 0 }}">{{ ed.name }}</option>{% endfor %}</select></label>
+  {% set e = editing %}
+  <form method="post" class="wq-form panel" id="character-form" action="{{ mp }}/characters">{{ csrf_field() }}
+    {% if e %}<input type="hidden" name="character_id" value="{{ e.id }}">
+    <h2 class="sub">Edit {{ e.name }}</h2>
+    <p class="note">Changing the name, edition, ruleset, realm, faction, race or class resets any Blizzard check on this character.</p>
+    {% else %}<h2 class="sub">Add a character</h2>{% endif %}
+    <label>Edition <select name="edition" data-edition-select>{% for k, ed in editions.items() %}<option value="{{ k }}" data-uses-realms="{{ 1 if ed.uses_realms else 0 }}"{% if e and e.edition == k %} selected{% endif %}>{{ ed.name }}</option>{% endfor %}</select></label>
     {% for k, ed in editions.items() %}{% if not ed.uses_realms %}
     <label data-for-edition="{{ k }}" data-realmless>Ruleset <span class="note">({{ ed.name }} has no realms)</span>
-      <select name="ruleset">{% for r in ed.rulesets %}<option value="{{ r }}"{% if r == ed.default_ruleset %} selected{% endif %}>{{ r|upper }}</option>{% endfor %}</select></label>
+      <select name="ruleset">{% for r in ed.rulesets %}<option value="{{ r }}"{% if (e and e.edition == k and e.ruleset == r) or ((not e or e.edition != k) and r == ed.default_ruleset) %} selected{% endif %}>{{ r|upper }}</option>{% endfor %}</select></label>
     {% endif %}{% endfor %}
-    <label data-realm-field>Realm <span class="note">(Retail and other realm editions)</span><input name="realm_slug" placeholder="realm-slug" pattern="[a-z0-9-]{2,64}"></label>
-    <label>Name <input name="name" required maxlength="24" autocomplete="off"></label>
-    <label>Faction <select name="faction" data-faction-select><option value="horde">Horde</option><option value="alliance">Alliance</option></select></label>
+    <label data-realm-field>Realm <span class="note">(Retail and other realm editions)</span><input name="realm_slug" placeholder="realm-slug" pattern="[a-z0-9-]{2,64}" value="{{ e.realm_slug or '' if e else '' }}"></label>
+    <label>Name <input name="name" required maxlength="49" autocomplete="off" value="{{ e.name if e else '' }}"></label>
+    <label>Faction <select name="faction" data-faction-select><option value="horde">Horde</option><option value="alliance"{% if e and e.faction == "alliance" %} selected{% endif %}>Alliance</option></select></label>
     <script type="application/json" id="wq-race-map">{{ race_map | tojson }}</script>
     <datalist id="wq-race-list">{% for f, races in (race_map[editions|first].factions or {}).items() %}{% for r in races %}<option value="{{ r.label }}"></option>{% endfor %}{% endfor %}</datalist>
     <datalist id="wq-class-list">{% for k, l in (race_map[editions|first].classes or {}).items() %}<option value="{{ l }}"></option>{% endfor %}</datalist>
-    <label>Race <input name="race_key" required maxlength="48" autocomplete="off" list="wq-race-list" data-race-input></label>
-    <label>Class <input name="class_key" required maxlength="48" autocomplete="off" list="wq-class-list" data-class-input></label>
+    <label>Race <input name="race_key" required maxlength="48" autocomplete="off" list="wq-race-list" data-race-input value="{{ race_label }}"></label>
+    <label>Class <input name="class_key" required maxlength="48" autocomplete="off" list="wq-class-list" data-class-input value="{{ class_label }}"></label>
     <p class="note" data-race-hint>Pick from the list or type your own. Lists follow the edition, faction and race you choose.</p>
-    <label>Level <input type="number" name="level" min="1" max="90"></label>
-    <label>Spec <input name="spec" maxlength="48"></label>
+    <label>Level <input type="number" name="level" min="1" max="90" value="{{ e.level or '' if e else '' }}"></label>
+    <label>Spec <input name="spec" maxlength="48" value="{{ e.spec or '' if e else '' }}"></label>
     <fieldset><legend>Roles it can fill</legend>
-      {% for p in presets %}<label class="wq-check"><input type="checkbox" name="eligible_roles" value="{{ p.key }}"> {{ p.label }}</label>{% endfor %}</fieldset>
-    <label>Preferred role <select name="preferred_role"><option value="">None</option>{% for p in presets %}<option value="{{ p.key }}">{{ p.label }}</option>{% endfor %}</select></label>
-    <label>Interests <input name="focus_tags" placeholder="questing, dungeon, rp"></label>
-    <label><input type="checkbox" name="recognition_default" value="1"> Name this character publicly by default</label>
-    <button class="btn" type="submit">Add character</button>
+      {% for p in presets %}<label class="wq-check"><input type="checkbox" name="eligible_roles" value="{{ p.key }}"{% if e and p.key in e.eligible_roles %} checked{% endif %}> {{ p.label }}</label>{% endfor %}</fieldset>
+    <label>Preferred role <select name="preferred_role"><option value="">None</option>{% for p in presets %}<option value="{{ p.key }}"{% if e and e.preferred_role == p.key %} selected{% endif %}>{{ p.label }}</option>{% endfor %}</select></label>
+    <label>Interests <input name="focus_tags" placeholder="questing, dungeon, rp" value="{{ e.focus_tags|join(', ') if e else '' }}"></label>
+    <label><input type="checkbox" name="recognition_default" value="1"{% if e and e.recognition_default %} checked{% endif %}> Name this character publicly by default</label>
+    {% if e %}<p class="btns"><button class="btn" type="submit">Save changes</button> <a class="btn ghost" href="{{ mp }}/characters">Cancel</a></p>
+    {% else %}<button class="btn" type="submit">Add character</button>{% endif %}
   </form>
 </aside>
 </div>

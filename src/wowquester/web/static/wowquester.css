@@ -91,3 +91,7 @@ tr[hidden]{display:none}
 .wq-pop::backdrop{background:rgba(0,0,0,.45)}
 .wq-pop p{margin:0 0 10px}.wq-pop a{color:var(--text,#e1e4e8)}
 .wq-pop-title{font:600 .74rem var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--muted,#a3a9b1)}
+.wq-char-link{color:inherit;text-decoration:none;border-bottom:1px dashed var(--line-strong,rgba(225,228,232,.24))}
+.wq-char-link:hover,.wq-char-link:focus-visible{border-bottom-color:currentColor}
+.wq-editing{border-color:var(--accent,#c4493c);box-shadow:inset 3px 0 0 var(--accent,#c4493c)}
+.wq-card-actions{margin:6px 0 0}

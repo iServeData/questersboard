@@ -656,3 +656,33 @@ def test_copied_draft_explains_publishing_and_edit_can_publish(app, seeded):
     assert "isn't in Discord yet" not in page and "Scheduled" in page
     with seeded.tx() as s:
         assert s.query(OutboxJob).filter(OutboxJob.kind == "discord.render_event").count() > before
+
+
+def test_character_edit_form_fills_in_and_saves(app, seeded):
+    p = login(app, 103)
+    t = csrf(p)
+    p.post("/wow/quester/characters", data={"csrf": t, "edition": "forever", "ruleset": "pvp", "name": "Zanra",
+                                            "faction": "horde", "race_key": "Skyborne (Windshaper)",
+                                            "class_key": "Druid", "level": "60", "spec": "Feral",
+                                            "eligible_roles": ["tank", "healer"], "preferred_role": "tank",
+                                            "focus_tags": "rp, pvp"})
+    page = p.get("/wow/quester/characters").text
+    cid = re.search(r'characters\?edit=(\d+)#character-form" title="Edit Zanra"', page).group(1)
+    assert ">Edit</a>" in page and "Add a character" in page
+    form = p.get(f"/wow/quester/characters?edit={cid}").text
+    assert "Edit Zanra" in form and f'name="character_id" value="{cid}"' in form
+    assert 'value="Zanra"' in form and 'value="Skyborne (Windshaper)"' in form and 'value="Druid"' in form
+    assert 'value="60"' in form and 'value="Feral"' in form and 'value="rp, pvp"' in form
+    assert '<option value="pvp" selected>' in form and 'value="tank" checked' in form and 'value="healer" checked' in form
+    assert "Save changes" in form and "Cancel" in form
+    # save: switch to RP, clear level and spec (blank must clear, not keep)
+    r = p.post("/wow/quester/characters", data={"csrf": t, "character_id": cid, "edition": "forever", "ruleset": "rp",
+                                                "name": "Zanra Stormhide", "faction": "horde",
+                                                "race_key": "Skyborne (Windshaper)", "class_key": "Druid",
+                                                "eligible_roles": ["healer"], "focus_tags": "rp"})
+    assert r.status_code == 303
+    after = p.get("/wow/quester/characters").text
+    assert "Zanra Stormhide" in after and "FOREVER · RP" in after.upper() and "level 60" not in after
+    assert after.count("title=\"Edit ") == 1          # edited in place, not added
+    # someone else's character can't be opened for editing
+    assert login(app, 104).get(f"/wow/quester/characters?edit={cid}").status_code == 404

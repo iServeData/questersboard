@@ -418,12 +418,22 @@ def router(cfg: Config) -> APIRouter:
 
     # ------------------------------------------------------------- characters
     @r.get(mp + "/characters")
-    def characters(request: Request):
+    def characters(request: Request, edit: int = 0):
         sess, a = session_or_login(request)
         w = W(request)
         with w.db.tx() as s:
             chars = roster.list_characters(s, a.member_id)
             race_map = {ed: catalog.race_class_map(s, ed) for ed in w.cfg.editions}
+            editing = next((c for c in chars if c.id == edit), None)
+            if edit and editing is None:
+                raise NotFound("Character not found.")
+            race_label = class_label = ""
+            if editing is not None:   # show catalog labels ("Skyborne (Windshaper)"), not stored keys
+                m = race_map.get(editing.edition) or {}
+                race_label = next((r["label"] for r in (m.get("factions") or {}).get(editing.faction, [])
+                                   if r["key"] == editing.race_key), editing.race_key.replace("_", " ").title())
+                class_label = (m.get("classes") or {}).get(editing.class_key,
+                                                           editing.class_key.replace("_", " ").title())
             from ..models import BattlenetLink
             bn_linked = s.query(BattlenetLink.member_id).filter(BattlenetLink.member_id == a.member_id).first() is not None
         bz = w.cfg["blizzard"]
@@ -431,7 +441,8 @@ def router(cfg: Config) -> APIRouter:
                                                    "editions": w.cfg.editions, "presets": w.cfg.role_presets,
                                                    "bz_enabled": bool(bz.get("enabled")),
                                                    "bn_enabled": bool(bz.get("enabled") and bz.get("battlenet_link_enabled")),
-                                                   "bn_linked": bn_linked})
+                                                   "bn_linked": bn_linked, "editing": editing,
+                                                   "race_label": race_label, "class_label": class_label})
 
     @r.post(mp + "/characters")
     async def add_character(request: Request):
@@ -444,6 +455,10 @@ def router(cfg: Config) -> APIRouter:
         data["eligible_roles"] = form.getlist("eligible_roles")
         data["focus_tags"] = [t for t in re.split(r"[,\s]+", form.get("focus_tags", "")) if t]
         data["recognition_default"] = _bool(form, "recognition_default")
+        if form.get("character_id"):
+            # The edit form shows every field, so a field left blank means "clear it", not "keep it".
+            for k in ("level", "spec", "preferred_role", "realm_slug"):
+                data.setdefault(k, None)
         with w.db.tx() as s:
             if form.get("character_id"):
                 roster.update_character(s, w.cfg, a, int(form["character_id"]), data)

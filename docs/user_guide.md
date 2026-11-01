@@ -7,6 +7,9 @@ Log in with Discord. WoWQuester only learns your Discord ID and display name.
 
 **Your characters** (My characters).
 - WoW: Forever characters have a ruleset (no realm). Retail characters need a realm.
+- To edit a character, click its name (or Edit): the form on the right fills in with its details. Change
+  anything and press Save changes. Changing its name, edition, ruleset, realm, faction, race or class resets
+  any Blizzard check.
 - Pick race and class from the suggestions or type your own. Suggestions follow the edition, faction and race you choose. WoWQuester only refuses a pairing its catalog rules out (for example a Gnome on the Horde, or a Tauren Mage in Forever) and tells you which options are valid. Anything not in the catalog is saved as typed.
 - Set the roles you can fill (tank, healer, damage, or your community's custom roles).
 - "Check with Blizzard" (Retail only for now) confirms the character exists. It doesn't prove it's yours.
