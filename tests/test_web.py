@@ -626,3 +626,33 @@ def test_copy_and_edit_forms_are_filled_with_the_events_time(app, seeded):
                                       "timezone": "America/Los_Angeles"})
     assert r.status_code == 303 and r.headers["location"].endswith("/edit")
     assert f'value="{want_date}"' in org.get(r.headers["location"]).text
+
+
+def test_copied_draft_explains_publishing_and_edit_can_publish(app, seeded):
+    from wowquester.models import Outbox as OutboxJob
+    org = login(app, 102, "event_creator")
+    tok = csrf(org)
+    start = at(6).astimezone(__import__("zoneinfo").ZoneInfo("America/Los_Angeles"))
+    r = org.post("/wow/quester/events/new", data={
+        "csrf": tok, "edition": "forever", "ruleset": "pvp", "faction": "horde", "title": "Blackfathom",
+        "activity_type": "dungeon", "date": start.strftime("%Y-%m-%d"), "start_time": start.strftime("%H:%M"),
+        "duration_minutes": "90", "timezone": "America/Los_Angeles", "signup_policy": "open", "publish": "1"})
+    url = r.headers["location"]
+    nxt = (start.date() + __import__("datetime").timedelta(days=7)).isoformat()
+    r = org.post(url + "/copy", data={"csrf": tok, "date": nxt, "start_time": start.strftime("%H:%M"),
+                                      "timezone": "America/Los_Angeles"})
+    edit_url = r.headers["location"]
+    draft_url = edit_url.rsplit("/edit", 1)[0]
+    edit = org.get(edit_url).text
+    assert "This is a draft." in edit and 'name="publish" value="1">Save and publish' in edit
+    assert "isn't in Discord yet" in org.get(draft_url).text
+    with seeded.tx() as s:
+        before = s.query(OutboxJob).filter(OutboxJob.kind == "discord.render_event").count()
+    r = org.post(edit_url, data={"csrf": tok, "title": "Blackfathom 2", "date": nxt, "start_time": start.strftime("%H:%M"),
+                                 "duration_minutes": "90", "timezone": "America/Los_Angeles", "signup_policy": "open",
+                                 "public_listing": "1", "publish": "1"})
+    assert r.status_code == 303
+    page = org.get(draft_url).text
+    assert "isn't in Discord yet" not in page and "Scheduled" in page
+    with seeded.tx() as s:
+        assert s.query(OutboxJob).filter(OutboxJob.kind == "discord.render_event").count() > before

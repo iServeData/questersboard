@@ -341,6 +341,8 @@ def router(cfg: Config) -> APIRouter:
                 recurrence.edit_occurrence(s, w.cfg, a, ev.id, data)
             else:
                 events.update(s, w.cfg, a, ev.id, data)
+            if form.get("publish") and ev.state == "draft":
+                events.publish(s, w.cfg, a, ev.id)
         return _redirect(f"{mp}/events/{public_id}")
 
     ACTIONS = ("join", "tentative", "leave", "reconfirm", "change", "publish", "start", "end", "cancel",

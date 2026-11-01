@@ -68,6 +68,7 @@
   {% if manager %}
   <div class="panel">
     <h2 class="sub">Host tools</h2>
+    {% if ev.state == "draft" %}<p class="caveat"><strong>Draft:</strong> only hosts can see this event, and it isn't in Discord yet. Press <strong>Publish</strong> to post its card to Discord and open signups.</p>{% endif %}
     {% if conflicts %}<div class="caveat"><strong>Publishing would conflict:</strong><ul class="plain-list">{% for c in conflicts %}<li>{{ c }}</li>{% endfor %}</ul></div>{% endif %}
     <div class="btns">
       {% if ev.state in ("draft", "scheduled", "in_progress") %}<a class="btn ghost" href="{{ mp }}/events/{{ ev.public_id }}/edit">Edit</a>{% endif %}
