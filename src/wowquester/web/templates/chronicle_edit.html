@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf_field %}
+{% from "_macros.html" import csrf_field with context %}
 {% block content %}
 <div class="section-head"><span class="label">Chronicle · {{ e.state.replace('_', ' ') }}</span><h1>{{ ev.title }}</h1></div>
 {% if e.published_revision_id and e.working_revision_id != e.published_revision_id %}<p class="caveat">The published version stays public until this edit is approved.</p>{% endif %}

@@ -405,3 +405,22 @@ def test_legal_config_validation(tmp_path):
         make_cfg(tmp_path, legal={"effective_date": "Nov 4"})
     with pytest.raises(ConfigError):
         make_cfg(tmp_path, legal={"contact": "  "})
+
+
+def test_every_post_form_carries_the_session_csrf_token(app, seeded, wcfg):
+    """Regression: the csrf_field macro must see the page context, so no form posts an empty token."""
+    c = login(app, 77, "event_creator", "admin")
+    with seeded.tx() as s:
+        org = actor(77, "event_creator")
+        ev = event(s, wcfg, org, 0, 2, title="Ragefire")
+        pid = ev.public_id
+    tok = csrf(c)
+    for path in ("/wow/quester/me", "/wow/quester/characters", "/wow/quester/events/new", f"/wow/quester/events/{pid}"):
+        html = c.get(path).text
+        forms = re.findall(r'<form[^>]*method="post"[^>]*>.*?</form>', html, re.S)
+        assert forms, path
+        for f in forms:
+            assert f'name="csrf" value="{tok}"' in f, (path, f[:120])
+    r = c.post("/wow/quester/characters", data={"csrf": tok, "edition": "forever", "ruleset": "pvp", "name": "Grom",
+                                                 "faction": "horde", "race_key": "orc", "class_key": "warrior"})
+    assert r.status_code == 303

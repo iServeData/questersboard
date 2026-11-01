@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf_field %}
+{% from "_macros.html" import csrf_field with context %}
 {% block content %}
 {% set editing = ev is not none %}
 <div class="section-head"><h1>{{ "Edit event" if editing else "Plan an event" }}</h1></div>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf_field, state_chip %}
+{% from "_macros.html" import csrf_field, state_chip with context %}
 {% block content %}
 <div class="section-head"><span class="label"><span class="num">{{ ev.activity_type|upper }}</span> // {{ ed.name }}{% if ev.ruleset %} · {{ ev.ruleset|upper }}{% endif %}{% if ev.realm_slug %} · {{ ev.realm_slug }}{% endif %}{% if ev.faction %} · {{ ev.faction|title }}{% endif %}</span>
   <h1>{{ ev.title }}</h1></div>

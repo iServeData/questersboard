@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf_field %}
+{% from "_macros.html" import csrf_field with context %}
 {% block content %}
 <div class="section-head"><h1>My characters</h1></div>
 <p class="note">Characters are self-reported. A Blizzard API match (where available) confirms the character exists; it does not prove it's yours.</p>
