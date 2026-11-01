@@ -195,14 +195,26 @@ def test_fit_problems_explain_why_a_character_cant_join(seeded, cfg):
     host, p = actor(60, "event_creator"), actor(61)
     with seeded.tx() as s:
         ev = event(s, cfg, host, start=30, ruleset="rp", title="Test2")
-        char(s, cfg, p, "Rimeclaws")                                   # Forever PVP Horde
+        char(s, cfg, p, "Zanra")                                   # Forever PVP Horde
         char(s, cfg, p, "Allytank", faction="alliance", race_key="human", ruleset="rp")
         assert sg.event_requirement(cfg, ev) == "Horde WoW: Forever characters (US) on the RP ruleset"
         title, state, chars, roles, why = _fitting(s, cfg, p, ev.id)
         assert chars == []
-        assert dict(why["misfits"]) == {"Rimeclaws": ["PVP ruleset, not RP"], "Allytank": ["Alliance, not Horde"]}
+        assert dict(why["misfits"]) == {"Zanra": ["PVP ruleset, not RP"], "Allytank": ["Alliance, not Horde"]}
         char(s, cfg, p, "Rptroll", ruleset="rp")
         assert [c[1].split(" · ")[0] for c in _fitting(s, cfg, p, ev.id)[2]] == ["Rptroll"]
     text = no_fit_text(cfg, title, why)
     assert "**Test2** is for Horde WoW: Forever characters (US) on the RP ruleset." in text
-    assert "• Rimeclaws: PVP ruleset, not RP" in text and "<https://" in text and "/characters>" in text
+    assert "• Zanra: PVP ruleset, not RP" in text and "<https://" in text and "/characters>" in text
+
+
+def test_name_rule_explains_blizzards_policy(seeded, cfg):
+    import pytest
+    from helpers import char
+    from conftest import actor
+    from wowquester.domain.errors import Invalid
+    with seeded.tx() as s:
+        with pytest.raises(Invalid, match="Blizzard doesn't allow numbers"):
+            char(s, cfg, actor(62), "Zanra3")
+        assert char(s, cfg, actor(62), "Zanra Stormhide").name == "Zanra Stormhide"
+        assert char(s, cfg, actor(62), "Ñandú").name == "Ñandú"

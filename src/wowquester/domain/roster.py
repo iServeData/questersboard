@@ -51,7 +51,9 @@ def _validate(s: Session, cfg: Config, data: dict) -> dict:
         raise Invalid(f"{ed.name} supports regions: {', '.join(ed.regions)}")
     name = (data.get("name") or "").strip()
     if not NAME_RE.match(name):
-        raise Invalid("Character name must be letters only (2–24), optionally with a second part.")
+        raise Invalid("WoW character names are letters only: Blizzard doesn't allow numbers, symbols or spaces "
+                      "(accents like ñ or ö are fine). Enter the name exactly as it is in game. WoW: Forever names "
+                      "have two parts, so type both with a space between, e.g. \"Zanra Stormhide\".")
     out = dict(edition=ed.key, region=region, name=name)
     if ed.uses_realms:
         realm = (data.get("realm_slug") or "").strip().lower()
