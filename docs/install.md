@@ -140,7 +140,7 @@ systemctl is-active wowquester-web.service wowquester-worker.service wowquester-
 sudo systemd-run --pipe --wait \
   -p LoadCredentialEncrypted=wowquester.db-app-password:/etc/credstore.encrypted/wowquester.db-app-password \
   /usr/local/sbin/wowquester-admin health --socket /run/wowquester-web.sock
-journalctl -u wowquester-bot -u wowquester-worker -u wowquester-web --since "5 min ago" --no-pager | tail -30
+sudo journalctl -u wowquester-bot -u wowquester-worker -u wowquester-web --since "5 min ago" --no-pager | tail -30
 ```
 
 The bot logs in with its token but does nothing visible until it is invited to the server; it never
@@ -149,14 +149,22 @@ registers slash commands on its own (that is step 9). Backups are a separate ste
 
 ## 8. Nginx: prototype first (approval: Nginx)
 
-Include `deploy/nginx/wowquester_locations.conf` inside the **prototype** site's `server {}` block
-(already behind its sign-in gate), with `public_base_url` pointing at the prototype host:
+One instance serves one host, so while testing on the prototype set `[community] public_base_url` to the
+prototype host and add `https://PROTOTYPE_HOST/wow/quester/oauth/callback` as a second OAuth2 redirect in the
+Discord portal (keep the live one). The prototype server block is already behind its sign-in gate; a
+server-level `auth_request` is inherited by the WoWQuester locations.
 
 ```sh
-sudo install -m 0644 deploy/nginx/wowquester_locations.conf /etc/nginx/snippets/wowquester_locations.conf
-# add:  include snippets/wowquester_locations.conf;   to the prototype server block
+sudo install -m 0644 -o root -g root deploy/nginx/wowquester_locations.conf /etc/nginx/snippets/wowquester_locations.conf
+# in the prototype server block (and in the template that generates it, if any):
+#     include /etc/nginx/snippets/wowquester_location[s].conf;
+# the [s] glob keeps `nginx -t` passing on hosts without the snippet.
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+Check: without a gate cookie, `https://PROTOTYPE_HOST/wow/quester/upcoming.json` redirects to the sign-in;
+after signing in it returns JSON, and `/wow/chronicle/` shows the archive. The live host is unchanged
+(its `/wow/quester/` is still the static site's 404). Rollback: remove the include line, `nginx -t`, reload.
 
 ## 9. Slash commands (approval: register live Discord commands)
 
