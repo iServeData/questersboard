@@ -110,3 +110,17 @@ def test_public_projection_has_counts_not_names(seeded, cfg):
         row = s.execute(text("select row_to_json(p)::text from public_events p")).scalar()
         assert '"filled": 1' in row.replace('"filled":1', '"filled": 1')
         assert "SecretDiscordName" not in row and "Aaa" not in row and a.discord_id not in row
+
+
+def test_seed_catalog_reports_rows_added_then_zero(db, cfg):
+    """seed-catalog output must be a real count (it printed -75 on the first production run)."""
+    from sqlalchemy import text as _t
+
+    from wowquester.domain import catalog
+    with db.tx() as s:
+        first = catalog.seed_edition(s, cfg, "forever")
+        total = s.execute(_t("select count(*) from reference_options where edition='forever'")).scalar()
+    with db.tx() as s:
+        again = catalog.seed_edition(s, cfg, "forever")
+    assert first == total > 0
+    assert again == 0

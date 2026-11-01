@@ -38,8 +38,10 @@ def seed_edition(s: Session, cfg: Config, edition_key: str) -> int:
                                  data={}))
     n = 0
     for row in rows:
-        stmt = insert(ReferenceOption).values(**row).on_conflict_do_nothing(constraint="ux_ref_key")
-        n += s.execute(stmt).rowcount or 0
+        stmt = (insert(ReferenceOption).values(**row).on_conflict_do_nothing(constraint="ux_ref_key")
+                .returning(ReferenceOption.id))
+        # count RETURNING rows: rowcount is -1 for this statement with SQLAlchemy 2.1 + psycopg
+        n += len(s.execute(stmt).all())
     return n
 
 
