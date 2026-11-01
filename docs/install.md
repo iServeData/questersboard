@@ -91,14 +91,13 @@ for n in discord-bot-token discord-client-secret; do
 done
 
 # 4c. Match the other credentials' mode, then check each decrypts (prints lengths only)
-sudo chmod 600 /etc/credstore.encrypted/wowquester.*
-for f in /etc/credstore.encrypted/wowquester.*; do
-  n=${f##*/}; printf '%s: ' "$n"; sudo systemd-creds decrypt --name="$n" "$f" - 2>/dev/null | wc -c
-done
+# (globs run inside sudo sh -c: the directory is root-only, so your own shell can't expand them)
+sudo sh -c 'chmod 600 /etc/credstore.encrypted/wowquester.*'
+sudo sh -c 'for f in /etc/credstore.encrypted/wowquester.*; do n=${f##*/}; printf "%s: " "$n"; systemd-creds decrypt --name="$n" "$f" - 2>/dev/null | wc -c; done'
 # expected: field-key 45, db-*-password 65 each; Discord values: bot token ~70, client secret 32
 
 # 4d. Keep an offline copy of the field key and all four database passwords (backup_restore.md), then:
-sudo shred -u /root/wowquester_db/*; sudo rmdir /root/wowquester_db
+sudo sh -c 'shred -u /root/wowquester_db/* && rmdir /root/wowquester_db'
 sudo -u wowquester wowquester-admin check-config
 ```
 
