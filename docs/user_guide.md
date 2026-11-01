@@ -37,6 +37,12 @@ phone or desktop calendar. It is shown once. "Turn off my links" revokes it imme
 My events → Privacy, and per event when you join. If you opt out, stories describe you neutrally
 ("a healer"). On a published story, "Stop naming me in this story" takes effect immediately.
 
+**Remove me.** My settings → "Remove me from WoWQuester…" lists exactly what will happen, then asks
+you to type `remove me`. Confirming withdraws you from every event, cancels upcoming events you host
+(the people signed up are told), deletes your characters, replaces your names in Chronicle stories
+with a neutral description, and disconnects your Discord login. A receipt shows what was done. It is
+immediate and can't be undone; logging in again starts an empty profile.
+
 ### Privacy and terms
 
 The footer of every WoWQuester page links to **Privacy** (`/wow/quester/privacy`) and **Terms**

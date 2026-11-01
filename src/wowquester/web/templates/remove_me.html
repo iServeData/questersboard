@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
+{% block content %}
+<section class="panel wq-legal wq-remove">
+  <div class="section-head"><h1>Remove me from WoWQuester</h1></div>
+  {% if error %}<p class="wq-form-error" role="alert">{{ error }}</p>{% endif %}
+  <p class="wq-danger-note"><strong>This can't be undone.</strong> Once you confirm, your WoWQuester profile is removed straight away and nothing can be restored, not even by an officer. If you log in again later you start with an empty profile.</p>
+
+  <h2 class="sub">What will happen</h2>
+  <ul>
+    {% if p.leave %}<li>You'll leave {{ "this event" if p.leave|length == 1 else "these " ~ p.leave|length ~ " events" }}. Hosts see that you left, and anyone waiting moves up:
+      <ul>{% for e in p.leave %}<li><a href="{{ mp }}/events/{{ e.public_id }}">{{ e.title }}</a> <span class="note">· {{ fmt_local(e.start_at, e.timezone) }}</span></li>{% endfor %}</ul></li>
+    {% else %}<li>You aren't signed up for any upcoming events.</li>{% endif %}
+    {% if p.cancel %}<li><strong>{{ "This event you host" if p.cancel|length == 1 else "These " ~ p.cancel|length ~ " events you host" }} will be cancelled</strong>, and the people signed up will be told. If you'd like someone else to run {{ "it" if p.cancel|length == 1 else "them" }}, ask them to set up their own event first.
+      <ul>{% for e in p.cancel %}<li><a href="{{ mp }}/events/{{ e.public_id }}">{{ e.title }}</a> <span class="note">· {{ fmt_local(e.start_at, e.timezone) }}</span></li>{% endfor %}</ul></li>{% endif %}
+    {% if p.drafts %}<li>Your {{ p.drafts }} draft event{{ "s" if p.drafts != 1 }} will be discarded.</li>{% endif %}
+    <li>Your characters{% if p.characters %} ({{ p.characters }}){% endif %} will be deleted. Where a character has been in an event, only a blank "(removed)" placeholder is kept so that event's history still adds up.</li>
+    <li>In Chronicle stories{% if p.stories %} ({{ p.stories }}){% endif %}, your character names are replaced with a neutral description such as "a healer", in every saved version. Screenshots from those events go back to a reviewer in case a name plate shows.</li>
+    {% if p.calendar_links %}<li>Your private calendar link will stop working.</li>{% endif %}
+    {% if p.battlenet %}<li>Your Battle.net link will be forgotten.</li>{% endif %}
+    <li>Your Discord account is disconnected from WoWQuester and you're logged out everywhere.</li>
+  </ul>
+  <p class="note">Two things age out on their own: the security log, which notes who did what, is deleted after {{ cfg["retention"]["audit_days"] }} days, and encrypted backups after {{ cfg["legal"]["backup_keep_days"] }} days. Messages already in Discord (other than the event cards, which update) and your Discord account itself aren't part of WoWQuester.</p>
+
+  <form method="post" action="{{ mp }}/me/remove" class="wq-form wq-remove-form">{{ csrf_field() }}
+    <label for="confirm">To confirm, type <span class="wq-phrase">{{ phrase }}</span> in the box</label>
+    <input id="confirm" name="confirm" autocomplete="off" autocapitalize="none" spellcheck="false" required placeholder="{{ phrase }}" aria-describedby="confirm-note">
+    <p class="note" id="confirm-note">This is permanent and won't be restored.</p>
+    <div class="btns"><button class="btn danger" type="submit">Permanently remove me</button> <a class="btn ghost" href="{{ mp }}/me">Keep my profile</a></div>
+  </form>
+</section>
+{% endblock %}

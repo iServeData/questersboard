@@ -46,14 +46,16 @@
     <li>Security log: {{ ret.audit_days }} days.</li>
     <li>Encrypted backups: {{ lg.backup_keep_days }} days.</li>
     <li>Published Chronicle stories stay up until they are unpublished.</li>
-    <li>Your Discord identity, characters and event history: for as long as you use WoWQuester.</li>
+    <li>Your Discord identity, characters and event history: for as long as you use WoWQuester, or until you use <a href="#remove-me">Remove me</a>.</li>
   </ul>
 
   <h2 class="sub">Your choices</h2>
   <ul>
     <li>Remove your characters and withdraw from events at any time.</li>
     <li>Turn Chronicle naming off for any event, or stop being named in a published story.</li>
-    <li>Ask for a copy of what we hold about you, or ask us to remove your account. There's no self-service delete button yet, so an organiser does this for you. Copies in backups age out within {{ lg.backup_keep_days }} days.</li>
+    <li id="remove-me"><strong>Remove me.</strong> Under My settings &rarr; <a href="{{ mp }}/me/remove">Remove me</a> you can delete your WoWQuester profile yourself. It shows exactly what will happen and asks you to type "remove me" first. It withdraws you from every event, cancels upcoming events you host (telling the people signed up), deletes your characters, replaces your names in Chronicle stories with a neutral description such as "a healer", and disconnects your Discord login. It takes effect straight away and can't be undone. The security log ages out after {{ ret.audit_days }} days and backups after {{ lg.backup_keep_days }} days.</li>
+    <li>If you can no longer log in (for example, you've left the Discord), ask an organiser and they'll do the same removal for you.</li>
+    <li>Ask for a copy of what we hold about you.</li>
   </ul>
 
   <h2 class="sub">Questions or requests</h2>

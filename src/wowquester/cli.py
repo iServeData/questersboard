@@ -173,6 +173,30 @@ def cmd_calendar_revoke(args):
     return 0
 
 
+def cmd_erase_member(args):
+    """The same removal as the web page's "Remove me", for someone who can no longer log in."""
+    from .domain import erasure
+    from .domain.errors import NotFound
+    cfg = _cfg(args)
+    db = _db(cfg, "app")
+    with db.tx() as s:
+        try:
+            mid = erasure.find_member_id(s, args.discord_id)
+        except NotFound as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        p = erasure.plan(s, mid)
+        print(f"member {mid}: leave {len(p.leave)} event(s), cancel {len(p.cancel)} hosted event(s), "
+              f"discard {p.drafts} draft(s), remove {p.characters} character(s), anonymise {p.stories} story(ies), "
+              f"calendar links {p.calendar_links}, battle.net {'yes' if p.battlenet else 'no'}")
+        if not args.yes:
+            print("dry run: nothing changed. Re-run with --yes to remove this member permanently.")
+            return 0
+        r = erasure.erase(s, cfg, mid, source="cli")
+    print("removed: " + ", ".join(f"{k}={len(v) if isinstance(v, list) else v}" for k, v in r.items()))
+    return 0
+
+
 def cmd_prune(args):
     cfg = _cfg(args)
     r = cfg["retention"]
@@ -248,6 +272,10 @@ def main(argv=None) -> int:
     cr = sub.add_parser("calendar-revoke")
     cr.add_argument("discord_id")
     cr.set_defaults(fn=cmd_calendar_revoke)
+    em = sub.add_parser("erase-member", help="remove a member's WoWQuester data (dry run unless --yes)")
+    em.add_argument("discord_id")
+    em.add_argument("--yes", action="store_true")
+    em.set_defaults(fn=cmd_erase_member)
     sub.add_parser("prune").set_defaults(fn=cmd_prune)
     ob = sub.add_parser("outbox")
     ob.add_argument("action", choices=("status", "retry-dead", "dismiss-dead"))

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel wq-legal">
+  <div class="section-head"><h1>Your request is complete</h1></div>
+  <p>Your WoWQuester profile has been removed and you've been logged out. Here's what was done:</p>
+  <ul>
+    <li>{% if r.left %}Left {{ r.left|length }} event{{ "s" if r.left|length != 1 }}: {{ r.left|join(", ") }}.{% else %}You weren't signed up for any upcoming events.{% endif %}</li>
+    {% if r.cancelled %}<li>Cancelled {{ r.cancelled|length }} event{{ "s" if r.cancelled|length != 1 }} you hosted, and told the people signed up: {{ r.cancelled|join(", ") }}.</li>{% endif %}
+    {% if r.drafts %}<li>Discarded {{ r.drafts }} draft event{{ "s" if r.drafts != 1 }}.</li>{% endif %}
+    {% if r.series %}<li>Stopped {{ r.series }} repeating event series.</li>{% endif %}
+    <li>Deleted {{ r.characters_deleted + r.characters_blanked }} character{{ "s" if (r.characters_deleted + r.characters_blanked) != 1 }}.{% if r.characters_blanked %} {{ "It had" if (r.characters_deleted + r.characters_blanked) == 1 else (r.characters_blanked ~ " of them had") }} been in events, so only a blank "(removed)" placeholder is kept there.{% endif %}</li>
+    <li>{% if r.stories %}Replaced your names with a neutral description in {{ r.stories }} Chronicle stor{{ "ies" if r.stories != 1 else "y" }}{% if r.screenshots_rechecked %}, and sent {{ r.screenshots_rechecked }} screenshot{{ "s" if r.screenshots_rechecked != 1 }} back for review{% endif %}.{% else %}No Chronicle stories mentioned you.{% endif %}</li>
+    {% if r.calendar_links %}<li>Turned off your private calendar link.</li>{% endif %}
+    {% if r.battlenet %}<li>Forgot your Battle.net link.</li>{% endif %}
+    <li>Disconnected your Discord account and ended {{ r.sessions }} login session{{ "s" if r.sessions != 1 }}.</li>
+  </ul>
+  <p>This can't be undone. The security log is deleted after {{ cfg["retention"]["audit_days"] }} days and encrypted backups after {{ cfg["legal"]["backup_keep_days"] }} days.</p>
+  <p>You're welcome back any time. Logging in again starts a new, empty profile.</p>
+  <p><a class="btn ghost" href="{{ mp }}/">Quests</a></p>
+</section>
+{% endblock %}

@@ -76,6 +76,23 @@ def test_calendar_revoke_is_audited(cfg_file, db, capsys):
                          {"d": did}).scalar() >= 1
 
 
+def test_erase_member_is_dry_run_unless_yes(cfg_file, db, capsys):
+    did = fake_id(7778)
+    with db.tx() as s:
+        s.execute(text("DELETE FROM members WHERE discord_id=:d"), {"d": did})
+        mid = s.execute(text("INSERT INTO members (discord_id, display_name) VALUES (:d,'x') RETURNING id"),
+                        {"d": did}).scalar()
+    assert cli.main(["--config", cfg_file, "erase-member", did]) == 0
+    assert "dry run" in capsys.readouterr().out
+    with db.tx() as s:
+        assert s.execute(text("SELECT erased_at FROM members WHERE id=:m"), {"m": mid}).scalar() is None
+    assert cli.main(["--config", cfg_file, "erase-member", did, "--yes"]) == 0
+    assert "removed:" in capsys.readouterr().out
+    with db.tx() as s:
+        assert s.execute(text("SELECT discord_id FROM members WHERE id=:m"), {"m": mid}).scalar() == f"erased:{mid}"
+    assert cli.main(["--config", cfg_file, "erase-member", did]) == 1
+
+
 def test_deploy_scripts_health_check_loads_the_db_credential():
     """Regression: a bare `wowquester-admin health` has no DB password (credentials are only given to
     the units), so install.sh rolled back a healthy upgrade. Both scripts must use deploy/health.sh."""

@@ -731,3 +731,42 @@ def test_character_edit_offers_leave_and_save_for_every_blocking_event(app, seed
     assert r.status_code == 303
     page = p.get("/wow/quester/characters").text
     assert page.count('title="Edit Zanra"') == 2 and "WoW (Retail)" in page
+
+
+def test_remove_me_needs_typed_phrase_then_logs_out_with_receipt(app, seeded):
+    org = login(app, 107, "event_creator")
+    tok = csrf(org)
+    start = at(20).astimezone(__import__("zoneinfo").ZoneInfo("America/Los_Angeles"))
+    r = org.post("/wow/quester/events/new", data={
+        "csrf": tok, "edition": "forever", "ruleset": "pvp", "faction": "horde", "title": "Ragefire",
+        "activity_type": "dungeon", "date": start.strftime("%Y-%m-%d"), "start_time": start.strftime("%H:%M"),
+        "duration_minutes": "90", "timezone": "America/Los_Angeles", "signup_policy": "open", "publish": "1"})
+    url = r.headers["location"]
+    p = login(app, 108)
+    t = csrf(p)
+    p.post("/wow/quester/characters", data={"csrf": t, "edition": "forever", "ruleset": "pvp", "name": "Korrak",
+                                            "faction": "horde", "race_key": "Orc", "class_key": "Warrior",
+                                            "eligible_roles": ["tank"]})
+    cid = re.search(r'characters\?edit=(\d+)#character-form', p.get("/wow/quester/characters").text).group(1)
+    p.post(url + "/join", data={"csrf": t, "character_id": cid})
+    assert "/wow/quester/me/remove" in p.get("/wow/quester/me").text
+    page = p.get("/wow/quester/me/remove").text
+    assert "can't be undone" in page and "Ragefire" in page and "remove me" in page
+    for wrong in ("", "remove", "yes"):
+        r = p.post("/wow/quester/me/remove", data={"csrf": t, "confirm": wrong})
+        assert r.status_code == 400 and "Nothing has been removed" in r.text
+    with seeded.tx() as s:
+        assert s.execute(text("select count(*) from members where discord_id=:d"), {"d": fake_id(108)}).scalar() == 1
+    r = p.post("/wow/quester/me/remove", data={"csrf": t, "confirm": "Remove me"})
+    assert r.status_code == 200 and "Your request is complete" in r.text
+    assert "Left 1 event: Ragefire" in r.text and "Disconnected your Discord account" in r.text
+    assert "Log out" not in r.text
+    assert p.get("/wow/quester/me").status_code in (302, 303)        # logged out
+    with seeded.tx() as s:
+        assert s.execute(text("select count(*) from members where discord_id=:d"), {"d": fake_id(108)}).scalar() == 0
+        assert s.execute(text("select count(*) from web_sessions s join members m on m.id=s.member_id "
+                              "where m.erased_at is not null")).scalar() == 0
+        assert s.execute(text("select count(*) from characters where name='Korrak'")).scalar() == 0
+    # logging in again starts a brand-new empty profile
+    again = login(app, 108)
+    assert "Korrak" not in again.get("/wow/quester/characters").text

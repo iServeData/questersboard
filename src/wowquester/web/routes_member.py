@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 
 from ..config import Config
-from ..domain import (calendar, catalog, chronicle, events, permissions, recommendations, recurrence, roster,
+from ..domain import (calendar, catalog, chronicle, erasure, events, permissions, recommendations, recurrence, roster,
                       scheduling, signups)
 from ..domain.errors import EditionLocked, Invalid, NeedsLeave, NotFound, PermissionDenied
 from ..domain.events import ACTIVITY_TYPES
@@ -592,6 +592,37 @@ def router(cfg: Config) -> APIRouter:
                 tok = calendar.issue_token(s, w.cfg, a)     # also revokes earlier tokens
         w.update_session_data(request.state.sess, new_cal_token=tok)   # shown once, then cleared
         return _redirect(mp + "/me")
+
+    # ------------------------------------------------------------- remove me (erasure)
+    def _remove_page(request, a, status=200, error=""):
+        w = W(request)
+        with w.db.tx() as s:
+            p = erasure.plan(s, a.member_id)
+            for ev in p.leave + p.cancel:
+                s.expunge(ev)
+        return render(request, "remove_me.html", {"title": "Remove me from WoWQuester", "p": p, "error": error,
+                                                  "phrase": erasure.CONFIRM_PHRASE}, status=status)
+
+    @r.get(mp + "/me/remove")
+    def remove_me(request: Request):
+        sess, a = session_or_login(request)
+        return _remove_page(request, a)
+
+    @r.post(mp + "/me/remove")
+    async def remove_me_confirm(request: Request):
+        form, a = await post_guard(request, fresh=False)
+        w = W(request)
+        if not erasure.phrase_ok(form.get("confirm", "")):
+            return _remove_page(request, a, 400, f"Type \"{erasure.CONFIRM_PHRASE}\" in the box to confirm. "
+                                                 "Nothing has been removed.")
+        with w.db.tx() as s:
+            receipt = erasure.erase(s, w.cfg, a.member_id, source="web")
+        log.info("member erased (self-service) member=%s", a.member_id)
+        request.state.sess = None           # the session row is gone: render the receipt logged out
+        resp = render(request, "removed.html", {"title": "Your request is complete", "r": receipt})
+        w.drop_session(request, resp)
+        resp.headers["cache-control"] = "no-store"
+        return resp
 
     # ------------------------------------------------------------- chronicle (authoring)
     @r.get(mp + "/chronicle/{entry_id}")

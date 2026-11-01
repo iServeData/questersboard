@@ -95,3 +95,13 @@ tr[hidden]{display:none}
 .wq-char-link:hover,.wq-char-link:focus-visible{border-bottom-color:currentColor}
 .wq-editing{border-color:var(--accent,#c4493c);box-shadow:inset 3px 0 0 var(--accent,#c4493c)}
 .wq-card-actions{margin:6px 0 0}
+/* remove me */
+.btn.danger{background:#a5281c;border-color:#a5281c;color:#fff}
+.btn.danger:hover,.btn.danger:focus-visible{background:#c0392b;border-color:#c0392b}
+.btn.ghost.danger{background:transparent;color:#e0796d;border-color:#a5281c}
+.btn.ghost.danger:hover,.btn.ghost.danger:focus-visible{background:rgba(192,57,43,.16);color:#f0a198}
+.wq-danger-note{border-left:3px solid #c0392b;background:rgba(192,57,43,.12);padding:.7em .9em}
+.wq-remove ul ul{margin:.3em 0 .5em}
+.wq-remove-form{margin-top:1.4em;max-width:32rem}
+.wq-phrase{font-family:var(--mono,monospace);font-weight:700;background:rgba(255,255,255,.08);padding:.05em .4em;border-radius:3px;display:inline}
+.wq-remove-form label[for=confirm]{display:block}
