@@ -17,6 +17,16 @@ def _url() -> str:
     return url
 
 
+def run_migrations_offline() -> None:
+    """--sql: print the SQL without connecting (no password needed)."""
+    url = context.get_x_argument(as_dictionary=True).get("url") or os.environ.get("WOWQUESTER_MIGRATE_URL") \
+        or "postgresql+psycopg://"
+    context.configure(url=url, target_metadata=target_metadata, literal_binds=True,
+                      dialect_opts={"paramstyle": "named"})
+    with context.begin_transaction():
+        context.run_migrations()
+
+
 def run_migrations_online() -> None:
     connectable = context.config.attributes.get("connection")
     if connectable is None:
@@ -31,4 +41,7 @@ def run_migrations_online() -> None:
             context.run_migrations()
 
 
-run_migrations_online()
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
