@@ -2,7 +2,7 @@
 # World of Warcraft: Forever" (https://worldofwarcraft.blizzard.com/en-us/news/24304075)
 # and "Return to Azeroth in World of Warcraft: Forever"
 # (https://news.blizzard.com/en-us/article/24315643/return-to-azeroth-in-world-of-warcraft-forever).
-# Recorded 2026-10-31. source = "seed", verification = "unverified" until Blizzard publishes
+# Recorded 2026-10-31; Alliance Skyborne label corrected to High Order 2026-11-01. source = "seed", verification = "unverified" until Blizzard publishes
 # a Forever static namespace and `wowquester-admin blizzard import-reference forever` replaces it.
 # Skyborne requires the Heroic Pack or higher; class list depends on faction.
 
@@ -33,4 +33,4 @@ human = { label = "Human", classes = ["warrior", "paladin", "rogue", "priest", "
 dwarf = { label = "Dwarf", classes = ["warrior", "paladin", "hunter", "rogue", "priest", "shaman"] }
 night_elf = { label = "Night Elf", classes = ["warrior", "hunter", "rogue", "priest", "druid"] }
 gnome = { label = "Gnome", classes = ["warrior", "rogue", "mage", "warlock", "priest"] }
-skyborne = { label = "Skyborne (Windshaper)", classes = ["warrior", "hunter", "rogue", "druid", "mage"] }
+skyborne = { label = "Skyborne (High Order)", classes = ["warrior", "hunter", "rogue", "druid", "mage"] }

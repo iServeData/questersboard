@@ -375,12 +375,11 @@ def router(cfg: Config) -> APIRouter:
         w = W(request)
         with w.db.tx() as s:
             chars = roster.list_characters(s, a.member_id)
-            opts = {ed: {"race": catalog.options(s, ed, "race"), "class": catalog.options(s, ed, "class")}
-                    for ed in w.cfg.editions}
+            race_map = {ed: catalog.race_class_map(s, ed) for ed in w.cfg.editions}
             from ..models import BattlenetLink
             bn_linked = s.query(BattlenetLink.member_id).filter(BattlenetLink.member_id == a.member_id).first() is not None
         bz = w.cfg["blizzard"]
-        return render(request, "characters.html", {"title": "Characters", "chars": chars, "opts": opts,
+        return render(request, "characters.html", {"title": "Characters", "chars": chars, "race_map": race_map,
                                                    "editions": w.cfg.editions, "presets": w.cfg.role_presets,
                                                    "bz_enabled": bool(bz.get("enabled")),
                                                    "bn_enabled": bool(bz.get("enabled") and bz.get("battlenet_link_enabled")),

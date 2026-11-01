@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import tomllib
 from importlib import resources
 
@@ -38,8 +39,12 @@ def seed_edition(s: Session, cfg: Config, edition_key: str) -> int:
                                  data={}))
     n = 0
     for row in rows:
-        stmt = (insert(ReferenceOption).values(**row).on_conflict_do_nothing(constraint="ux_ref_key")
-                .returning(ReferenceOption.id))
+        # Seed rows pick up label fixes from a newer seed; Blizzard-imported rows are never touched.
+        ins = insert(ReferenceOption).values(**row)
+        stmt = (ins.on_conflict_do_update(
+            constraint="ux_ref_key", set_={"label": ins.excluded.label, "source_ref": ins.excluded.source_ref},
+            where=(ReferenceOption.source == "seed") & (ReferenceOption.label != ins.excluded.label))
+            .returning(ReferenceOption.id))
         # count RETURNING rows: rowcount is -1 for this statement with SQLAlchemy 2.1 + psycopg
         n += len(s.execute(stmt).all())
     return n
@@ -54,6 +59,37 @@ def options(s: Session, edition: str, kind: str, parent: str | None = None, q: s
     if q:
         stmt = stmt.where(ReferenceOption.label.ilike(f"%{q.replace('%', '')}%"))
     return list(s.scalars(stmt.order_by(ReferenceOption.label).limit(limit)))
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_")
+
+
+def resolve(s: Session, edition: str, kind: str, text: str, parent: str | None = None) -> ReferenceOption | None:
+    """Match typed text to a catalog row by key or label (case and spacing ignored)."""
+    want = _norm(text)
+    if not want:
+        return None
+    rows = options(s, edition, kind, parent, limit=500)
+    for o in rows:
+        if want in (_norm(o.key), _norm(o.label)):
+            return o
+    # "Skyborne" alone matches "Skyborne (High Order)"
+    hits = [o for o in rows if _norm(o.label).split("_")[0] == want or _norm(o.key) == want.split("_")[0]]
+    return hits[0] if len(hits) == 1 else None
+
+
+def race_class_map(s: Session, edition: str) -> dict:
+    """{faction: [{key, label, classes: [class keys]}]} plus class labels, for the character form."""
+    combos: dict[tuple[str, str], list[str]] = {}
+    for o in options(s, edition, "race_class", limit=1000):
+        rk, ck = o.key.split(":", 1)
+        combos.setdefault((o.parent_key, rk), []).append(ck)
+    out: dict = {"classes": {o.key: o.label for o in options(s, edition, "class")}, "factions": {}}
+    for o in options(s, edition, "race"):
+        out["factions"].setdefault(o.parent_key, []).append(
+            {"key": o.key, "label": o.label, "classes": sorted(combos.get((o.parent_key, o.key), []))})
+    return out
 
 
 def race_class_allowed(s: Session, edition: str, faction: str, race: str, klass: str) -> bool | None:

@@ -22,6 +22,47 @@
     sel.addEventListener("change", function () { syncEdition(sel); });
     syncEdition(sel);
   });
+  // Race/class suggestions follow edition -> faction -> race. Typing anything else is still allowed;
+  // the server only refuses pairings the catalog rules out.
+  var mapEl = document.getElementById("wq-race-map");
+  if (mapEl) {
+    var raceMap = {};
+    try { raceMap = JSON.parse(mapEl.textContent); } catch (e) { raceMap = {}; }
+    var form = mapEl.closest("form");
+    var edSel = form.querySelector("[data-edition-select]"), facSel = form.querySelector("[data-faction-select]");
+    var raceIn = form.querySelector("[data-race-input]"), classIn = form.querySelector("[data-class-input]");
+    var raceList = document.getElementById("wq-race-list"), classList = document.getElementById("wq-class-list");
+    var norm = function (t) { return (t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); };
+    var fill = function (list, labels) {
+      list.textContent = "";
+      labels.forEach(function (l) { var o = document.createElement("option"); o.value = l; list.appendChild(o); });
+    };
+    var current = function () {
+      var m = raceMap[edSel.value] || { factions: {}, classes: {} };
+      var races = (m.factions || {})[facSel.value] || [];
+      var typed = norm(raceIn.value);
+      var race = races.filter(function (r) {
+        return norm(r.label) === typed || norm(r.key) === typed || norm(r.label).split(" ")[0] === typed;
+      })[0];
+      return { m: m, races: races, race: race };
+    };
+    var syncRace = function () {
+      var c = current();
+      fill(raceList, c.races.map(function (r) { return r.label; }));
+      var keys = c.race && c.race.classes.length ? c.race.classes : Object.keys(c.m.classes || {});
+      fill(classList, keys.map(function (k) { return (c.m.classes || {})[k] || k; }));
+      var hint = form.querySelector("[data-race-hint]");
+      if (hint) {
+        hint.textContent = c.race ? c.race.label + " can be: " + keys.map(function (k) {
+          return (c.m.classes || {})[k] || k; }).join(", ") + "."
+          : "Pick from the list or type your own.";
+      }
+    };
+    [edSel, facSel].forEach(function (el) { el.addEventListener("change", syncRace); });
+    raceIn.addEventListener("input", syncRace);
+    raceIn.addEventListener("change", syncRace);
+    syncRace();
+  }
   // Show times in the viewer's own zone as well.
   document.querySelectorAll("time[data-local]").forEach(function (t) {
     var d = new Date(t.getAttribute("datetime"));

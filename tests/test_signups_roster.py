@@ -28,8 +28,54 @@ def test_forever_has_no_realm_retail_requires_realm(seeded, cfg):
 
 
 def test_invalid_race_class_rejected(seeded, cfg):
-    with pytest.raises(Invalid, match="not a valid"), seeded.tx() as s:
+    with pytest.raises(Invalid, match="Tauren can't be a Mage in WoW: Forever. Tauren classes: Druid, Hunter, "
+                                      "Shaman, Warrior"), seeded.tx() as s:
         char(s, cfg, actor(10), "Moo", race_key="tauren", class_key="mage")
+
+
+def test_wrong_faction_race_explains_the_fix(seeded, cfg):
+    # the bug seen on the prototype: Gnome offered to a Horde character
+    with pytest.raises(Invalid, match="Gnome is an Alliance race in WoW: Forever. Switch the faction to "
+                                      "Alliance"), seeded.tx() as s:
+        char(s, cfg, actor(10), "Tink", race_key="Gnome", class_key="Druid")
+    with pytest.raises(Invalid, match="is a Horde race"), seeded.tx() as s:
+        char(s, cfg, actor(10), "Moo", faction="alliance", race_key="tauren", class_key="druid")
+
+
+def test_labels_and_typed_entries_are_accepted(seeded, cfg):
+    p = actor(10)
+    with seeded.tx() as s:
+        c = char(s, cfg, p, "Shandris", faction="alliance", race_key="Night Elf", class_key="Druid")
+        assert (c.race_key, c.class_key) == ("night_elf", "druid")
+        c = char(s, cfg, p, "Aerie", faction="alliance", race_key="Skyborne", class_key="mage")
+        assert c.race_key == "skyborne"
+        c = char(s, cfg, p, "Galewind", race_key="Skyborne (Windshaper)", class_key="Shaman")
+        assert c.race_key == "skyborne"
+        # not in the catalog: kept as typed (normalised), no guessing
+        c = char(s, cfg, p, "Odd", race_key="Vulpera", class_key="Monk")
+        assert (c.race_key, c.class_key) == ("vulpera", "monk")
+    with pytest.raises(Invalid, match="Skyborne \\(Windshaper\\) can't be a Mage"), seeded.tx() as s:
+        char(s, cfg, p, "Nope", race_key="skyborne", class_key="mage")
+
+
+def test_skyborne_labels_follow_blizzard_and_seed_updates_labels(seeded, cfg):
+    from wowquester.domain import catalog
+    from wowquester.models import ReferenceOption
+    with seeded.tx() as s:
+        m = catalog.race_class_map(s, "forever")
+        labels = {f: {r["key"]: r["label"] for r in rs} for f, rs in m["factions"].items()}
+        assert labels["horde"]["skyborne"] == "Skyborne (Windshaper)"
+        assert labels["alliance"]["skyborne"] == "Skyborne (High Order)"
+        sky = {f: next(r["classes"] for r in rs if r["key"] == "skyborne") for f, rs in m["factions"].items()}
+        assert sky == {"horde": ["druid", "hunter", "rogue", "shaman", "warrior"],
+                       "alliance": ["druid", "hunter", "mage", "rogue", "warrior"]}
+        row = s.query(ReferenceOption).filter_by(edition="forever", kind="race", key="skyborne",
+                                                 parent_key="alliance").one()
+        row.label = "Skyborne (Windshaper)"          # what an older seed wrote
+    with seeded.tx() as s:
+        assert catalog.seed_edition(s, cfg, "forever") == 1
+        assert s.query(ReferenceOption).filter_by(kind="race", key="skyborne",
+                                                  parent_key="alliance").one().label == "Skyborne (High Order)"
 
 
 def test_cannot_edit_others_character(seeded, cfg):

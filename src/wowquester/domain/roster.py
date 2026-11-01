@@ -69,13 +69,34 @@ def _validate(s: Session, cfg: Config, data: dict) -> dict:
     faction = data.get("faction") or ed.default_faction
     if faction not in ed.factions:
         raise Invalid("Unknown faction")
-    race, klass = (data.get("race_key") or "").strip().lower(), (data.get("class_key") or "").strip().lower()
-    if not race or not klass:
+    race_text, class_text = (data.get("race_key") or "").strip(), (data.get("class_key") or "").strip()
+    if not race_text or not class_text:
         raise Invalid("Race and class are required.")
-    allowed = catalog.race_class_allowed(s, ed.key, faction, race, klass)
-    if allowed is False:
-        raise Invalid(f"{race.replace('_', ' ').title()} {klass} is not a valid {faction.title()} "
-                      f"combination in {ed.name}.")
+    if len(race_text) > 48 or len(class_text) > 48:
+        raise Invalid("Race and class must be 48 characters or fewer.")
+    # Catalog entries are suggestions: anything typed is accepted, except a pairing the
+    # catalog positively rules out (a known race on the wrong faction, or a known race
+    # with a known class it cannot be).
+    race_o = catalog.resolve(s, ed.key, "race", race_text, faction)
+    class_o = catalog.resolve(s, ed.key, "class", class_text)
+    if race_o is None:
+        other = catalog.resolve(s, ed.key, "race", race_text)
+        if other is not None and other.parent_key != faction:
+            art = "an" if other.parent_key[:1] in "aeiou" else "a"
+            raise Invalid(f"{other.label} is {art} {other.parent_key.title()} race in {ed.name}. "
+                          f"Switch the faction to {other.parent_key.title()}, or pick a {faction.title()} race.")
+    race = race_o.key if race_o else catalog._norm(race_text)
+    klass = class_o.key if class_o else catalog._norm(class_text)
+    if not race or not klass:
+        raise Invalid("Race and class need at least one letter or number.")
+    if race_o is not None and class_o is not None:
+        allowed = catalog.race_class_allowed(s, ed.key, faction, race, klass)
+        if allowed is False:
+            m = catalog.race_class_map(s, ed.key)
+            keys = next((r["classes"] for r in m["factions"].get(faction, []) if r["key"] == race), [])
+            ok = [m["classes"].get(k, k.title()) for k in keys]
+            raise Invalid(f"{race_o.label} can't be a {class_o.label} in {ed.name}. "
+                          f"{race_o.label} classes: {', '.join(ok) or 'none listed'}.")
     level = data.get("level")
     if level not in (None, ""):
         try:

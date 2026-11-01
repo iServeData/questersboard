@@ -49,7 +49,7 @@
         <button class="btn ghost" type="submit">Save</button></form></details>
     {% elif fit %}
       <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/join">{{ csrf_field() }}
-        <label>Character <select name="character_id">{% for c in fit %}<option value="{{ c.id }}">{{ c.name }} · {{ c.race_key|title }} {{ c.class_key|title }}{% if c.level %} {{ c.level }}{% endif %}</option>{% endfor %}</select></label>
+        <label>Character <select name="character_id">{% for c in fit %}<option value="{{ c.id }}">{{ c.name }} · {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} {{ c.level }}{% endif %}</option>{% endfor %}</select></label>
         {% if ev.roles %}<label>Role <select name="role_key">{% for r in ev.roles %}<option value="{{ r.key }}">{{ r.label }}</option>{% endfor %}</select></label>{% endif %}
         <label><input type="hidden" name="recognition" value="0"><input type="checkbox" name="recognition" value="1"{% if recognition_default %} checked{% endif %}> Name my character publicly <span class="note">(otherwise you're shown as "a healer" etc.; default from My events → Privacy)</span></label>
         <label><input type="checkbox" name="tentative" value="1"> Tentative <span class="note">(doesn't hold a spot)</span></label>

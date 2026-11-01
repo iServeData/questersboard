@@ -7,7 +7,8 @@ Log in with Discord. WoWQuester only learns your Discord ID and display name.
 
 **Your characters** (My characters).
 - WoW: Forever characters have a ruleset (no realm). Retail characters need a realm.
-- Pick race and class from the list; roles you can fill (tank, healer, damage, or your community's custom roles).
+- Pick race and class from the suggestions or type your own. Suggestions follow the edition, faction and race you choose. WoWQuester only refuses a pairing its catalog rules out (for example a Gnome on the Horde, or a Tauren Mage in Forever) and tells you which options are valid. Anything not in the catalog is saved as typed.
+- Set the roles you can fill (tank, healer, damage, or your community's custom roles).
 - "Check with Blizzard" (Retail only for now) confirms the character exists. It doesn't prove it's yours.
 - "Prove a character is yours" (if your community turned it on): log in with Battle.net once. Matching
   characters show "verified as yours". "Forget my Battle.net link" removes that data any time.
