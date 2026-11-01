@@ -424,3 +424,55 @@ def test_every_post_form_carries_the_session_csrf_token(app, seeded, wcfg):
     r = c.post("/wow/quester/characters", data={"csrf": tok, "edition": "forever", "ruleset": "pvp", "name": "Grom",
                                                  "faction": "horde", "race_key": "orc", "class_key": "warrior"})
     assert r.status_code == 303
+
+
+def _form_defaults(html: str, action: str) -> dict:
+    """Collect what a browser would submit for the form posting to `action` (defaults only)."""
+    f = re.search(r'<form[^>]*action="' + re.escape(action) + r'"[^>]*>(.*?)</form>', html, re.S).group(1)
+    data: dict = {}
+    for m in re.finditer(r"<input([^>]*)>", f):
+        a = m.group(1)
+        n = re.search(r'name="([^"]+)"', a)
+        if not n or " disabled" in a:
+            continue
+        t = re.search(r'type="([^"]+)"', a)
+        v = re.search(r'value="([^"]*)"', a)
+        if t and t.group(1) in ("checkbox", "radio"):
+            if "checked" in a:
+                data[n.group(1)] = v.group(1) if v else "on"
+        else:
+            data.setdefault(n.group(1), v.group(1) if v else "")
+    for m in re.finditer(r'<select[^>]*name="([^"]+)"[^>]*>(.*?)</select>', f, re.S):
+        o = re.search(r'<option[^>]*value="([^"]*)"[^>]*selected', m.group(2)) or re.search(r'value="([^"]*)"', m.group(2))
+        data.setdefault(m.group(1), o.group(1) if o else "")
+    return data
+
+
+def test_host_flow_through_the_browser_forms(app):
+    """Regression: a freshly created draft must render for its host (preview_conflicts call)."""
+    host = login(app, 91, "event_creator")
+    new = host.get("/wow/quester/events/new").text
+    data = {**_form_defaults(new, "/wow/quester/events/new"),
+            "title": "Test run", "location": "Test", "edition": "forever", "date": "2026-11-10",
+            "start_time": "19:00", "timezone": "America/Los_Angeles"}
+    r = host.post("/wow/quester/events/new", data=data)
+    assert r.status_code == 303, r.text[:300]
+    page = r.headers["location"]
+    draft = host.get(page)
+    assert draft.status_code == 200 and "Test run" in draft.text
+    assert host.get(page + "/edit").status_code == 200
+    r = host.post(page + "/publish", data={"csrf": csrf(host)})
+    assert r.status_code == 303, r.text[:300]
+    assert host.get(page).status_code == 200
+
+    member = login(app, 92)
+    tok = csrf(member)
+    assert member.post("/wow/quester/characters", data={"csrf": tok, "edition": "forever", "ruleset": "pvp",
+                                                         "name": "Grom", "faction": "horde", "race_key": "orc",
+                                                         "class_key": "warrior"}).status_code == 303
+    ev_page = member.get(page)
+    assert ev_page.status_code == 200
+    join = _form_defaults(ev_page.text, page + "/join")
+    r = member.post(page + "/join", data=join)
+    assert r.status_code == 303, r.text[:300]
+    assert member.get(page).status_code == 200 and host.get(page).status_code == 200

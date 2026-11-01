@@ -259,7 +259,7 @@ def router(cfg: Config) -> APIRouter:
             conflicts = []
             if manager and ev.state == "draft":
                 conflicts = scheduling.preview_conflicts(s, ev.start_at, ev.end_at, ev.exclusive, ev.id,
-                                                         w.cfg.max_simultaneous)
+                                                         {ev.creator_id} | cohosts, w.cfg.max_simultaneous)
             me = s.get(Member, a.member_id) if a and a.member_id else None
             ctx = {"title": ev.title, "ev": ev, "rows": rows, "mine": mine, "fit": fit, "manager": manager,
                    "recognition_default": bool(me and me.recognition_default),
