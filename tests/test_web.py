@@ -575,3 +575,54 @@ def test_naming_checkbox_has_help_popup_linking_privacy(app, seeded):
     assert 'popovertarget="tip-naming-change"' in p.get(url).text
     assert 'popovertarget="tip-naming-default"' in p.get("/wow/quester/me").text
     assert 'id="public"' in TestClient(app, base_url="https://community.example.org").get("/wow/quester/privacy").text
+
+
+def test_copy_and_edit_forms_are_filled_with_the_events_time(app, seeded):
+    from datetime import datetime as _dt
+    from zoneinfo import ZoneInfo
+    from wowquester.web.routes_member import copy_suggestion
+    LA = ZoneInfo("America/Los_Angeles")
+
+    class E:   # a past event: the copy suggestion moves forward in whole weeks until it's ahead
+        timezone = "America/Los_Angeles"
+        start_at = _dt(2026, 10, 7, 19, 30, tzinfo=LA)
+    assert copy_suggestion(E, now=_dt(2026, 11, 1, 12, 0, tzinfo=LA)) == ("2026-11-04", "19:30")
+    E.start_at = _dt(2026, 10, 28, 19, 30, tzinfo=LA)          # across the Nov 1 clock change: wall time kept
+    assert copy_suggestion(E, now=_dt(2026, 10, 27, tzinfo=LA)) == ("2026-11-04", "19:30")
+
+    org = login(app, 100, "event_creator")
+    tok = csrf(org)
+    start = at(6).astimezone(LA)
+    r = org.post("/wow/quester/events/new", data={
+        "csrf": tok, "edition": "forever", "ruleset": "pvp", "faction": "horde", "title": "Razorfen run",
+        "activity_type": "dungeon", "date": start.strftime("%Y-%m-%d"), "start_time": start.strftime("%H:%M"),
+        "duration_minutes": "90", "timezone": "America/Los_Angeles", "signup_policy": "open", "publish": "1"})
+    url = r.headers["location"]
+    page = org.get(url).text
+    copy_form = page.split("/copy", 1)[1].split("</form>", 1)[0]
+    want_date = (start.date() + __import__("datetime").timedelta(days=7)).isoformat()
+    assert f'name="date" required value="{want_date}"' in copy_form
+    assert f'name="start_time" required value="{start.strftime("%H:%M")}"' in copy_form
+    edit = org.get(url + "/edit").text
+    assert f'value="{start.strftime("%Y-%m-%d")}"' in edit and f'value="{start.strftime("%H:%M")}"' in edit
+
+    # a player joins; saving the edit form unchanged must not ask them to reconfirm
+    p = login(app, 101)
+    t = csrf(p)
+    p.post("/wow/quester/characters", data={"csrf": t, "edition": "forever", "ruleset": "pvp", "name": "Vol",
+                                            "faction": "horde", "race_key": "orc", "class_key": "warrior"})
+    cid = re.search(r'name="character_id"><option value="(\d+)"', p.get(url).text).group(1)
+    p.post(url + "/join", data={"csrf": t, "character_id": cid})
+    base = {"csrf": tok, "title": "Razorfen run (edited)", "date": start.strftime("%Y-%m-%d"),
+            "start_time": start.strftime("%H:%M"), "duration_minutes": "90", "timezone": "America/Los_Angeles",
+            "signup_policy": "open", "public_listing": "1"}
+    assert org.post(url + "/edit", data=base).status_code == 303
+    assert "confirmed" in p.get(url).text.lower() and "reconfirm" not in p.get(url).text.lower()
+    # changing only the length now takes effect (it used to need the date re-entered)
+    org.post(url + "/edit", data={**base, "duration_minutes": "150"})
+    assert 'name="duration_minutes" min="15" max="720" step="15" value="150"' in org.get(url + "/edit").text
+    # copying with the suggested values makes a new draft at that time
+    r = org.post(url + "/copy", data={"csrf": tok, "date": want_date, "start_time": start.strftime("%H:%M"),
+                                      "timezone": "America/Los_Angeles"})
+    assert r.status_code == 303 and r.headers["location"].endswith("/edit")
+    assert f'value="{want_date}"' in org.get(r.headers["location"]).text

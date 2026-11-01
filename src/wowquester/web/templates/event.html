@@ -86,9 +86,9 @@
       <label>Reason (shown to players) <input name="reason" maxlength="500"></label><button class="btn ghost" type="submit" data-confirm="Cancel this event for everyone?">Cancel event</button></form></details>
     {% endif %}
     <details><summary>Copy to a new draft</summary><form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/copy">{{ csrf_field() }}
-      <div class="wq-row"><label>Date <input type="date" name="date" required></label><label>Start <input type="time" name="start_time" required></label></div>
+      <div class="wq-row"><label>Date <input type="date" name="date" required value="{{ copy_date }}"></label><label>Start <input type="time" name="start_time" required value="{{ copy_time }}"></label></div>
       <input type="hidden" name="timezone" value="{{ ev.timezone }}">
-      <p class="note">Copies the plan only: no players, consent, attendance or outcomes.</p>
+      <p class="note">Filled in with the same start time a week later ({{ ev.timezone }}); change either if you like. Copies the plan only: no players, consent, attendance or outcomes. You can edit everything on the next page.</p>
       <button class="btn ghost" type="submit">Copy</button></form></details>
 
     {% set waiting = rows|selectattr("state", "in", ["pending","waitlisted","tentative"])|list %}

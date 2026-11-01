@@ -36,14 +36,14 @@
 
   <fieldset><legend>When</legend>
     <div class="wq-row">
-      <label>Date <input type="date" name="date" {% if not editing %}required{% endif %} value="{{ local_date if local_date is defined else '' }}"></label>
-      <label>Start <input type="time" name="start_time" {% if not editing %}required{% endif %} value="{{ local_time if local_time is defined else '' }}"></label>
+      <label>Date <input type="date" name="date" required value="{{ local_date if local_date is defined else '' }}"></label>
+      <label>Start <input type="time" name="start_time" required value="{{ local_time if local_time is defined else '' }}"></label>
       <label>Length (minutes) <input type="number" name="duration_minutes" min="15" max="720" step="15" value="{{ ((ev.end_at - ev.start_at).total_seconds() // 60)|int if editing else 120 }}"></label>
     </div>
     <label>Time zone <input name="timezone" value="{{ ev.timezone if editing else tz }}" required data-tz-default></label>
     <label>If the time happens twice (clocks fall back)
       <select name="fold"><option value="">Ask me</option><option value="0">First occurrence (daylight time)</option><option value="1">Second occurrence (standard time)</option></select></label>
-    {% if editing %}<p class="note">Leave date and start empty to keep the current time ({{ fmt_local(ev.start_at, ev.timezone) }}). Changing the time re-checks the schedule and asks confirmed players to reconfirm.</p>{% endif %}
+    {% if editing %}<p class="note">Showing the current time ({{ fmt_local(ev.start_at, ev.timezone) }}). Leave it as it is to keep it. Changing the date, start or length re-checks the schedule and asks confirmed players to reconfirm.</p>{% endif %}
     {% if not editing %}
     <label>Repeat <span class="note">(optional; creates one draft per occurrence)</span>
       <select name="rrule"><option value="">Doesn't repeat</option><option value="FREQ=WEEKLY;COUNT=4">Weekly, 4 times</option><option value="FREQ=WEEKLY;COUNT=8">Weekly, 8 times</option><option value="FREQ=WEEKLY;INTERVAL=2;COUNT=4">Every 2 weeks, 4 times</option></select></label>

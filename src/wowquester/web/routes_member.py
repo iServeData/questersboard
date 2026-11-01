@@ -76,6 +76,26 @@ def _roles_from_form(form) -> list[dict]:
     return out
 
 
+def copy_suggestion(ev, now: datetime | None = None) -> tuple[str, str]:
+    """Date and start time for "Copy to a new draft": the same local time a week on, moved forward
+    in whole weeks until it's in the future. A copy at the very same time would clash with the original."""
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo(ev.timezone)
+    local = ev.start_at.astimezone(tz)
+    now = now or datetime.now(tz)
+    day = local.date() + timedelta(days=7)
+    while datetime.combine(day, local.time(), tz) <= now:
+        day += timedelta(days=7)
+    return day.isoformat(), local.strftime("%H:%M")
+
+
+def current_local(ev) -> tuple[str, str, int]:
+    """The event's date, start (HH:MM) and length in minutes, as the edit form shows them."""
+    from zoneinfo import ZoneInfo
+    local = ev.start_at.astimezone(ZoneInfo(ev.timezone))
+    return local.date().isoformat(), local.strftime("%H:%M"), int((ev.end_at - ev.start_at).total_seconds() // 60)
+
+
 def event_data_from_form(cfg: Config, form, partial: bool = False) -> dict:
     tz = form.get("timezone") or cfg["community"]["default_timezone"]
     d: dict = {"timezone": tz}
@@ -277,7 +297,8 @@ def router(cfg: Config) -> APIRouter:
             me = s.get(Member, a.member_id) if a and a.member_id else None
             ctx = {"title": ev.title, "ev": ev, "rows": rows, "mine": mine, "fit": fit, "manager": manager,
                    "recognition_default": bool(me and me.recognition_default),
-                   "entry": entry, "conflicts": conflicts, "ed": w.cfg.edition(ev.edition),
+                   "entry": entry, "conflicts": conflicts,
+                   "copy_date": copy_suggestion(ev)[0] if manager else "", "copy_time": copy_suggestion(ev)[1] if manager else "", "ed": w.cfg.edition(ev.edition),
                    "chars": chars, "editions": w.cfg.editions,
                    "show_names": manager or (a is not None and roster.staff_can_view_roster(w.cfg, a))}
             return render(request, "event.html", ctx)   # rendered inside the session (lazy loads)
@@ -291,7 +312,9 @@ def router(cfg: Config) -> APIRouter:
             permissions.require_event_manager(w.cfg, a, ev.creator_id, scheduling.cohost_ids(s, ev.id))
             co = list(s.scalars(select(Member.discord_id).join(EventCohost, EventCohost.member_id == Member.id)
                                 .where(EventCohost.event_id == ev.id)))
+            ld, lt, _ = current_local(ev)
             return render(request, "event_form.html", {"title": "Edit event", "cohost_ids": " ".join(co),
+                                                       "local_date": ld, "local_time": lt,
                                                        **_form_ctx(w, a, ev)})
 
     @r.post(mp + "/events/{public_id}/edit")
@@ -301,10 +324,19 @@ def router(cfg: Config) -> APIRouter:
         data = event_data_from_form(w.cfg, form, partial=True)
         with w.db.tx() as s:
             ev = ev_by_public(s, public_id)
+            # The form now shows the current date/time; sending them back unchanged is not a reschedule.
+            cur_date, cur_time, cur_mins = current_local(ev)
+            sent_mins = str(form.get("duration_minutes") or "").strip()
+            time_untouched = (form.get("date") == cur_date and form.get("start_time") == cur_time
+                              and (form.get("timezone") or ev.timezone) == ev.timezone)
+            if time_untouched and sent_mins in ("", str(cur_mins)):
+                data.pop("start_at", None)
+                data.pop("end_at", None)
+            shift = None if time_untouched else (form.get("start_time") or None)
             if form.get("scope") == "future" and ev.series_id:
                 recurrence.edit_future(s, w.cfg, a, ev.id, {k: v for k, v in data.items()
                                                             if k not in ("start_at", "end_at")},
-                                       shift_local_time=form.get("start_time") or None)
+                                       shift_local_time=shift)
             elif ev.series_id:
                 recurrence.edit_occurrence(s, w.cfg, a, ev.id, data)
             else:
