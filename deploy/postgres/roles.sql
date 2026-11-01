@@ -1,10 +1,6 @@
 -- WoWQuester PostgreSQL roles. Run ONCE as the postgres superuser over the local socket.
--- Passwords come from the environment (not argv, so they never show in `ps`):
---   sudo -s
---   set -a; WQ_ADMIN_PW=$(cat /root/wq_admin) WQ_APP_PW=$(cat /root/wq_app) \
---           WQ_WORKER_PW=$(cat /root/wq_worker) WQ_READONLY_PW=$(cat /root/wq_readonly); set +a
---   sudo -u postgres --preserve-env=WQ_ADMIN_PW,WQ_APP_PW,WQ_WORKER_PW,WQ_READONLY_PW \
---        psql -v ON_ERROR_STOP=1 -f deploy/postgres/roles.sql
+-- Normally run by deploy/postgres/apply_hardening.sh, which passes the passwords through the
+-- environment (WQ_ADMIN_PW, WQ_APP_PW, WQ_WORKER_PW, WQ_READONLY_PW; never argv, so never in `ps`).
 -- (psql -v admin_pw=... also works for disposable test clusters.)
 -- Passwords are hashed server-side with SCRAM-SHA-256 and never stored in this file.
 -- No role named "root" is created. postgres keeps local peer authentication only.

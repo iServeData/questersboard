@@ -27,25 +27,21 @@ sudo apt install postgresql-16          # python3.12-venv and gnupg are already 
 
 ## 2. PostgreSQL hardening and roles (approval: database)
 
-Review `docs/db_hardening_checklist.md` first. Then:
+Review `docs/db_hardening_checklist.md` first. On the host, from a checkout of the `prototype` branch:
 
 ```sh
-sudo install -o postgres -g postgres -m 0640 deploy/postgres/pg_hba.conf /etc/postgresql/16/main/pg_hba.conf
-sudo install -o postgres -g postgres -m 0644 deploy/postgres/postgresql_wowquester.conf \
-     /etc/postgresql/16/main/conf.d/50-wowquester.conf
-sudo systemctl restart postgresql
-# four random passwords, kept only as encrypted credentials (step 4) and passed to psql once:
-umask 077; for r in admin app worker readonly; do openssl rand -base64 33 > /root/wq_$r; done
-sudo -s     # root shell, so the passwords go through the environment, not the command line
-set -a; WQ_ADMIN_PW=$(cat /root/wq_admin) WQ_APP_PW=$(cat /root/wq_app) \
-        WQ_WORKER_PW=$(cat /root/wq_worker) WQ_READONLY_PW=$(cat /root/wq_readonly); set +a
-sudo -u postgres --preserve-env=WQ_ADMIN_PW,WQ_APP_PW,WQ_WORKER_PW,WQ_READONLY_PW \
-     psql -v ON_ERROR_STOP=1 -f deploy/postgres/roles.sql
-unset WQ_ADMIN_PW WQ_APP_PW WQ_WORKER_PW WQ_READONLY_PW; exit
+git clone -b prototype https://github.com/<org>/wowquester.git ~/wowquester   # or git pull
+cd ~/wowquester
+less deploy/postgres/apply_hardening.sh deploy/postgres/pg_hba.conf deploy/postgres/postgresql_wowquester.conf
+sudo deploy/postgres/apply_hardening.sh
 ```
 
-If the host already runs PostgreSQL for something else, merge the `pg_hba.conf` lines instead of
-replacing the file (the WoWQuester lines are marked) and check `listen_addresses` stays `localhost`.
+The script backs up the existing `pg_hba.conf` (as `pg_hba.conf.pre_wowquester`), installs the proposed
+`pg_hba.conf` and `conf.d/50-wowquester.conf`, restarts `postgresql@16-main`, generates four random
+passwords in `/root/wowquester_db/` (0700, until step 4), creates the roles and the `wowquester` database
+with statement logging off for that session, and finishes with a read-only verification. Re-run the
+verification any time with `sudo deploy/postgres/apply_hardening.sh --check`. Undo instructions are at the
+top of the script.
 
 ## 3. Release, service user and units (approval: install)
 
@@ -81,9 +77,10 @@ for n in discord-bot-token discord-client-secret field-key; do
   sudo systemd-creds encrypt --with-key=host --name=wowquester.$n - /etc/credstore.encrypted/wowquester.$n
 done
 for r in admin app worker; do
-  sudo systemd-creds encrypt --with-key=host --name=wowquester.db-$r-password /root/wq_$r /etc/credstore.encrypted/wowquester.db-$r-password
+  sudo systemd-creds encrypt --with-key=host --name=wowquester.db-$r-password /root/wowquester_db/$r /etc/credstore.encrypted/wowquester.db-$r-password
 done
-sudo shred -u /root/wq_admin /root/wq_app /root/wq_worker /root/wq_readonly   # readonly is only needed by tooling
+# keep an offline copy of all four first (see backup_restore.md), then:
+sudo shred -u /root/wowquester_db/*; sudo rmdir /root/wowquester_db
 sudo -u wowquester wowquester-admin check-config
 ```
 
