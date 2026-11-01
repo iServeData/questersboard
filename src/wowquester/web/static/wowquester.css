@@ -73,3 +73,8 @@
 @media (max-width:900px){.wq-grid{grid-template-columns:1fr}.wq-thumb{float:none;width:100%;height:auto;margin:0 0 8px}}
 .wq-meta{margin-top:16px}
 .wq-grid > section{padding:0}
+/* privacy / terms */
+.wq-legal{max-width:72ch}
+.wq-legal h2.sub{margin-top:1.6em}
+.wq-legal ul{padding-left:1.2em}
+.wq-legal li{margin:.35em 0}

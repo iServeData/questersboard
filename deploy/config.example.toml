@@ -116,6 +116,12 @@ audit_days = 400                              # pruned by `wowquester-admin prun
 withdrawn_signup_days = 365                   # withdrawn/rejected signups of past events
 session_days_after_expiry = 1
 
+[legal]                                       # restart. Shown on /privacy and /terms; optional
+operator = ""                                 # who runs this install; empty = the [community] name
+contact = "Message an organiser in the community Discord server."
+effective_date = ""                           # YYYY-MM-DD shown as "Last updated"; empty = hidden
+backup_keep_days = 30                         # keep in step with WOWQUESTER_BACKUP_KEEP_DAYS
+
 [rate_limits]                                 # [live]
 web_requests_per_minute = 120
 actions_per_minute = 30

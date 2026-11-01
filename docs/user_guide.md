@@ -31,6 +31,15 @@ phone or desktop calendar. It is shown once. "Turn off my links" revokes it imme
 My events → Privacy, and per event when you join. If you opt out, stories describe you neutrally
 ("a healer"). On a published story, "Stop naming me in this story" takes effect immediately.
 
+### Privacy and terms
+
+The footer of every WoWQuester page links to **Privacy** (`/wow/quester/privacy`) and **Terms**
+(`/wow/quester/terms`). Both are public, so they can also be given to the Discord Developer Portal.
+The privacy page is built from the live configuration: retention periods, upload limits and the
+login session length come from config, and Blizzard and AI sections appear only when those
+integrations are switched on. Set `[legal] contact`, `operator` and `effective_date` for your
+community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
+
 ## For hosts (event creators and co-hosts)
 
 1. **Plan an event**: title, WoW edition, ruleset (Forever) or realm (Retail), faction, activity, start/end in

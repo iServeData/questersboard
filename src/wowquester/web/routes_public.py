@@ -183,6 +183,14 @@ def router(cfg: Config) -> APIRouter:
         return JSONResponse(body, headers={"Cache-Control": f"public, max-age={w.cfg['status']['cache_seconds']}",
                                            "Access-Control-Allow-Origin": base(request)})
 
+    @r.get(mp + "/privacy")
+    def privacy(request: Request):
+        return render(request, "privacy.html", {"title": "Privacy"}, public=True)
+
+    @r.get(mp + "/terms")
+    def terms(request: Request):
+        return render(request, "terms.html", {"title": "Terms of use"}, public=True)
+
     @r.get(mp + "/calendar.ics")
     def public_ics(request: Request):
         w = web(request)

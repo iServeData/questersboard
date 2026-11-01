@@ -256,6 +256,20 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
         ret.setdefault(k, dflt)
         _positive(ret[k], f"[retention] {k}")
 
+    lg = r.setdefault("legal", {})
+    lg.setdefault("contact", "Message an organiser in the community Discord server.")
+    lg.setdefault("effective_date", "")
+    lg.setdefault("backup_keep_days", 30)
+    lg.setdefault("operator", "")
+    for k in ("contact", "effective_date", "operator"):
+        if not isinstance(lg[k], str):
+            raise ConfigError(f"[legal] {k} must be a string")
+    if lg["effective_date"] and not re.match(r"^\d{4}-\d{2}-\d{2}$", lg["effective_date"]):
+        raise ConfigError("[legal] effective_date must be YYYY-MM-DD")
+    _positive(lg["backup_keep_days"], "[legal] backup_keep_days")
+    if not lg["contact"].strip():
+        raise ConfigError("[legal] contact must say how members reach the operators")
+
     stc = r.setdefault("status", {})
     for k, dflt, lo in (("starting_soon_minutes", 15, 0), ("heartbeat_seconds", 30, 5),
                         ("stale_after_seconds", 120, 15), ("voice_stale_after_seconds", 180, 15),

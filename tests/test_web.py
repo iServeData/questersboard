@@ -379,3 +379,29 @@ def test_autocomplete_options_and_free_text(app, seeded):
     assert c.get("/wow/quester/api/options?edition=forever&kind=password").status_code == 422
     anon = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
     assert anon.get("/wow/quester/api/options?edition=forever&kind=race").status_code in (303, 401)
+
+
+def test_privacy_and_terms_render_public_from_config(app, wcfg):
+    c = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
+    for path, heading in (("/wow/quester/privacy", "Privacy"), ("/wow/quester/terms", "Terms of use")):
+        r = c.get(path)
+        assert r.status_code == 200, path
+        assert f"<h1>{heading}</h1>" in r.text
+        assert "index,follow" in r.text and "Log in with Discord" not in r.text
+        assert wcfg["legal"]["contact"] in r.text
+        assert "Example Community" in r.text
+    p = c.get("/wow/quester/privacy").text
+    assert "<code>identify</code>" in p
+    assert f"{wcfg['retention']['audit_days']} days" in p
+    # optional integrations are only described when switched on
+    assert ("Battle.net link" in p) == bool(wcfg["blizzard"]["enabled"] and wcfg["blizzard"]["battlenet_link_enabled"])
+    assert ("AI service" in p) == bool(wcfg["ai"]["enabled"])
+    assert 'href="/wow/quester/privacy"' in c.get("/wow/chronicle/").text
+
+
+def test_legal_config_validation(tmp_path):
+    from wowquester.config import ConfigError
+    with pytest.raises(ConfigError):
+        make_cfg(tmp_path, legal={"effective_date": "Nov 4"})
+    with pytest.raises(ConfigError):
+        make_cfg(tmp_path, legal={"contact": "  "})

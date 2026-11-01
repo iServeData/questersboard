@@ -121,3 +121,4 @@ Test file names refer to `tests/`.
 | Backup, restore drill, rollback | Done, manual check | encrypt → decrypt → checksum → restore into scratch DB with grants → drop (sandbox) |
 | systemd sandboxing | Done, manual check | `systemd-analyze verify` clean on all units |
 | Host PostgreSQL install and hardening | Externally unverified | proposed in `db_hardening_checklist.md`; not applied |
+| Privacy and terms pages | Done, tested | `/wow/quester/privacy`, `/wow/quester/terms` rendered from config; `test_privacy_and_terms_render_public_from_config`, `test_legal_config_validation`. Plain-language drafts, not legal review |
