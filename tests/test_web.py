@@ -549,3 +549,29 @@ def test_role_row_without_how_many_is_refused_not_dropped(app, seeded):
     assert r.status_code == 422 and "Enter how many healer you need" in r.text
     r = org.post("/wow/quester/events/new", data={**base, "role_qty_0": "2"})
     assert r.status_code == 422 and "has a number but no role" in r.text
+
+
+def test_naming_checkbox_has_help_popup_linking_privacy(app, seeded):
+    org = login(app, 98, "event_creator")
+    tok = csrf(org)
+    start = at(6).astimezone(__import__("zoneinfo").ZoneInfo("America/Los_Angeles"))
+    r = org.post("/wow/quester/events/new", data={
+        "csrf": tok, "edition": "forever", "ruleset": "pvp", "faction": "horde", "title": "Wailing Caverns",
+        "activity_type": "dungeon", "date": start.strftime("%Y-%m-%d"), "start_time": start.strftime("%H:%M"),
+        "duration_minutes": "90", "timezone": "America/Los_Angeles", "signup_policy": "open", "publish": "1"})
+    url = r.headers["location"]
+    p = login(app, 99)
+    t = csrf(p)
+    p.post("/wow/quester/characters", data={"csrf": t, "edition": "forever", "ruleset": "pvp", "name": "Rokhan",
+                                            "faction": "horde", "race_key": "troll", "class_key": "hunter"})
+    page = p.get(url).text
+    assert 'popovertarget="tip-naming-join"' in page and 'id="tip-naming-join" popover' in page
+    assert "/wow/quester/privacy#public" in page and "javascript:" not in page
+    # the button sits inside the label, the popup itself outside it (no block content in a label)
+    label = page.split('name="recognition" value="1"', 1)[1].split("</label>", 1)[0]
+    assert "popovertarget" in label and "popover " not in label and "<div" not in label
+    cid = re.search(r'name="character_id"><option value="(\d+)"', page).group(1)
+    p.post(url + "/join", data={"csrf": t, "character_id": cid})
+    assert 'popovertarget="tip-naming-change"' in p.get(url).text
+    assert 'popovertarget="tip-naming-default"' in p.get("/wow/quester/me").text
+    assert 'id="public"' in TestClient(app, base_url="https://community.example.org").get("/wow/quester/privacy").text

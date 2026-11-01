@@ -5,3 +5,16 @@
 {% macro state_chip(state) -%}
 <span class="status-chip wq-state-{{ state }}">{{ {"draft":"Draft","scheduled":"Scheduled","in_progress":"In progress","completed":"Completed","cancelled":"Cancelled"}.get(state, state) }}</span>
 {%- endmacro %}
+{% macro naming_tip(tip_id) -%}
+<button type="button" class="wq-info" popovertarget="{{ tip_id }}" aria-label="What does naming my character mean?" title="What does this mean?">?</button>
+{%- endmacro %}
+{% macro naming_help(tip_id) -%}
+<div id="{{ tip_id }}" popover class="wq-pop" role="dialog" aria-label="Naming your character">
+  <p class="wq-pop-title">What naming your character means</p>
+  <p><strong>On:</strong> your character's name appears on this event's public roster, on the event card in Discord, and in any Chronicle story written about the event.</p>
+  <p><strong>Off:</strong> you're shown as "a tank", "a healer" and so on, or counted as "+1 other" on the Discord card. Hosts and officers still see your character so they can organise the group.</p>
+  <p>Your Discord name and ID are never shown publicly. You can change this per event, set your default under <a href="{{ mp }}/me">My events &rarr; Privacy</a>, and stop being named in a published story at any time.</p>
+  <p><a href="{{ mp }}/privacy#public">Read more in the privacy page</a></p>
+  <button type="button" class="btn ghost" popovertarget="{{ tip_id }}" popovertargetaction="hide">Close</button>
+</div>
+{%- endmacro %}

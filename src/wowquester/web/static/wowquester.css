@@ -83,3 +83,11 @@
 .wq-form ::placeholder,.wq-table input::placeholder{color:var(--dim,#6d737a);opacity:1;font-style:italic}
 .wq-form :focus::placeholder,.wq-table input:focus::placeholder{color:transparent}
 tr[hidden]{display:none}
+.wq-info{display:inline-flex;align-items:center;justify-content:center;width:1.35em;height:1.35em;margin-left:6px;padding:0;vertical-align:.05em;
+  border:1px solid var(--accent,#c4493c);border-radius:50%;background:transparent;color:var(--accent,#c4493c);font:700 .78rem/1 var(--font-mono,monospace);cursor:pointer}
+.wq-info:hover,.wq-info:focus-visible{background:var(--accent,#c4493c);color:#111;outline:none}
+.wq-pop{max-width:min(420px,calc(100vw - 32px));padding:18px 20px;border:1px solid var(--line-strong,rgba(225,228,232,.24));border-left:3px solid var(--accent,#c4493c);
+  background:var(--panel-solid,#1a1b1d);color:var(--text,#e1e4e8);font-size:.95rem;line-height:1.55;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.wq-pop::backdrop{background:rgba(0,0,0,.45)}
+.wq-pop p{margin:0 0 10px}.wq-pop a{color:var(--text,#e1e4e8)}
+.wq-pop-title{font:600 .74rem var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--muted,#a3a9b1)}

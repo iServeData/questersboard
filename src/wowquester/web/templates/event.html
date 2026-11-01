@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf_field, state_chip with context %}
+{% from "_macros.html" import csrf_field, state_chip, naming_tip, naming_help with context %}
 {% block content %}
 <div class="section-head"><span class="label"><span class="num">{{ ev.activity_type|upper }}</span> // {{ ed.name }}{% if ev.ruleset %} · {{ ev.ruleset|upper }}{% endif %}{% if ev.realm_slug %} · {{ ev.realm_slug }}{% endif %}{% if ev.faction %} · {{ ev.faction|title }}{% endif %}</span>
   <h1>{{ ev.title }}</h1></div>
@@ -45,13 +45,13 @@
       <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/change">{{ csrf_field() }}
         <label>Character <select name="character_id">{% for c in fit %}<option value="{{ c.id }}"{% if c.id == mine.character_id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
         {% if ev.roles %}<label>Role <select name="role_key">{% for r in ev.roles %}<option value="{{ r.key }}"{% if r.key == mine.role_key %} selected{% endif %}>{{ r.label }}</option>{% endfor %}</select></label>{% endif %}
-        <label><input type="hidden" name="recognition" value="0"><input type="checkbox" name="recognition" value="1"{% if mine.recognition %} checked{% endif %}> Name my character in the public roster and chronicle</label>
+        <label><input type="hidden" name="recognition" value="0"><input type="checkbox" name="recognition" value="1"{% if mine.recognition %} checked{% endif %}> Name my character in the public roster and chronicle {{ naming_tip("tip-naming-change") }}</label>{{ naming_help("tip-naming-change") }}
         <button class="btn ghost" type="submit">Save</button></form></details>
     {% elif fit %}
       <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/join">{{ csrf_field() }}
         <label>Character <select name="character_id">{% for c in fit %}<option value="{{ c.id }}">{{ c.name }} · {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} {{ c.level }}{% endif %}</option>{% endfor %}</select></label>
         {% if ev.roles %}<label>Role <select name="role_key">{% for r in ev.roles %}<option value="{{ r.key }}">{{ r.label }}</option>{% endfor %}</select></label>{% endif %}
-        <label><input type="hidden" name="recognition" value="0"><input type="checkbox" name="recognition" value="1"{% if recognition_default %} checked{% endif %}> Name my character publicly <span class="note">(otherwise you're shown as "a healer" etc.; default from My events → Privacy)</span></label>
+        <label><input type="hidden" name="recognition" value="0"><input type="checkbox" name="recognition" value="1"{% if recognition_default %} checked{% endif %}> Name my character publicly <span class="note">(otherwise you're shown as "a healer" etc.)</span> {{ naming_tip("tip-naming-join") }}</label>{{ naming_help("tip-naming-join") }}
         <label><input type="checkbox" name="tentative" value="1"> Tentative <span class="note">(doesn't hold a spot)</span></label>
         <label>Note <input name="note" maxlength="300"></label>
         <button class="btn" type="submit">{{ "Request to join" if ev.signup_policy == "approval" else "Join" }}</button>
