@@ -27,8 +27,10 @@ sudo -u wowquester wowquester-admin check-config    # after editing config.toml
 | --- | --- |
 | Change roles, limits, reminders, chronicle rules | edit `config.toml`; live sections apply within ~30 s (see `configuration.md`) |
 | Other config changes | edit, `check-config`, `systemctl restart wowquester-web wowquester-bot wowquester-worker` |
-| See stuck Discord deliveries | `wowquester-admin outbox status` |
+| See stuck Discord deliveries (with the last error for each dead one) | `wowquester-admin outbox status` |
 | Retry dead deliveries (after fixing the cause) | `wowquester-admin outbox retry-dead` |
+| Give up on dead deliveries that no longer matter | `wowquester-admin outbox dismiss-dead` |
+| Health check | `sudo ./deploy/health.sh` fails on dead deliveries; `install.sh`/`rollback.sh` use `--deploy`, which only warns, so a Discord permission problem can't roll back a working release |
 | Revoke someone's private calendar link | `wowquester-admin calendar-revoke <discord id>` |
 | Prune old audit rows / signups / sessions | `wowquester-admin prune` (admin role; monthly is plenty) |
 | Re-import Blizzard reference data | `wowquester-admin blizzard import-reference retail --region us` |

@@ -99,3 +99,30 @@ def test_worker_heartbeat_failure_does_not_block_the_loop(cfg, worker_db, monkey
         raise RuntimeError("relation service_heartbeats does not exist")
     monkeypatch.setattr(status, "beat", boom)
     Worker(ConfigHolder(cfg), worker_db, None).heartbeat()       # logs, does not raise
+
+
+@needs_db
+def test_dead_outbox_job_is_shown_warns_on_deploy_and_can_be_dismissed(cfg_file, db, capsys, tmp_path):
+    """Regression: one dead Discord delivery made install.sh roll back a working release."""
+    with db.tx() as s:
+        s.execute(text("UPDATE outbox SET done_at = now() WHERE done_at IS NULL"))
+        s.execute(text("INSERT INTO outbox (kind, key, payload, dead_at, attempts, last_error) "
+                       "VALUES ('event.post', 'ev:fixture', '{}', now(), 8, "
+                       "'403 Forbidden (error code: 50001): Missing Access')"))
+    nosock = str(tmp_path / "absent.sock")
+    assert cli.main(["--config", cfg_file, "health", "--socket", nosock]) == 1
+    assert cli.main(["--config", cfg_file, "health", "--socket", nosock, "--deploy"]) == 0
+    assert "dead jobs need attention" in capsys.readouterr().out
+    assert cli.main(["--config", cfg_file, "outbox", "status"]) == 0
+    out = capsys.readouterr().out
+    assert "dead #" in out and "event.post ev:fixture" in out and "Missing Access" in out
+    assert cli.main(["--config", cfg_file, "outbox", "dismiss-dead"]) == 0
+    assert "dismissed 1" in capsys.readouterr().out
+    assert cli.main(["--config", cfg_file, "health", "--socket", nosock]) == 0
+
+
+def test_deploy_scripts_use_the_deploy_health_mode():
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "deploy"
+    assert '"$REPO/deploy/health.sh" --quiet --deploy' in (root / "install.sh").read_text()
+    assert 'health.sh" --deploy' in (root / "rollback.sh").read_text()

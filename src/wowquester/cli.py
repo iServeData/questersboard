@@ -62,12 +62,19 @@ def cmd_health(args):
     try:
         db = _db(cfg, "app")
         with db.tx() as s:
-            dead = s.execute(text("SELECT count(*) FROM outbox WHERE dead_at IS NOT NULL")).scalar()
+            dead = s.execute(text("SELECT count(*) FROM outbox WHERE dead_at IS NOT NULL AND done_at IS NULL")).scalar()
             lag = s.execute(text("SELECT extract(epoch FROM now() - min(run_after)) FROM outbox "
                                  "WHERE done_at IS NULL AND dead_at IS NULL")).scalar()
         print(f"db: ok  outbox dead={dead} oldest_pending={int(lag or 0)}s")
-        if dead or (lag or 0) > 900:
+        if (lag or 0) > 900:
             ok = False
+        if dead:
+            # A dead job is a Discord/API delivery that gave up (e.g. missing channel permission).
+            # It needs attention, but it says nothing about whether a new release works, so a
+            # deploy check only warns; the plain health check still fails.
+            print("outbox: dead jobs need attention: wowquester-admin outbox status")
+            if not args.deploy:
+                ok = False
     except Exception as exc:  # noqa: BLE001 - report, don't crash
         print(f"db: FAIL {type(exc).__name__}")
         ok = False
@@ -187,13 +194,22 @@ def cmd_outbox(args):
     with db.tx() as s:
         if args.action == "retry-dead":
             n = s.execute(text("UPDATE outbox SET dead_at = NULL, attempts = 0, run_after = now() "
-                               "WHERE dead_at IS NOT NULL")).rowcount
+                               "WHERE dead_at IS NOT NULL AND done_at IS NULL")).rowcount
             print(f"requeued {n} job(s)")
+        elif args.action == "dismiss-dead":
+            n = s.execute(text("UPDATE outbox SET done_at = now() WHERE dead_at IS NOT NULL AND done_at IS NULL"
+                               )).rowcount
+            print(f"dismissed {n} dead job(s); they stay in the outbox history until pruned")
         else:
             for row in s.execute(text(
                     "SELECT kind, count(*) FILTER (WHERE done_at IS NULL AND dead_at IS NULL) pending, "
                     "count(*) FILTER (WHERE dead_at IS NOT NULL) dead FROM outbox GROUP BY kind ORDER BY kind")):
                 print(f"{row.kind:<34} pending={row.pending} dead={row.dead}")
+            for row in s.execute(text(
+                    "SELECT id, kind, key, attempts, dead_at, last_error FROM outbox "
+                    "WHERE dead_at IS NOT NULL AND done_at IS NULL ORDER BY dead_at DESC LIMIT 20")):
+                print(f"dead #{row.id} {row.kind} {row.key} attempts={row.attempts} "
+                      f"at {row.dead_at:%Y-%m-%d %H:%M}Z\n    {(row.last_error or '').strip()[:300]}")
     return 0
 
 
@@ -212,6 +228,7 @@ def main(argv=None) -> int:
     cc.set_defaults(fn=cmd_check_config)
     hp = sub.add_parser("health")
     hp.add_argument("--socket", default="/run/wowquester-web.sock")
+    hp.add_argument("--deploy", action="store_true", help="release check: dead outbox jobs warn instead of fail")
     hp.set_defaults(fn=cmd_health)
     m = sub.add_parser("migrate")
     m.add_argument("direction", choices=("up", "down"))
@@ -233,7 +250,7 @@ def main(argv=None) -> int:
     cr.set_defaults(fn=cmd_calendar_revoke)
     sub.add_parser("prune").set_defaults(fn=cmd_prune)
     ob = sub.add_parser("outbox")
-    ob.add_argument("action", choices=("status", "retry-dead"))
+    ob.add_argument("action", choices=("status", "retry-dead", "dismiss-dead"))
     ob.set_defaults(fn=cmd_outbox)
     bk = sub.add_parser("backup")
     bk.add_argument("action", choices=("backup", "restore"))
