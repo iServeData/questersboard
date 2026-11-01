@@ -87,6 +87,7 @@ Test file names refer to `tests/`.
 | Routine publication needs no site commits or deployments | Done | served by WoWQuester behind Nginx; no site files written |
 | Matches the WoW page design | Done, manual check | reuses the site stylesheet via `[branding]`; previews in `docs/previews/` |
 | WoW page schedule shows upcoming events | Done, manual check | `site_widget/wow_quester.js` + `upcoming.json` (tested in `test_create_publish_join_and_upcoming_json`); site patch kept outside this repo for prototype review |
+| WoW page Community status and Next event cards (Live only after the organiser launches; voice count from the DB once FU-1 exists) | Done, manual check in a local browser | `status.json` (`tests/test_status.py`), `site_widget/wow_quester.js`; site patch kept outside this repo for prototype review |
 | Mobile and desktop previews | Done, manual check | `docs/previews/` |
 
 ## Enhancements

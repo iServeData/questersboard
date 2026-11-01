@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from .config import ConfigError, ConfigHolder, load
 from .db import Database, make_engine
-from .domain import outbox, scheduling
+from .domain import outbox, scheduling, status
 from .domain.timeutil import discord_ts, fmt_local, now
 from .integrations import discord_rest as dr
 from .models import ChronicleEntry, ConfigChange, Event, EventCohost, Member, Signup
@@ -49,6 +49,7 @@ class Worker:
     def __init__(self, holder: ConfigHolder, db: Database, rest: dr.DiscordRest | None):
         self.holder, self.db, self.rest = holder, db, rest
         self.stop = threading.Event()
+        self.started_at = now()
 
     @property
     def cfg(self):
@@ -298,8 +299,12 @@ class Worker:
             scheduling.sync_policy(s, self.cfg.max_simultaneous)
 
     # ------------------------------------------------------------------ loop
+    def heartbeat(self) -> None:
+        with self.db.tx() as s:
+            status.beat(s, "worker", "running", self.started_at)
+
     def run(self) -> None:
-        last_scan = last_house = 0.0
+        last_scan = last_house = last_beat = 0.0
         self.sync_policy()
         while not self.stop.is_set():
             live = self.holder.check()
@@ -311,6 +316,9 @@ class Worker:
             try:
                 busy = self.tick()
                 t = time.monotonic()
+                if t - last_beat >= self.cfg["status"]["heartbeat_seconds"]:
+                    self.heartbeat()
+                    last_beat = t
                 if t - last_scan > 30:
                     self.scan_reminders()
                     self.scan_overruns()

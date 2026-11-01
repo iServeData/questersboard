@@ -410,6 +410,29 @@ class PublicEvent(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class PublicEventVoice(Base):
+    """Head count in an event's voice channel (written by the bot; counts only, no IDs or names).
+
+    Empty until per-event voice channels exist (docs/followups.md FU-1). The status card shows a
+    count only while observed_at is fresh."""
+    __tablename__ = "public_event_voice"
+    public_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("public_events.public_id", ondelete="CASCADE"), primary_key=True)
+    in_voice: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    observed_at: Mapped[datetime] = _now()
+    __table_args__ = (CheckConstraint("in_voice >= 0", name="ck_public_event_voice_nonneg"),)
+
+
+class ServiceHeartbeat(Base):
+    """Last check-in from the bot and worker, for the public status card. No secrets, no IDs."""
+    __tablename__ = "service_heartbeats"
+    name: Mapped[str] = mapped_column(String(16), primary_key=True)          # bot | worker
+    state: Mapped[str] = mapped_column(String(16), nullable=False)          # bot: connected | disconnected
+    beat_at: Mapped[datetime] = _now()
+    started_at: Mapped[datetime] = _now()
+    __table_args__ = (CheckConstraint("name in ('bot', 'worker')", name="ck_service_heartbeats_name"),)
+
+
 # --------------------------------------------------------------------------- infrastructure
 
 class Outbox(Base):

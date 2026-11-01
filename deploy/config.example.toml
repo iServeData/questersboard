@@ -102,6 +102,13 @@ body_class = "theme-wow"
 discord_invite_url = ""                       # optional "Join the Discord" link
 nav = [ { label = "Home", url = "/" }, { label = "WoW", url = "/wow/" } ]
 
+[status]                                      # [live] optional; these are the defaults. Feeds status.json for the site's cards
+starting_soon_minutes = 15                    # "Starting soon" this long before the start; "Live" only after an organiser launches
+heartbeat_seconds = 30                        # how often the bot and worker check in
+stale_after_seconds = 120                     # no check-in for this long: the card stops showing them as running
+voice_stale_after_seconds = 180               # voice head counts older than this are hidden
+cache_seconds = 15                            # Cache-Control max-age for status.json
+
 [retention]                                   # restart
 outbox_done_days = 14                         # finished background jobs
 api_cache_days = 30

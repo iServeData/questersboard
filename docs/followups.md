@@ -50,6 +50,10 @@ Status: follow-up (not started). Requested during install, after go-live of the 
 - **Voice-state events** (non-privileged `voice_states` intent), only for the "empty for 5 minutes"
   rule. The bot then receives join/leave events for the server's voice channels; it should keep
   only the counts for its own channels and store nothing else.
+- **Status card hook (built).** The bot writes the head count to `public_event_voice`
+  (public_id, in_voice, observed_at; no names or IDs). `status.json` shows it only while the event is
+  launched and the count is newer than `[status] voice_stale_after_seconds`, so the site's Next event
+  card picks it up without a site change. The row goes when the event's public projection does.
 - Open: should a member who cancels their RSVP be removed from the channel, or only lose the
   ability to rejoin?
 - Open: should event moderators who did not RSVP be able to join to help?

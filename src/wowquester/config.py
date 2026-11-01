@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 DEFAULT_PATH = "/etc/wowquester/config.toml"
 SNOWFLAKE = re.compile(r"^\d{15,22}$")
 KEY = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
-LIVE_SECTIONS = ("roles", "scheduling", "signups", "reminders", "chronicle", "rate_limits")
+LIVE_SECTIONS = ("roles", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status")
 API_STATUSES = ("verified", "unverified", "unsupported")
 API_CAPS = ("reference", "character", "quests", "locations", "ownership")
 
@@ -255,6 +255,19 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
                     ("withdrawn_signup_days", 365), ("session_days_after_expiry", 1)):
         ret.setdefault(k, dflt)
         _positive(ret[k], f"[retention] {k}")
+
+    stc = r.setdefault("status", {})
+    for k, dflt, lo in (("starting_soon_minutes", 15, 0), ("heartbeat_seconds", 30, 5),
+                        ("stale_after_seconds", 120, 15), ("voice_stale_after_seconds", 180, 15),
+                        ("cache_seconds", 15, 0)):
+        stc.setdefault(k, dflt)
+        _positive(stc[k], f"[status] {k}", lo)
+    if stc["stale_after_seconds"] < 2 * stc["heartbeat_seconds"]:
+        raise ConfigError("[status] stale_after_seconds must be at least twice heartbeat_seconds")
+    unknown = set(stc) - {"starting_soon_minutes", "heartbeat_seconds", "stale_after_seconds",
+                          "voice_stale_after_seconds", "cache_seconds"}
+    if unknown:
+        raise ConfigError(f"[status] unknown setting {sorted(unknown)[0]!r}")
 
     b = r.setdefault("branding", {})
     b.setdefault("site_name", c["name"])

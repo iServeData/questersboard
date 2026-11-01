@@ -17,7 +17,8 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | GET | `/wow/chronicle/feed.xml` | RSS 2.0 |
 | GET | `/wow/chronicle/feed.atom` | Atom |
 | GET | `/wow/chronicle/latest.json` | latest stories for site widgets |
-| GET | `/wow/quester/upcoming.json` | upcoming scheduled events (counts only) for the WoW page; CORS for the site origin; cached 60 s |
+| GET | `/wow/quester/upcoming.json` | upcoming and launched events (counts only) for the WoW page; CORS for the site origin; cached 60 s |
+| GET | `/wow/quester/status.json` | Community status + Next event cards: bot/worker check-ins, Discord connection, the launched or next event (phase, role counts, needs, voice head count). No names or IDs; CORS for the site origin; cached `[status] cache_seconds` |
 | GET | `/wow/quester/calendar.ics` | public calendar of scheduled events (`[calendar] public_enabled`) |
 | GET | `/wow/quester/calendar/{token}.ics` | private calendar (hashed, revocable token); `no-referrer` |
 | GET | `/healthz` | `{"status":"ok"}` or 503 `db_unavailable`; not rate limited |

@@ -166,6 +166,21 @@ Check: without a gate cookie, `https://PROTOTYPE_HOST/wow/quester/upcoming.json`
 after signing in it returns JSON, and `/wow/chronicle/` shows the archive. The live host is unchanged
 (its `/wow/quester/` is still the static site's 404). Rollback: remove the include line, `nginx -t`, reload.
 
+## 8b. Upgrades with a new migration
+
+`install.sh` installs a new release but never migrates. When a release adds a migration (0002 adds
+`service_heartbeats` and `public_event_voice` for status.json), review and apply it as in step 6,
+before restarting the services:
+
+```sh
+sudo -u wowquester wowquester-admin migrate up 0001:0002 --sql | less   # review, no password needed
+# then the step 6 migrate command (approval: production database migration)
+sudo systemctl restart wowquester-web.service wowquester-worker.service wowquester-bot.service
+sudo curl -s --unix-socket /run/wowquester-web.sock http://wowquester/wow/quester/status.json; echo
+```
+
+`[status]` in config.toml is optional; the defaults are in `deploy/config.example.toml`.
+
 ## 9. Slash commands (approval: register live Discord commands)
 
 ```sh

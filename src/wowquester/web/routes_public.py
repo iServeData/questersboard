@@ -1,4 +1,5 @@
-"""Public routes. They read ONLY public_chronicle / public_events (+ calendar token lookup).
+"""Public routes. They read ONLY public_chronicle / public_events (+ calendar token lookup, and
+status.json's service_heartbeats / public_event_voice, which hold no member data).
 
 Publishing a chronicle entry updates the projection in the same transaction as the
 approval, so these pages, feeds and the site widget update without commits, Hugo
@@ -19,7 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from sqlalchemy import select
 
 from ..config import Config
-from ..domain import calendar
+from ..domain import calendar, status
 from ..domain.errors import NotFound
 from ..domain.timeutil import now
 from ..models import PublicChronicle, PublicEvent
@@ -42,7 +43,7 @@ def public_story(pc: PublicChronicle, base: str, path: str) -> dict:
 
 
 def upcoming(s, cfg: Config, limit: int = 20) -> list[dict]:
-    rows = s.scalars(select(PublicEvent).where(PublicEvent.end_at > now())
+    rows = s.scalars(select(PublicEvent).where(status.upcoming_filter(now()))
                      .order_by(PublicEvent.start_at).limit(limit))
     out = []
     for pe in rows:
@@ -173,6 +174,14 @@ def router(cfg: Config) -> APIRouter:
         return JSONResponse({"generated_at": now().isoformat(), "items": items},
                             headers={"Cache-Control": "public, max-age=60",
                                      "Access-Control-Allow-Origin": base(request)})
+
+    @r.get(mp + "/status.json")
+    def status_json(request: Request):
+        w = web(request)
+        with w.db.tx() as s:
+            body = status.snapshot(s, w.cfg)
+        return JSONResponse(body, headers={"Cache-Control": f"public, max-age={w.cfg['status']['cache_seconds']}",
+                                           "Access-Control-Allow-Origin": base(request)})
 
     @r.get(mp + "/calendar.ics")
     def public_ics(request: Request):

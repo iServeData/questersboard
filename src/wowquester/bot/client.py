@@ -21,10 +21,10 @@ from sqlalchemy import select
 
 from ..config import Config, ConfigError, ConfigHolder, load
 from ..db import Database, make_engine
-from ..domain import events, permissions, roster, signups
+from ..domain import events, permissions, roster, signups, status
 from ..domain.actor import Actor
 from ..domain.errors import DomainError
-from ..domain.timeutil import discord_ts, resolve_local
+from ..domain.timeutil import discord_ts, now, resolve_local
 from ..models import Event, Signup
 from ..secrets import SecretError, get_secret, setup_logging
 
@@ -404,6 +404,26 @@ class Bot(discord.Client):
         intents.guilds = True          # no privileged intents (no message content, no member list)
         super().__init__(intents=intents, allowed_mentions=discord.AllowedMentions.none())
         self.tree = build_tree(self)
+        self.started_at = now()
+
+    def gateway_state(self) -> str:
+        return "connected" if self.is_ready() and not self.is_closed() and self.ws is not None else "disconnected"
+
+    async def heartbeat(self, state: str | None = None) -> None:
+        """Check in for the status card. A DB hiccup is logged, never fatal."""
+        try:
+            await run_tx(status.beat, "bot", state or self.gateway_state(), self.started_at)
+        except Exception:  # noqa: BLE001
+            log.warning("status heartbeat failed", exc_info=True)
+
+    async def on_ready(self):
+        await self.heartbeat("connected")
+
+    async def on_resumed(self):
+        await self.heartbeat("connected")
+
+    async def on_disconnect(self):
+        await self.heartbeat("disconnected")
 
     async def setup_hook(self):
         self.add_dynamic_items(EventButton)
@@ -416,6 +436,12 @@ class Bot(discord.Client):
                     from ..worker import log_config
                     await run_tx(lambda s: log_config(s, "bot", Ctx.cfg(), live))
         self.loop.create_task(reload_loop())
+
+        async def heartbeat_loop():
+            while True:
+                await self.heartbeat()
+                await asyncio.sleep(Ctx.cfg()["status"]["heartbeat_seconds"])
+        self.loop.create_task(heartbeat_loop())
         log.info("bot ready: persistent buttons registered; slash commands are synced only by the admin CLI")
 
 

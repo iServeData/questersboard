@@ -75,6 +75,8 @@ def test_readonly_sees_only_projections():
     with _connect("wowquester_readonly", os.environ.get("WQT_READONLY_PW")) as c:
         c.execute("select count(*) from public_chronicle")
         c.execute("select count(*) from public_events")
+        c.execute("select count(*) from service_heartbeats")
+        c.execute("select count(*) from public_event_voice")
         for t in ("members", "signups", "characters", "web_sessions"):
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 c.execute(f"select * from {t}")
@@ -96,4 +98,16 @@ def test_admin_role_can_migrate_down_and_up(db):
     for args in (["downgrade", "base"], ["upgrade", "head"], ["current"]):
         r = subprocess.run(alembic + args, cwd=ROOT, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr[-2000:]
-    assert "0001" in r.stdout
+    assert "0002 (head)" in r.stdout
+
+
+def test_worker_heartbeat_grants_are_narrow():
+    """The worker may record its own check-in but never write voice counts or touch other columns."""
+    with _connect("wowquester_worker", os.environ.get("WQT_WORKER_PW")) as c:
+        c.execute("select count(*) from service_heartbeats")
+        c.execute("select count(*) from public_event_voice")
+        for sql in ("INSERT INTO public_event_voice (public_id, in_voice) VALUES (gen_random_uuid(), 1)",
+                    "UPDATE service_heartbeats SET name = 'bot'", "DELETE FROM service_heartbeats"):
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                c.execute(sql)
+            c.rollback()
