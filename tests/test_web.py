@@ -500,3 +500,29 @@ def test_host_joins_own_event_and_wrong_characters_are_explained(app):
     r = host.post(page + "/join", data=_form_defaults(html, page + "/join"))
     assert r.status_code == 303, r.text[:300]
     assert "Grom" in host.get(page).text
+
+
+def test_refused_form_offers_a_working_back_link_and_restore_marker(app):
+    """Regression: Back used javascript:history.back(), which the CSP blocks, so it did nothing."""
+    c = login(app, 94)
+    tok = csrf(c)
+    r = c.post("/wow/quester/characters", headers={"referer": "https://community.example.org/wow/quester/characters"},
+               data={"csrf": tok, "edition": "forever", "ruleset": "pvp", "name": "Tink", "faction": "horde",
+                     "race_key": "Gnome", "class_key": "Mage"})
+    assert r.status_code == 422
+    assert "javascript:" not in r.text
+    assert 'href="/wow/quester/characters" data-back' in r.text
+    assert 'data-restore-action="/wow/quester/characters"' in r.text
+    # a foreign referer is never echoed back as a link
+    r = c.post("/wow/quester/characters", headers={"referer": "https://evil.example.net/x"},
+               data={"csrf": tok, "edition": "forever", "ruleset": "pvp", "name": "Tink", "faction": "horde",
+                     "race_key": "Gnome", "class_key": "Mage"})
+    assert "evil.example.net" not in r.text and "data-back" not in r.text
+
+
+def test_preferred_role_counts_as_eligible(seeded, cfg):
+    from helpers import char
+    from conftest import actor
+    with seeded.tx() as s:
+        c = char(s, cfg, actor(10), "Grom", eligible_roles=[], preferred_role="tank")
+        assert c.eligible_roles == ["tank"] and c.preferred_role == "tank"

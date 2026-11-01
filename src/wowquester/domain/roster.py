@@ -110,7 +110,8 @@ def _validate(s: Session, cfg: Config, data: dict) -> dict:
     roles = _clean_tags(data.get("eligible_roles"), 8)
     pref = data.get("preferred_role") or None
     if pref and pref not in roles:
-        raise Invalid("Preferred role must be one of the character's eligible roles.")
+        # Preferring a role means the character can fill it; don't make the player tick it twice.
+        roles = _clean_tags(roles + [pref], 8)
     out.update(faction=faction, race_key=race, class_key=klass, level=level,
                spec=(data.get("spec") or None) and str(data["spec"])[:48],
                eligible_roles=roles, preferred_role=pref, focus_tags=_clean_tags(data.get("focus_tags")),

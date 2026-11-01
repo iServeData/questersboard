@@ -99,4 +99,75 @@
       }, 250);
     });
   });
+
+  // Keep what a player typed when the server refuses a form. On submit the fields are copied
+  // into this tab's sessionStorage; the error page marks which form to restore; the form page
+  // puts the values back and shows the message above the form. A page reached any other way
+  // clears the copy. File inputs and the CSRF token are never stored.
+  var KEY = "wq-form:", FLAG = "wq-restore";
+  var store = window.sessionStorage;
+  var actionOf = function (f) { try { return new URL(f.action, location.href).pathname; } catch (e) { return ""; } };
+  document.addEventListener("submit", function (ev) {
+    var f = ev.target;
+    if (!f || (f.method || "").toLowerCase() !== "post" || !store) return;
+    var data = {};
+    Array.prototype.forEach.call(f.elements, function (el) {
+      if (!el.name || el.name === "csrf" || el.type === "file" || el.type === "submit" || el.type === "button"
+          || el.type === "hidden" || el.disabled) return;
+      if (el.type === "checkbox" || el.type === "radio") {
+        data[el.name] = data[el.name] || [];
+        if (el.checked) data[el.name].push(el.value);
+      } else { data[el.name] = el.value; }
+    });
+    try { store.setItem(KEY + actionOf(f), JSON.stringify(data)); } catch (e) { /* storage full or off */ }
+  }, true);
+  var restoreHere = function () {
+    if (!store) return;
+    var msgPage = document.querySelector("[data-restore-action]");
+    if (msgPage) {
+      store.setItem(FLAG, JSON.stringify({ action: msgPage.getAttribute("data-restore-action"),
+                                           message: msgPage.getAttribute("data-restore-message") || "" }));
+      return;
+    }
+    var flag = null;
+    try { flag = JSON.parse(store.getItem(FLAG) || "null"); } catch (e) { flag = null; }
+    store.removeItem(FLAG);
+    var form = flag && Array.prototype.filter.call(document.forms, function (f) {
+      return actionOf(f) === flag.action; })[0];
+    var saved = null;
+    if (form) { try { saved = JSON.parse(store.getItem(KEY + flag.action) || "null"); } catch (e) { saved = null; } }
+    Object.keys(store).forEach(function (k) { if (k.indexOf(KEY) === 0) store.removeItem(k); });
+    if (!form || !saved) return;
+    var order = ["edition", "faction", "race_key"];          // parents first so dependent lists refill
+    var names = Object.keys(saved).sort(function (a, b) {
+      var ia = order.indexOf(a), ib = order.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
+    names.forEach(function (name) {
+      var v = saved[name];
+      Array.prototype.forEach.call(form.elements, function (el) {
+        if (el.name !== name || el.type === "file" || el.type === "hidden") return;
+        if (el.type === "checkbox" || el.type === "radio") { el.checked = Array.isArray(v) && v.indexOf(el.value) >= 0; }
+        else if (typeof v === "string") { el.value = v; }
+        else { return; }
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        if (el.tagName === "INPUT") el.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    });
+    var box = document.createElement("p");
+    box.className = "wq-form-error"; box.setAttribute("role", "alert");
+    box.textContent = flag.message + " Your entries are filled back in.";
+    form.insertBefore(box, form.firstChild);
+    if (form.open === false) form.open = true;
+    var det = form.closest("details"); if (det) det.open = true;
+    box.scrollIntoView({ block: "center" });
+  };
+  window.addEventListener("pageshow", restoreHere);
+  document.addEventListener("click", function (ev) {
+    var a = ev.target.closest && ev.target.closest("a[data-back]");
+    if (!a) return;
+    // Prefer the real history entry (the browser may still hold the form as typed); fall back to the link.
+    if (document.referrer && new URL(document.referrer).origin === location.origin && history.length > 1) {
+      ev.preventDefault(); history.back();
+    }
+  });
 })();

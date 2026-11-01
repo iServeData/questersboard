@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="panel wq-msg">
+<section class="panel wq-msg"{% if restore_action %} data-restore-action="{{ restore_action }}" data-restore-message="{{ message }}"{% endif %}>
   <div class="section-head"><h1>{{ title }}</h1></div>
   <p>{{ message }}</p>
-  <p><a class="btn ghost" href="javascript:history.back()">Back</a> <a class="btn ghost" href="{{ mp }}/">Quests</a></p>
+  <p>{% if back_url %}<a class="btn" href="{{ back_url }}" data-back>Back to the form</a> {% endif %}<a class="btn ghost" href="{{ mp }}/">Quests</a></p>
+  {% if restore_action %}<p class="note">What you entered is kept in this browser tab until you go back.</p>{% endif %}
 </section>
 {% endblock %}

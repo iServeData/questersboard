@@ -22,7 +22,7 @@ import secrets as pysecrets
 import time
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urlparse, urlsplit
 
 import httpx
 from fastapi import FastAPI, Request
@@ -217,8 +217,17 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
     async def domain_error(request: Request, exc: DomainError):
         if request.headers.get("accept", "").startswith("application/json"):
             return JSONResponse({"error": exc.code, "message": exc.message}, status_code=exc.status)
-        return routes_member.render(request, "message.html", {"title": "Can't do that", "message": exc.message},
-                                    status=exc.status)
+        ctx = {"title": "Can't do that", "message": exc.message}
+        if request.method == "POST":
+            # Offer a real link back to the form page (same site only); the page script restores
+            # what the player typed there, so nothing has to be entered twice.
+            ref = urlsplit(request.headers.get("referer", ""))
+            base = urlsplit(holder.cfg["community"]["public_base_url"])
+            if ref.netloc and ref.netloc in (base.netloc, request.url.netloc) and ref.path.startswith("/") \
+                    and not ref.path.startswith("//"):
+                ctx["back_url"] = ref.path + (("?" + ref.query) if ref.query else "")
+            ctx["restore_action"] = request.url.path
+        return routes_member.render(request, "message.html", ctx, status=exc.status)
 
     @app.get("/healthz")
     def healthz():
