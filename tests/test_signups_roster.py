@@ -184,3 +184,25 @@ def test_host_can_sign_up_their_own_character(seeded, cfg):
         ev2 = event(s, cfg, host, 5, 2)
         su2 = signups.join(s, cfg, host, ev2.id, char(s, cfg, host, "Hostess").id, tentative=True)
         assert su2.state == "tentative"
+
+
+def test_fit_problems_explain_why_a_character_cant_join(seeded, cfg):
+    """Regression: a Forever PVP druid got only "you don't have a character that fits" for an RP event."""
+    from helpers import char, event
+    from conftest import actor
+    from wowquester.bot.client import _fitting, no_fit_text
+    from wowquester.domain import signups as sg
+    host, p = actor(60, "event_creator"), actor(61)
+    with seeded.tx() as s:
+        ev = event(s, cfg, host, start=30, ruleset="rp", title="Test2")
+        char(s, cfg, p, "Rimeclaws")                                   # Forever PVP Horde
+        char(s, cfg, p, "Allytank", faction="alliance", race_key="human", ruleset="rp")
+        assert sg.event_requirement(cfg, ev) == "Horde WoW: Forever characters (US) on the RP ruleset"
+        title, state, chars, roles, why = _fitting(s, cfg, p, ev.id)
+        assert chars == []
+        assert dict(why["misfits"]) == {"Rimeclaws": ["PVP ruleset, not RP"], "Allytank": ["Alliance, not Horde"]}
+        char(s, cfg, p, "Rptroll", ruleset="rp")
+        assert [c[1].split(" · ")[0] for c in _fitting(s, cfg, p, ev.id)[2]] == ["Rptroll"]
+    text = no_fit_text(cfg, title, why)
+    assert "**Test2** is for Horde WoW: Forever characters (US) on the RP ruleset." in text
+    assert "• Rimeclaws: PVP ruleset, not RP" in text and "<https://" in text and "/characters>" in text

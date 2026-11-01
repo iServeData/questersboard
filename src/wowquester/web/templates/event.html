@@ -57,7 +57,10 @@
         <button class="btn" type="submit">{{ "Request to join" if ev.signup_policy == "approval" else "Join" }}</button>
       </form>
     {% else %}
-      <p class="note">To join, you need a {% if ev.faction %}{{ ev.faction|title }} {% endif %}{{ ed.name }} character{% if ev.ruleset %} on the {{ ev.ruleset|upper }} ruleset{% endif %}{% if ev.realm_slug %} on {{ ev.realm_slug }}{% endif %}.{% if chars %} None of yours fit yet{% if chars|length <= 3 %} ({% for c in chars %}{{ c.name }}: {{ editions[c.edition].name if c.edition in editions else c.edition }}{% if c.ruleset %} {{ c.ruleset|upper }}{% endif %} {{ c.faction|title }}{% if not loop.last %}; {% endif %}{% endfor %}){% endif %}.{% endif %}</p>
+      <p class="note">This event is for {{ requirement }}.</p>
+      {% if misfits %}<p class="note">None of your characters fit:</p>
+      <ul class="plain-list note">{% for name, why in misfits %}<li><strong>{{ name }}</strong>: {{ why|join("; ") }}</li>{% endfor %}</ul>
+      {% else %}<p class="note">You haven't added a character yet.</p>{% endif %}
       <a class="btn ghost" href="{{ mp }}/characters">Add a character</a>
     {% endif %}
   </div>

@@ -95,11 +95,26 @@ async def guarded(inter: discord.Interaction, coro):
 def _fitting(s, cfg: Config, actor: Actor, event_id: int):
     actor = roster.ensure_member(s, actor)
     ev = events.get(s, event_id)
-    chars = [c for c in roster.list_characters(s, actor.member_id) if c.edition == ev.edition
-             and (not ev.ruleset or c.ruleset == ev.ruleset) and (not ev.realm_slug or c.realm_slug == ev.realm_slug)
-             and (not ev.faction or c.faction == ev.faction)]
+    mine = roster.list_characters(s, actor.member_id)
+    chars = [c for c in mine if not signups.fit_problems(cfg, ev, c)]
     roles = [(r.key, r.label) for r in ev.roles]
-    return ev.title, ev.state, [(c.id, f"{c.name} · {c.race_key.title()} {c.class_key.title()}") for c in chars], roles
+    why = {"need": signups.event_requirement(cfg, ev),
+           "misfits": [(c.name, signups.fit_problems(cfg, ev, c)) for c in mine if c not in chars]}
+    return ev.title, ev.state, [(c.id, f"{c.name} · {c.race_key.title()} {c.class_key.title()}") for c in chars], \
+        roles, why
+
+
+def no_fit_text(cfg: Config, title: str, why: dict) -> str:
+    """The reply when none of a player's characters can join: what the event needs and why each one doesn't fit."""
+    lines = [f"**{title}** is for {why['need']}."]
+    if why["misfits"]:
+        lines.append("None of your characters fit:")
+        lines += [f"• {name}: {'; '.join(p)}" for name, p in why["misfits"][:8]]
+    else:
+        lines.append("You haven't added a character yet.")
+    # <...> stops Discord adding a link preview (the login page's preview is GitHub's)
+    lines.append(f"Add or change one with `/character add` or at <{member_url(cfg, 'characters')}>")
+    return "\n".join(lines)
 
 
 def _join(s, cfg, actor, event_id, character_id, role_key, tentative=False):
@@ -186,13 +201,12 @@ async def start_join(inter: discord.Interaction, event_id: int, tentative: bool,
     cfg = Ctx.cfg()
     actor = await build_actor(inter, source)
     permissions.require_member(cfg, actor)
-    title, state, chars, roles = await run_tx(_fitting, cfg, actor, event_id)
+    title, state, chars, roles, why = await run_tx(_fitting, cfg, actor, event_id)
     if state not in ("scheduled", "in_progress"):
         await reply(inter, "This event isn't open for signups.")
         return
     if not chars:
-        await reply(inter, f"You don't have a character that fits **{title}** yet. Add one with `/character add` "
-                           f"or at {member_url(cfg, 'characters')}")
+        await reply(inter, no_fit_text(cfg, title, why))
         return
     if len(chars) == 1 and not roles:
         await guarded(inter, finish_join(inter, event_id, chars[0][0], None, tentative))

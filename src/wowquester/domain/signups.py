@@ -51,6 +51,37 @@ def _check_character(cfg: Config, ev: Event, ch: Character, member_id: int) -> N
         raise Invalid(f"This event is {ev.faction.title()} only.")
 
 
+def event_requirement(cfg: Config, ev: Event) -> str:
+    """Plain description of which characters can join, e.g. "Horde WoW: Forever characters on the RP ruleset"."""
+    ed = cfg.edition(ev.edition)
+    out = f"{ev.faction.title() + ' ' if ev.faction else ''}{ed.name} characters ({ev.region.upper()})"
+    if ed.uses_realms and ev.realm_slug:
+        out += f" on {ev.realm_slug}"
+    elif not ed.uses_realms and ev.ruleset:
+        out += f" on the {ev.ruleset.upper()} ruleset"
+    return out
+
+
+def fit_problems(cfg: Config, ev: Event, ch: Character) -> list[str]:
+    """Why a character can't join this event, in words a player understands. Empty means it fits.
+    Same rules as _check_character."""
+    ed = cfg.edition(ev.edition)
+    if ch.edition != ev.edition:
+        other = cfg.editions.get(ch.edition)
+        return [f"{other.name if other else ch.edition}, not {ed.name}"]
+    out = []
+    if ch.region != ev.region:
+        out.append(f"{ch.region.upper()} region, not {ev.region.upper()}")
+    if ed.uses_realms:
+        if ev.realm_slug and ch.realm_slug != ev.realm_slug:
+            out.append(f"realm {ch.realm_slug or 'not set'}, not {ev.realm_slug}")
+    elif ev.ruleset and ch.ruleset != ev.ruleset:
+        out.append(f"{(ch.ruleset or 'no').upper()} ruleset, not {ev.ruleset.upper()}")
+    if ev.faction and ch.faction != ev.faction:
+        out.append(f"{ch.faction.title()}, not {ev.faction.title()}")
+    return out
+
+
 def _check_role(ev: Event, role_key: str | None) -> str | None:
     if not ev.roles:
         return None

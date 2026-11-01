@@ -491,7 +491,7 @@ def test_host_joins_own_event_and_wrong_characters_are_explained(app):
     host.post("/wow/quester/characters", data={"csrf": tok, "edition": "forever", "ruleset": "pvp", "name": "Elune",
                                                 "faction": "alliance", "race_key": "Night Elf", "class_key": "Druid"})
     html = host.get(page).text
-    assert "Horde WoW: Forever character" in html and "Elune: WoW: Forever PVP Alliance" in html
+    assert "This event is for Horde WoW: Forever characters" in html and "<strong>Elune</strong>: Alliance, not Horde" in html
     assert page + "/join" not in html
     host.post("/wow/quester/characters", data={"csrf": tok, "edition": "forever", "ruleset": "pvp", "name": "Grom",
                                                 "faction": "horde", "race_key": "Orc", "class_key": "Warrior"})

@@ -285,17 +285,16 @@ def router(cfg: Config) -> APIRouter:
             mine = next((x for x in rows if a and x.member_id == a.member_id and x.state in signups.ACTIVE), None)
             chars = roster.list_characters(s, a.member_id) if a else []
             # same rules as signups._check_character, so every listed character can actually join
-            fit = [c for c in chars if c.edition == ev.edition and c.region == ev.region
-                   and (not ev.ruleset or c.ruleset == ev.ruleset)
-                   and (not ev.realm_slug or c.realm_slug == ev.realm_slug)
-                   and (not ev.faction or c.faction == ev.faction)]
+            fit = [c for c in chars if not signups.fit_problems(w.cfg, ev, c)]
+            misfits = [(c.name, signups.fit_problems(w.cfg, ev, c)) for c in chars if c not in fit]
             entry = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == ev.id))
             conflicts = []
             if manager and ev.state == "draft":
                 conflicts = scheduling.preview_conflicts(s, ev.start_at, ev.end_at, ev.exclusive, ev.id,
                                                          {ev.creator_id} | cohosts, w.cfg.max_simultaneous)
             me = s.get(Member, a.member_id) if a and a.member_id else None
-            ctx = {"title": ev.title, "ev": ev, "rows": rows, "mine": mine, "fit": fit, "manager": manager,
+            ctx = {"title": ev.title, "ev": ev, "rows": rows, "mine": mine, "fit": fit, "misfits": misfits,
+                   "requirement": signups.event_requirement(w.cfg, ev), "manager": manager,
                    "recognition_default": bool(me and me.recognition_default),
                    "entry": entry, "conflicts": conflicts,
                    "copy_date": copy_suggestion(ev)[0] if manager else "", "copy_time": copy_suggestion(ev)[1] if manager else "", "ed": w.cfg.edition(ev.edition),
