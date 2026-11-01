@@ -22,7 +22,7 @@ Preflight on 2026-10-31: Python 3.12.3, systemd 255, nginx 1.24.0 and `python3.1
 PostgreSQL not installed and nothing on port 5432, so the full `pg_hba.conf` can be installed (no merge).
 
 ```sh
-sudo apt install postgresql-16 python3.12-venv gnupg
+sudo apt install postgresql-16          # python3.12-venv and gnupg are already present
 ```
 
 ## 2. PostgreSQL hardening and roles (approval: database)
@@ -69,15 +69,19 @@ sudo systemctl daemon-reload
 
 ## 4. Config and credentials (approval: secrets)
 
+The host has no usable TPM (`systemd-creds has-tpm2` → partial), so credentials are bound to the host key
+`/var/lib/systemd/credential.secret` (`--with-key=host`). They can't be decrypted on another machine, which is
+why the plain values must also be kept offline with the backup key.
+
 Edit `/etc/wowquester/config.toml`: guild, application and channel IDs, role IDs, `public_base_url`,
 branding. Then install credentials (see `configuration.md` for the list):
 
 ```sh
 for n in discord-bot-token discord-client-secret field-key; do
-  sudo systemd-creds encrypt --name=wowquester.$n - /etc/credstore.encrypted/wowquester.$n
+  sudo systemd-creds encrypt --with-key=host --name=wowquester.$n - /etc/credstore.encrypted/wowquester.$n
 done
 for r in admin app worker; do
-  sudo systemd-creds encrypt --name=wowquester.db-$r-password /root/wq_$r /etc/credstore.encrypted/wowquester.db-$r-password
+  sudo systemd-creds encrypt --with-key=host --name=wowquester.db-$r-password /root/wq_$r /etc/credstore.encrypted/wowquester.db-$r-password
 done
 sudo shred -u /root/wq_admin /root/wq_app /root/wq_worker /root/wq_readonly   # readonly is only needed by tooling
 sudo -u wowquester wowquester-admin check-config

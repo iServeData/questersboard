@@ -71,7 +71,7 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
 Install each one without it touching the command line or shell history:
 
 ```sh
-sudo systemd-creds encrypt --name=wowquester.<name> - /etc/credstore.encrypted/wowquester.<name>
+sudo systemd-creds encrypt --with-key=host --name=wowquester.<name> - /etc/credstore.encrypted/wowquester.<name>
 # type or paste the value, then Ctrl-D
 ```
 
