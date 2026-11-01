@@ -26,3 +26,16 @@ class Conflict(DomainError):
 
 class InvalidTransition(DomainError):
     code, status = "invalid_transition", 409
+
+
+class NeedsLeave(Invalid):
+    """A character edit would no longer fit events it's signed up for. `events` lists them so the
+    page can offer "Leave these events and save"."""
+
+    def __init__(self, message: str, events: list[dict]):
+        super().__init__(message)
+        self.events = events
+
+
+class EditionLocked(Invalid):
+    """The edition can't change after the character has been in events; the page offers "add as new"."""

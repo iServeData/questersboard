@@ -686,3 +686,48 @@ def test_character_edit_form_fills_in_and_saves(app, seeded):
     assert after.count("title=\"Edit ") == 1          # edited in place, not added
     # someone else's character can't be opened for editing
     assert login(app, 104).get(f"/wow/quester/characters?edit={cid}").status_code == 404
+
+
+def test_character_edit_offers_leave_and_save_for_every_blocking_event(app, seeded):
+    LA = __import__("zoneinfo").ZoneInfo("America/Los_Angeles")
+    org = login(app, 105, "event_creator")
+    tok = csrf(org)
+    urls = []
+    for i, title in enumerate(("Deadmines", "Stockade", "Gnomeregan")):
+        start = at(10 + 5 * i).astimezone(LA)
+        r = org.post("/wow/quester/events/new", data={
+            "csrf": tok, "edition": "forever", "ruleset": "pvp", "faction": "horde", "title": title,
+            "activity_type": "dungeon", "date": start.strftime("%Y-%m-%d"), "start_time": start.strftime("%H:%M"),
+            "duration_minutes": "90", "timezone": "America/Los_Angeles", "signup_policy": "open", "publish": "1"})
+        urls.append(r.headers["location"])
+    p = login(app, 106)
+    t = csrf(p)
+    base = {"csrf": t, "edition": "forever", "ruleset": "pvp", "name": "Zanra", "faction": "horde",
+            "race_key": "Troll", "class_key": "Priest", "eligible_roles": ["healer"]}
+    p.post("/wow/quester/characters", data=base)
+    cid = re.search(r'characters\?edit=(\d+)#character-form" title="Edit Zanra"', p.get("/wow/quester/characters").text).group(1)
+    for u in urls[:2]:
+        p.post(u + "/join", data={"csrf": t, "character_id": cid})
+    # ruleset change blocked by two events: one button leaves both and saves
+    r = p.post("/wow/quester/characters", data={**base, "character_id": cid, "ruleset": "rp"})
+    assert r.status_code == 409 and "signed up for 2 events" in r.text
+    assert "Deadmines" in r.text and "Stockade" in r.text and "Gnomeregan" not in r.text
+    assert "Leave these 2 events and save" in r.text and 'name="leave_events" value="1"' in r.text
+    hidden = dict(re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', r.text.split("leave_events")[0]))
+    assert hidden["ruleset"] == "rp" and hidden["character_id"] == cid
+    r = p.post("/wow/quester/characters", data={**base, "character_id": cid, "ruleset": "rp", "leave_events": "1"})
+    assert r.status_code == 303
+    assert "FOREVER · RP" in p.get("/wow/quester/characters").text.upper()
+    for u in urls[:2]:
+        assert "You're <strong>" not in p.get(u).text       # left: no longer on the roster
+    # edition locked by history: offer "add as new" instead, which keeps the original
+    r = p.post("/wow/quester/characters", data={**base, "character_id": cid, "ruleset": "rp", "edition": "retail",
+                                                "realm_slug": "area-52"})
+    assert r.status_code == 409 and "Add it as a new WoW (Retail) character" in r.text and "leave_events" not in r.text
+    new_form = r.text.split('name="as_new"')[0].rsplit("<form", 1)[1]
+    assert 'name="character_id"' not in new_form
+    r = p.post("/wow/quester/characters", data={**base, "ruleset": "", "edition": "retail", "realm_slug": "area-52",
+                                                "as_new": "1", "character_id": cid})
+    assert r.status_code == 303
+    page = p.get("/wow/quester/characters").text
+    assert page.count('title="Edit Zanra"') == 2 and "WoW (Retail)" in page

@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from ..config import Config
 from ..domain import (calendar, catalog, chronicle, events, permissions, recommendations, recurrence, roster,
                       scheduling, signups)
-from ..domain.errors import Invalid, NotFound, PermissionDenied
+from ..domain.errors import EditionLocked, Invalid, NeedsLeave, NotFound, PermissionDenied
 from ..domain.events import ACTIVITY_TYPES
 from ..domain.timeutil import as_local, now, resolve_local
 from ..domain import audit
@@ -459,11 +459,25 @@ def router(cfg: Config) -> APIRouter:
             # The edit form shows every field, so a field left blank means "clear it", not "keep it".
             for k in ("level", "spec", "preferred_role", "realm_slug"):
                 data.setdefault(k, None)
-        with w.db.tx() as s:
-            if form.get("character_id"):
-                roster.update_character(s, w.cfg, a, int(form["character_id"]), data)
+        keep = [(k, v) for k, v in form.multi_items() if k not in ("csrf", "leave_events", "as_new")]
+        try:
+            with w.db.tx() as s:
+                if form.get("character_id") and not form.get("as_new"):
+                    roster.update_character(s, w.cfg, a, int(form["character_id"]), data,
+                                            leave_events=_bool(form, "leave_events"))
+                else:
+                    roster.add_character(s, w.cfg, a, data)
+        except (NeedsLeave, EditionLocked) as exc:
+            # Offer the one-step fix instead of a dead end; the buttons re-send what was typed.
+            ctx = {"title": "Before saving", "message": exc.message, "fields": keep,
+                   "back_url": f"{mp}/characters?edit={form.get('character_id')}#character-form",
+                   "restore_action": f"{mp}/characters"}
+            if isinstance(exc, NeedsLeave):
+                ctx["leave_events"] = exc.events
             else:
-                roster.add_character(s, w.cfg, a, data)
+                ctx["as_new_fields"] = [(k, v) for k, v in keep if k != "character_id"]
+                ctx["as_new_edition"] = w.cfg.edition(data.get("edition") or "").name if data.get("edition") in w.cfg.editions else ""
+            return render(request, "message.html", ctx, status=409)
         return _redirect(mp + "/characters")
 
     @r.post(mp + "/characters/{character_id}/remove")

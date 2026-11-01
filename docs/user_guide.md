@@ -10,7 +10,8 @@ Log in with Discord. WoWQuester only learns your Discord ID and display name.
 - To edit a character, click its name (or Edit): the form on the right fills in with its details. Change
   anything and press Save changes. Changing its name, edition, ruleset, realm, faction, race or class resets
   any Blizzard check. The edition can only change before the character has been in an event; changes that
-  would stop it fitting an event it is signed up for are refused until you leave that event.
+  would stop it fitting events it is signed up for list those events with one "Leave these events and save"
+  button. If the edition is locked, "Add it as a new character" keeps the original and adds the new one.
 - Pick race and class from the suggestions or type your own. Suggestions follow the edition, faction and race you choose. WoWQuester only refuses a pairing its catalog rules out (for example a Gnome on the Horde, or a Tauren Mage in Forever) and tells you which options are valid. Anything not in the catalog is saved as typed.
 - Set the roles you can fill (tank, healer, damage, or your community's custom roles).
 - "Check with Blizzard" (Retail only for now) confirms the character exists. It doesn't prove it's yours.

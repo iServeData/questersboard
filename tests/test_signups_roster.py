@@ -235,7 +235,7 @@ def test_character_edit_cant_strand_its_signups(seeded, cfg):
         to_retail = {"edition": "retail", "realm_slug": "area-52", "ruleset": None}
         with pytest.raises(Invalid, match="has been in WoW: Forever events \\(Test\\).*add it as a new one"):
             rs.update_character(s, cfg, p, c.id, to_retail)
-        with pytest.raises(Invalid, match="signed up for Test.*Leave that event first"):
+        with pytest.raises(Invalid, match="signed up for 1 event the changed character wouldn't fit"):
             rs.update_character(s, cfg, p, c.id, {"ruleset": "rp"})
         assert rs.update_character(s, cfg, p, c.id, {"level": 42, "spec": "Feral"}).level == 42   # harmless edits fine
         sg.leave(s, cfg, p, ev.id)

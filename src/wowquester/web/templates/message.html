@@ -1,9 +1,28 @@
 {% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
 {% block content %}
 <section class="panel wq-msg"{% if restore_action %} data-restore-action="{{ restore_action }}" data-restore-message="{{ message }}"{% endif %}>
   <div class="section-head"><h1>{{ title }}</h1></div>
   <p>{{ message }}</p>
-  <p>{% if back_url %}<a class="btn" href="{{ back_url }}" data-back>Back to the form</a> {% endif %}<a class="btn ghost" href="{{ mp }}/">Quests</a></p>
+  {% if leave_events %}
+  <ul class="plain-list wq-leave-list">{% for e in leave_events %}
+    <li><a href="{{ mp }}/events/{{ e.public_id }}">{{ e.title }}</a> <span class="note">· {{ fmt_local(e.start_at, e.timezone) }} · you're {{ e.state }} · {{ e.why|join("; ") }}</span></li>{% endfor %}</ul>
+  <form method="post" action="{{ mp }}/characters" class="wq-inline">{{ csrf_field() }}
+    {% for k, v in fields %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <input type="hidden" name="leave_events" value="1">
+    <button class="btn" type="submit">Leave {{ "this event" if leave_events|length == 1 else "these " ~ leave_events|length ~ " events" }} and save</button>
+  </form>
+  <p class="note">Hosts see that you left, and anyone waiting for your spot moves up. Your other events aren't touched.</p>
+  {% endif %}
+  {% if as_new_fields %}
+  <form method="post" action="{{ mp }}/characters" class="wq-inline">{{ csrf_field() }}
+    {% for k, v in as_new_fields %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <input type="hidden" name="as_new" value="1">
+    <button class="btn" type="submit">Add it as a new {{ as_new_edition or "" }} character</button>
+  </form>
+  <p class="note">The existing character stays as it is, with its events.</p>
+  {% endif %}
+  <p>{% if back_url %}<a class="btn{% if leave_events or as_new_fields %} ghost{% endif %}" href="{{ back_url }}" data-back>Back to the form</a> {% endif %}<a class="btn ghost" href="{{ mp }}/">Quests</a></p>
   {% if restore_action %}<p class="note">What you entered is kept in this browser tab until you go back.</p>{% endif %}
 </section>
 {% endblock %}
