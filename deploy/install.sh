@@ -99,9 +99,11 @@ if (( ${#running[@]} )); then
   ok=0
   for _ in $(seq 1 30); do
     sleep 2
-    if "$ADMIN_WRAPPER" health >/dev/null 2>&1; then ok=1; break; fi
+    if "$REPO/deploy/health.sh" --quiet; then ok=1; break; fi
   done
-  if [[ $ok != 1 && -n "$PREV" ]]; then
+  if [[ $ok == 1 ]]; then
+    "$REPO/deploy/health.sh" || true
+  elif [[ -n "$PREV" ]]; then
     echo "!! unhealthy after upgrade; rolling back to $PREV" >&2
     run "$REPO/deploy/rollback.sh" "$PREV"
     exit 1

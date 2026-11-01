@@ -137,9 +137,7 @@ sudo systemctl enable --now wowquester-web.socket wowquester-worker.service wowq
 sudo curl -s --unix-socket /run/wowquester-web.sock http://wowquester/healthz; echo   # first request starts the web service
 systemctl is-active wowquester-web.service wowquester-worker.service wowquester-bot.service
 # full check (DB + outbox + web), with the app credential loaded for this one run:
-sudo systemd-run --pipe --wait \
-  -p LoadCredentialEncrypted=wowquester.db-app-password:/etc/credstore.encrypted/wowquester.db-app-password \
-  /usr/local/sbin/wowquester-admin health --socket /run/wowquester-web.sock
+sudo ./deploy/health.sh        # systemd-run with LoadCredentialEncrypted, as install.sh and rollback.sh use
 sudo journalctl -u wowquester-bot -u wowquester-worker -u wowquester-web --since "5 min ago" --no-pager | tail -30
 ```
 

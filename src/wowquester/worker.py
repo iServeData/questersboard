@@ -300,8 +300,13 @@ class Worker:
 
     # ------------------------------------------------------------------ loop
     def heartbeat(self) -> None:
-        with self.db.tx() as s:
-            status.beat(s, "worker", "running", self.started_at)
+        """Check in for the status card. Never blocks delivery: a failure (e.g. the table is not
+        migrated yet) is logged and the loop carries on."""
+        try:
+            with self.db.tx() as s:
+                status.beat(s, "worker", "running", self.started_at)
+        except Exception:  # noqa: BLE001
+            log.warning("status heartbeat failed", exc_info=True)
 
     def run(self) -> None:
         last_scan = last_house = last_beat = 0.0

@@ -74,3 +74,28 @@ def test_calendar_revoke_is_audited(cfg_file, db, capsys):
                          {"m": mid}).scalar() == 0
         assert s.execute(text("SELECT count(*) FROM audit_log WHERE action='calendar.revoke_admin' AND target_id=:d"),
                          {"d": did}).scalar() >= 1
+
+
+def test_deploy_scripts_health_check_loads_the_db_credential():
+    """Regression: a bare `wowquester-admin health` has no DB password (credentials are only given to
+    the units), so install.sh rolled back a healthy upgrade. Both scripts must use deploy/health.sh."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "deploy"
+    h = (root / "health.sh").read_text()
+    assert "LoadCredentialEncrypted=wowquester.db-app-password:" in h and "--socket" in h
+    for name in ("install.sh", "rollback.sh"):
+        body = (root / name).read_text()
+        assert "health.sh" in body
+        assert "wowquester-admin health" not in body and '"$ADMIN_WRAPPER" health' not in body
+
+
+@needs_db
+def test_worker_heartbeat_failure_does_not_block_the_loop(cfg, worker_db, monkeypatch):
+    from wowquester.config import ConfigHolder
+    from wowquester.domain import status
+    from wowquester.worker import Worker
+
+    def boom(*a, **kw):
+        raise RuntimeError("relation service_heartbeats does not exist")
+    monkeypatch.setattr(status, "beat", boom)
+    Worker(ConfigHolder(cfg), worker_db, None).heartbeat()       # logs, does not raise

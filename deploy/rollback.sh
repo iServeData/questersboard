@@ -21,5 +21,5 @@ for s in "${SERVICES[@]}"; do systemctl is-active --quiet "$s" && running+=("$s"
 if (( ${#running[@]} )); then
   systemctl restart "${running[@]}"
   sleep 5
-  wowquester-admin health || { echo "unhealthy after rollback; journalctl -u wowquester-web -u wowquester-bot -u wowquester-worker" >&2; exit 1; }
+  "$(dirname "$0")/health.sh" || { echo "unhealthy after rollback; journalctl -u wowquester-web -u wowquester-bot -u wowquester-worker" >&2; exit 1; }
 fi

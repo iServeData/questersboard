@@ -17,7 +17,7 @@ the credentials it needs.
 ```sh
 systemctl status 'wowquester-*'
 journalctl -u wowquester-web -u wowquester-bot -u wowquester-worker --since -1h
-sudo wowquester-admin health                       # DB + web socket
+sudo /opt/wowquester/current/deploy/health.sh       # DB + outbox + web socket (loads the app credential)
 sudo -u wowquester wowquester-admin check-config    # after editing config.toml
 ```
 
