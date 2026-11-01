@@ -51,17 +51,23 @@ if [[ ! -e "$ETC/config.toml" ]]; then
   echo "!! edit $ETC/config.toml (guild_id, application_id, role IDs, channel IDs) before starting"
 fi
 
-# 3. Build the release: hash-pinned dependencies, then the package itself without deps.
+# 3. Build the release: hash-pinned dependencies, hash-pinned build backend, then the package
+#    itself without deps. A failed build removes its half-built release directory.
+cleanup_failed() { [[ $DRY == 1 ]] || { echo "!! build failed; removing $REL" >&2; rm -rf "$REL"; }; }
+trap cleanup_failed ERR
 run install -d -o root -g root -m 0755 "$REL"
 run cp -a "$REPO/src" "$REPO/deploy" "$REPO/pyproject.toml" "$REPO/requirements.lock" "$REPO/alembic.ini" \
           "$REPO/LICENSE" "$REPO/README.md" "$REL/"
 run $PY -m venv "$REL/venv"
 run "$REL/venv/bin/pip" install --quiet --disable-pip-version-check --no-cache-dir --require-hashes --no-deps -r "$REL/requirements.lock"
+run "$REL/venv/bin/pip" install --quiet --disable-pip-version-check --no-cache-dir --require-hashes --no-deps -r "$REL/deploy/build_requirements.lock"
 run "$REL/venv/bin/pip" install --quiet --disable-pip-version-check --no-cache-dir --no-deps --no-build-isolation "$REL"
 run rm -rf "$REL/src/wowquester.egg-info" "$REL/build"
 run chown -R root:root "$REL"
 run chmod -R go-w "$REL"
 run "$REL/venv/bin/wowquester-admin" --config "$ETC/config.toml" check-config --quiet
+
+trap - ERR
 
 # 4. Switch "current" atomically, remembering the previous release.
 PREV=""
