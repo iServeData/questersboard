@@ -100,6 +100,26 @@
     });
   });
 
+  // Group roles: show the filled rows plus one blank row, and an "Add more..." button for the rest.
+  // Without this script every row is shown, so the form still works.
+  document.querySelectorAll("[data-role-rows]").forEach(function (table) {
+    var form = table.closest("form"), btn = form && form.querySelector("[data-add-role]");
+    var extras = function () { return table.querySelectorAll("tr[data-role-extra]"); };
+    var refresh = function () { if (btn) btn.hidden = extras().length === 0; };
+    var reveal = function (tr) { tr.hidden = false; tr.removeAttribute("data-role-extra"); };
+    extras().forEach(function (tr) { tr.hidden = true; });
+    refresh();
+    if (btn) btn.addEventListener("click", function () {
+      var next = extras()[0]; if (!next) return;
+      reveal(next); refresh(); next.querySelector("input").focus();
+    });
+    // A row filled in by "entries filled back in" must be visible.
+    table.addEventListener("input", function (ev) {
+      var tr = ev.target.closest("tr[data-role-extra]");
+      if (tr && ev.target.value) { reveal(tr); refresh(); }
+    });
+  });
+
   // Keep what a player typed when the server refuses a form. On submit the fields are copied
   // into this tab's sessionStorage; the error page marks which form to restore; the form page
   // puts the values back and shows the message above the form. A page reached any other way

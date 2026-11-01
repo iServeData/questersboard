@@ -56,13 +56,23 @@ def _local_dt(date_s: str, time_s: str, tz: str, fold: str | None = None) -> dat
     return resolve_local(local, tz, int(fold) if fold in ("0", "1") else None)
 
 
+MAX_ROLE_ROWS = 12
+
+
 def _roles_from_form(form) -> list[dict]:
     out = []
-    for i in range(12):
-        key, label, qty = form.get(f"role_key_{i}", ""), form.get(f"role_label_{i}", ""), form.get(f"role_qty_{i}", "")
-        if not (key or label) or not str(qty).strip():
+    for i in range(MAX_ROLE_ROWS):
+        key = str(form.get(f"role_key_{i}", "")).strip()
+        label = str(form.get(f"role_label_{i}", "")).strip()
+        qty = str(form.get(f"role_qty_{i}", "")).strip()
+        if not (key or label or qty):
             continue
-        out.append({"key": (key or label).strip().lower().replace(" ", "_"), "label": label.strip(), "quantity": qty})
+        name = key or label
+        if not name:
+            raise Invalid(f"Group role row {i + 1} has a number but no role. Enter a role, or clear the number.")
+        if not qty:
+            raise Invalid(f"Enter how many {name} you need, or clear that row.")
+        out.append({"key": name.lower().replace(" ", "_"), "label": label, "quantity": qty})
     return out
 
 
@@ -210,7 +220,8 @@ def router(cfg: Config) -> APIRouter:
         with w.db.tx() as s:
             chars = roster.list_characters(s, a.member_id)
         return {"editions": w.cfg.editions, "activity_types": ACTIVITY_TYPES, "presets": w.cfg.role_presets,
-                "ev": ev, "chars": chars, "tz": w.cfg["community"]["default_timezone"]}
+                "ev": ev, "chars": chars, "tz": w.cfg["community"]["default_timezone"],
+                "max_roles": MAX_ROLE_ROWS}
 
     @r.get(mp + "/events/new")
     def new_event(request: Request):

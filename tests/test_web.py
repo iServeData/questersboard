@@ -526,3 +526,26 @@ def test_preferred_role_counts_as_eligible(seeded, cfg):
     with seeded.tx() as s:
         c = char(s, cfg, actor(10), "Grom", eligible_roles=[], preferred_role="tank")
         assert c.eligible_roles == ["tank"] and c.preferred_role == "tank"
+
+
+def test_event_form_shows_one_blank_role_row_and_add_more(app, seeded):
+    org = login(app, 95, "event_creator")
+    html = org.get("/wow/quester/events/new").text
+    rows = html.split("data-role-rows", 1)[1].split("</table>", 1)[0]
+    assert rows.count("<tr") == 13 and rows.count("data-role-extra") == 11   # header + 12; only row 1 open
+    assert 'placeholder="e.g. tank"' in rows and 'placeholder="e.g. 2"' in rows
+    assert "data-add-role" in html and "Add more" in html
+
+
+def test_role_row_without_how_many_is_refused_not_dropped(app, seeded):
+    org = login(app, 96, "event_creator")
+    tok = csrf(org)
+    start = at(5).astimezone(__import__("zoneinfo").ZoneInfo("America/Los_Angeles"))
+    base = {"csrf": tok, "edition": "forever", "ruleset": "pvp", "faction": "horde", "title": "Deadmines",
+            "activity_type": "dungeon", "date": start.strftime("%Y-%m-%d"), "start_time": start.strftime("%H:%M"),
+            "duration_minutes": "90", "timezone": "America/Los_Angeles", "signup_policy": "open"}
+    r = org.post("/wow/quester/events/new", data={**base, "role_key_0": "tank", "role_qty_0": "1",
+                                                  "role_key_1": "healer"})
+    assert r.status_code == 422 and "Enter how many healer you need" in r.text
+    r = org.post("/wow/quester/events/new", data={**base, "role_qty_0": "2"})
+    assert r.status_code == 422 and "has a number but no role" in r.text

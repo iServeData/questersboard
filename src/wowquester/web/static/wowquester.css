@@ -80,3 +80,6 @@
 .wq-legal li{margin:.35em 0}
 /* refused form: message shown above the restored form */
 .wq-form-error{border-left:3px solid #c0392b;background:rgba(192,57,43,.12);padding:.6em .8em;margin:0 0 1em}
+.wq-form ::placeholder,.wq-table input::placeholder{color:var(--dim,#6d737a);opacity:1;font-style:italic}
+.wq-form :focus::placeholder,.wq-table input:focus::placeholder{color:transparent}
+tr[hidden]{display:none}
