@@ -1,0 +1,112 @@
+WoWQuester test run 2026-11-01T03:19Z
+Python 3.12.15, PostgreSQL 18.6 (disposable local cluster); Discord/Blizzard/AI replaced by FIXTURE fakes
+
+tests/test_bot.py::test_command_payload_shape PASSED
+tests/test_bot.py::test_persistent_custom_id_matches_render PASSED
+tests/test_bot.py::test_actor_from_guild_payload_and_foreign_guild PASSED
+tests/test_bot.py::test_dm_actor_uses_rest_lookup PASSED
+tests/test_chronicle.py::test_end_creates_draft_and_attendance_starts_unknown PASSED
+tests/test_chronicle.py::test_outcome_never_inferred_and_privacy_scan PASSED
+tests/test_chronicle.py::test_review_publish_projection_is_privacy_safe PASSED
+tests/test_chronicle.py::test_material_edit_keeps_old_version_until_approved PASSED
+tests/test_chronicle.py::test_trusted_author_self_publishes_but_is_still_checked PASSED
+tests/test_chronicle.py::test_recognition_removal_applies_immediately PASSED
+tests/test_chronicle.py::test_bad_upload_rejected PASSED
+tests/test_chronicle.py::test_rendering_is_safe PASSED
+tests/test_chronicle.py::test_cohost_is_not_coauthor_until_assigned PASSED
+tests/test_cli.py::test_check_config_never_prints_secret_values PASSED
+tests/test_cli.py::test_invalid_config_exits_78 PASSED
+tests/test_cli.py::test_sync_commands_is_dry_run_without_approval PASSED
+tests/test_cli.py::test_prune_and_outbox_status PASSED
+tests/test_cli.py::test_calendar_revoke_is_audited PASSED
+tests/test_db_hardening.py::test_superuser_and_root_password_login_rejected_over_tcp[wowquester-postgres] PASSED
+tests/test_db_hardening.py::test_superuser_and_root_password_login_rejected_over_tcp[wowquester-root] PASSED
+tests/test_db_hardening.py::test_superuser_and_root_password_login_rejected_over_tcp[postgres-postgres] PASSED
+tests/test_db_hardening.py::test_superuser_and_root_password_login_rejected_over_tcp[postgres-root] PASSED
+tests/test_db_hardening.py::test_socket_login_rejected_for_non_matching_os_user[postgres] PASSED
+tests/test_db_hardening.py::test_socket_login_rejected_for_non_matching_os_user[root] PASSED
+tests/test_db_hardening.py::test_unknown_role_rejected PASSED
+tests/test_db_hardening.py::test_no_role_named_root_and_no_extra_superusers PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[CREATE TABLE evil (id int)-wowquester_app] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[CREATE TABLE evil (id int)-wowquester_worker] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[CREATE TABLE evil (id int)-wowquester_readonly] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[ALTER TABLE events ADD COLUMN x int-wowquester_app] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[ALTER TABLE events ADD COLUMN x int-wowquester_worker] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[ALTER TABLE events ADD COLUMN x int-wowquester_readonly] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[DROP TABLE signups-wowquester_app] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[DROP TABLE signups-wowquester_worker] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[DROP TABLE signups-wowquester_readonly] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[CREATE ROLE evil-wowquester_app] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[CREATE ROLE evil-wowquester_worker] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[CREATE ROLE evil-wowquester_readonly] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[TRUNCATE audit_log-wowquester_app] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[TRUNCATE audit_log-wowquester_worker] PASSED
+tests/test_db_hardening.py::test_service_roles_cannot_run_ddl[TRUNCATE audit_log-wowquester_readonly] PASSED
+tests/test_db_hardening.py::test_app_cannot_rewrite_audit_log PASSED
+tests/test_db_hardening.py::test_readonly_sees_only_projections PASSED
+tests/test_db_hardening.py::test_worker_cannot_read_sessions_or_tokens PASSED
+tests/test_db_hardening.py::test_admin_role_can_migrate_down_and_up PASSED
+tests/test_integrations.py::test_forever_is_unsupported_and_never_falls_back_to_retail PASSED
+tests/test_integrations.py::test_retail_requires_realm PASSED
+tests/test_integrations.py::test_retail_lookup_retries_429_and_is_not_ownership PASSED
+tests/test_integrations.py::test_retail_404_is_not_found_and_5xx_exhausts_to_api_error PASSED
+tests/test_integrations.py::test_ptr_namespace_rejected_by_config PASSED
+tests/test_integrations.py::test_discord_status_classification[429-RateLimited] PASSED
+tests/test_integrations.py::test_discord_status_classification[404-Gone] PASSED
+tests/test_integrations.py::test_discord_status_classification[403-Forbidden] PASSED
+tests/test_integrations.py::test_discord_status_classification[502-Transient] PASSED
+tests/test_integrations.py::test_discord_request_has_no_mentions_allowed PASSED
+tests/test_integrations.py::test_weekly_series_keeps_local_time_across_dst PASSED
+tests/test_integrations.py::test_nonexistent_local_time_skipped_with_note PASSED
+tests/test_integrations.py::test_recurrence_rejects_other_freq PASSED
+tests/test_integrations.py::test_ics_escapes_folds_and_uses_utc PASSED
+tests/test_integrations.py::test_ai_payload_is_publication_safe PASSED
+tests/test_integrations.py::test_ai_reply_used_when_safe_and_template_otherwise PASSED
+tests/test_integrations.py::test_ai_disabled_or_failing_uses_template PASSED
+tests/test_integrations.py::test_retention_and_review_channel_validation PASSED
+tests/test_sanitized.py::test_repository_contains_no_ids_tokens_or_keys PASSED
+tests/test_scheduling.py::test_default_limit_one_blocks_overlap PASSED
+tests/test_scheduling.py::test_back_to_back_allowed_half_open PASSED
+tests/test_scheduling.py::test_drafts_reserve_nothing PASSED
+tests/test_scheduling.py::test_limit_two_and_peak_sweep PASSED
+tests/test_scheduling.py::test_exclusive_blocks_all_and_needs_role PASSED
+tests/test_scheduling.py::test_member_conflict_across_characters PASSED
+tests/test_scheduling.py::test_tentative_and_pending_do_not_reserve PASSED
+tests/test_scheduling.py::test_completion_and_cancel_release PASSED
+tests/test_scheduling.py::test_only_managers_start_end_cancel PASSED
+tests/test_scheduling.py::test_concurrent_publish_only_one_wins PASSED
+tests/test_scheduling.py::test_concurrent_join_last_slot PASSED
+tests/test_scheduling.py::test_reschedule_requires_reconfirm_and_bumps_conflicts PASSED
+tests/test_series_recommendations.py::test_edit_one_detaches_and_edit_future_skips_detached PASSED
+tests/test_series_recommendations.py::test_recommendations_explain_fit_and_skip_mismatches PASSED
+tests/test_signups_roster.py::test_forever_has_no_realm_retail_requires_realm PASSED
+tests/test_signups_roster.py::test_invalid_race_class_rejected PASSED
+tests/test_signups_roster.py::test_cannot_edit_others_character PASSED
+tests/test_signups_roster.py::test_duplicate_signup_and_wrong_character PASSED
+tests/test_signups_roster.py::test_ruleset_mismatch PASSED
+tests/test_signups_roster.py::test_waitlist_promotion_on_leave PASSED
+tests/test_signups_roster.py::test_approval_policy_and_permissions PASSED
+tests/test_signups_roster.py::test_copy_makes_clean_draft PASSED
+tests/test_signups_roster.py::test_public_projection_has_counts_not_names PASSED
+tests/test_web.py::test_login_state_is_single_use_and_bad_state_rejected PASSED
+tests/test_web.py::test_non_guild_member_cannot_log_in PASSED
+tests/test_web.py::test_session_cookie_flags_and_hash_only PASSED
+tests/test_web.py::test_csrf_required_on_posts PASSED
+tests/test_web.py::test_character_realm_rule_via_web PASSED
+tests/test_web.py::test_create_publish_join_and_upcoming_json PASSED
+tests/test_web.py::test_exclusive_checkbox_needs_role PASSED
+tests/test_web.py::test_removed_role_stops_privileged_action PASSED
+tests/test_web.py::test_personal_calendar_token_and_revocation PASSED
+tests/test_web.py::test_chronicle_public_only_after_approval_and_media_gate PASSED
+tests/test_web.py::test_security_headers_and_health PASSED
+tests/test_web.py::test_rate_limit PASSED
+tests/test_web.py::test_check_with_blizzard_retail_is_existence_only PASSED
+tests/test_web.py::test_check_with_blizzard_forever_is_refused_without_requests PASSED
+tests/test_web.py::test_battlenet_link_state_single_use_and_marks_owned PASSED
+tests/test_web.py::test_autocomplete_options_and_free_text PASSED
+tests/test_worker.py::test_canonical_post_is_edited_and_reposted_when_deleted PASSED
+tests/test_worker.py::test_rate_limit_and_forbidden PASSED
+tests/test_worker.py::test_reminders_once_and_rescheduled_again PASSED
+tests/test_worker.py::test_overrun_nudged_once_and_not_auto_extended PASSED
+tests/test_worker.py::test_coalescing_keeps_one_pending_job PASSED
+======================= 108 passed, 2 warnings in 10.99s =======================

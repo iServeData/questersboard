@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block crumb %}<a href="{{ cp }}/">Chronicle</a> / <span aria-current="page">{{ pc.title }}</span>{% endblock %}
+{% block content %}
+<article class="wq-story">
+  <div class="section-head"><span class="label"><span class="num">{{ pc.activity_type|upper }}</span> // {{ pc.edition_name }} · {{ pc.event_date.strftime("%b %-d, %Y") }}</span><h1>{{ pc.title }}</h1></div>
+  <p><span class="status-chip">{{ outcome.get(pc.outcome) }}</span>{% if pc.ai_assisted %} <span class="note">Wording assisted by AI, reviewed by people.</span>{% endif %}</p>
+  <div class="wq-body">{{ pc.body_html|safe }}</div>
+  {% for im in pc.images %}<figure class="shot banner-frame"><img src="{{ im.url }}" alt="{{ im.caption }}" width="{{ im.width }}" height="{{ im.height }}" loading="lazy">{% if im.caption %}<figcaption class="note">{{ im.caption }}</figcaption>{% endif %}</figure>{% endfor %}
+  {% if pc.participants %}<h2 class="sub">Who was there</h2>
+  <ul class="chips">{% for p in pc.participants %}<li>{{ p.label }}</li>{% endfor %}</ul>{% endif %}
+  <p class="note wq-meta">Published {{ pc.published_at.strftime("%b %-d, %Y") }}{% if pc.updated_at.date() != pc.published_at.date() %} · updated {{ pc.updated_at.strftime("%b %-d, %Y") }}{% endif %}</p>
+</article>
+{% endblock %}

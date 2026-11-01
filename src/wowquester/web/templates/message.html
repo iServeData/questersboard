@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel wq-msg">
+  <div class="section-head"><h1>{{ title }}</h1></div>
+  <p>{{ message }}</p>
+  <p><a class="btn ghost" href="javascript:history.back()">Back</a> <a class="btn ghost" href="{{ mp }}/">Quests</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field %}
+{% block content %}
+<div class="section-head"><span class="label">Chronicle · {{ e.state.replace('_', ' ') }}</span><h1>{{ ev.title }}</h1></div>
+{% if e.published_revision_id and e.working_revision_id != e.published_revision_id %}<p class="caveat">The published version stays public until this edit is approved.</p>{% endif %}
+{% if problems %}<div class="caveat"><strong>Before submitting:</strong><ul class="plain-list">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
+<div class="wq-grid">
+<form method="post" class="wq-form panel" action="{{ mp }}/chronicle/{{ e.id }}/save">{{ csrf_field() }}
+  <label>Title <input name="title" value="{{ rev.title }}" maxlength="140" required></label>
+  <label>What did you set out to do? <textarea name="attempted" rows="3">{{ rev.attempted }}</textarea></label>
+  <label>What happened? <textarea name="happened" rows="5">{{ rev.happened }}</textarea></label>
+  <label>Outcome <span class="note">(you choose; WoWQuester never guesses)</span>
+    <select name="outcome">{% for o in outcomes %}<option value="{{ o }}"{% if rev.outcome == o %} selected{% endif %}>{{ {"completed":"Completed","partial":"Partly completed","not_completed":"Not completed","social":"Social / no goal","unknown":"Not chosen yet"}[o] }}</option>{% endfor %}</select></label>
+  <label>Best moments <textarea name="moments" rows="3">{{ rev.moments }}</textarea></label>
+  <label>Story <span class="note">(optional; Markdown. Leave empty to build it from the answers above.)</span><textarea name="body" rows="8">{{ rev.body }}</textarea></label>
+  <p class="note">Only name characters whose players opted in. Opted-out players are described neutrally automatically.</p>
+  <div class="btns"><button class="btn ghost" type="submit">Save</button></div>
+</form>
+<aside class="side">
+  <div class="panel">
+    <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/submit">{{ csrf_field() }}<button class="btn" type="submit"{% if problems %} disabled{% endif %}>{{ "Publish" if can('trusted_author') else "Submit for review" }}</button></form>
+    {% if ai %}<form method="post" action="{{ mp }}/chronicle/{{ e.id }}/suggest">{{ csrf_field() }}<button class="btn ghost" type="submit">Suggest wording</button><p class="note">Sends only your answers (opted-out names removed) to the configured AI service. The suggestion is saved as a draft for you to edit; nothing is published automatically.</p></form>{% endif %}
+  </div>
+  <div class="panel">
+    <h2 class="sub">Screenshots</h2>
+    {% for u in ups %}<figure class="shot"><img src="{{ mp }}/uploads/{{ u.public_id }}.webp" alt="{{ u.caption }}" width="{{ u.width }}" height="{{ u.height }}" loading="lazy"><figcaption class="note">{{ u.caption }} · {{ "cleared" if u.cleared_at else "not cleared" }}</figcaption>
+      {% if can('chronicle_reviewer') or can('trusted_author') %}<form method="post" action="{{ mp }}/chronicle/{{ e.id }}/clear" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ u.id }}"><input type="hidden" name="cleared" value="{{ 0 if u.cleared_at else 1 }}"><button class="linkish" type="submit">{{ "Un-clear" if u.cleared_at else "Shows no opted-out player: clear" }}</button></form>{% endif %}
+      <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/remove_upload" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ u.id }}"><button class="linkish" type="submit">Remove</button></form></figure>
+    {% endfor %}
+    <form method="post" enctype="multipart/form-data" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/upload">{{ csrf_field() }}
+      <label>Image (PNG, JPEG or WebP) <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required></label>
+      <label>Caption <input name="caption" maxlength="200"></label>
+      <button class="btn ghost" type="submit">Upload</button>
+      <p class="note">Images are re-encoded and location/camera data is removed. Check name plates, chat and overlays before clearing.</p></form>
+  </div>
+  <div class="panel">
+    <h2 class="sub">Co-authors</h2>
+    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/coauthors">{{ csrf_field() }}<label>Discord user IDs <input name="coauthors" inputmode="numeric"></label><button class="btn ghost" type="submit">Save</button></form>
+    <p class="note">Co-authors can write the story. They aren't event co-hosts.</p>
+  </div>
+  {% if can('chronicle_reviewer') %}
+  <div class="panel">
+    <h2 class="sub">Review</h2>
+    {% if e.state == "pending_review" %}
+    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/review">{{ csrf_field() }}
+      <label>Note to authors <textarea name="note" rows="2" maxlength="1000"></textarea></label>
+      <div class="btns"><button class="btn" name="decision" value="approve" type="submit">Approve &amp; publish</button><button class="btn ghost" name="decision" value="changes_requested" type="submit">Request changes</button><button class="btn ghost" name="decision" value="rejected" type="submit">Reject</button></div></form>
+    {% endif %}
+    {% if e.state == "published" or e.published_revision_id %}
+    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/unpublish">{{ csrf_field() }}<label>Reason <input name="reason" required maxlength="500"></label><button class="btn ghost" type="submit" data-confirm="Take this story down?">Unpublish</button></form>
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="panel">
+    <h2 class="sub">Remove me</h2>
+    <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/remove_me">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Stop naming you in this story? Screenshots will need re-clearing.">Stop naming me in this story</button></form>
+  </div>
+  <details class="panel"><summary>History</summary><ul class="plain-list">{% for h in hist %}<li>v{{ h.number }} · {{ h.decision or ("submitted" if h.submitted_at else "draft") }}{% if h.ai_assisted %} · AI-assisted{% endif %}{% if h.decision_note %} · “{{ h.decision_note }}”{% endif %}</li>{% endfor %}</ul></details>
+</aside>
+</div>
+{% endblock %}

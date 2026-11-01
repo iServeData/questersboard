@@ -1,0 +1,75 @@
+/* WoWQuester page styles. Layered on top of the host site's stylesheet ([branding] stylesheet).
+   .wq-fallback supplies a minimal dark theme when no host stylesheet is configured. */
+[hidden]{display:none!important}
+.wq-fallback{--bg:#111213;--panel:rgba(26,27,29,.92);--panel-solid:#1a1b1d;--text:#e1e4e8;--muted:#a3a9b1;--dim:#6d737a;
+  --line:rgba(225,228,232,.12);--line-strong:rgba(225,228,232,.24);--sand:#c9b98f;--radius:2px;--wrap:1180px;--nav-h:64px;
+  --font-head:system-ui,sans-serif;--font-mono:ui-monospace,Menlo,Consolas,monospace;
+  margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,sans-serif}
+.wq-fallback a{color:var(--text)}
+.wq-fallback .wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+.wq-fallback .nav{border-bottom:1px solid var(--line);min-height:var(--nav-h);display:flex;align-items:center}
+.wq-fallback .nav .wrap{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;width:100%}
+.wq-fallback .nav ul{display:flex;flex-wrap:wrap;gap:6px 18px;list-style:none;margin:0;padding:0}
+.wq-fallback .nav a{text-decoration:none}
+.wq-fallback .wordmark{font-weight:700;letter-spacing:.06em}
+.wq-fallback .panel{background:var(--panel);border:1px solid var(--line);padding:22px;border-radius:var(--radius)}
+.wq-fallback .btn{display:inline-flex;padding:10px 16px;border:1px solid var(--text);background:var(--text);color:#121212;font:600 .78rem/1 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;text-decoration:none;cursor:pointer;border-radius:var(--radius)}
+.wq-fallback .btn.ghost{background:transparent;color:var(--text);border-color:var(--line-strong)}
+.wq-fallback .btns{display:flex;flex-wrap:wrap;gap:10px}
+.wq-fallback .label,.wq-fallback .crumb{font:500 .74rem/1.2 var(--font-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.wq-fallback .section-head{border-bottom:1px solid var(--line);margin-bottom:22px;padding-bottom:10px}
+.wq-fallback .note{color:var(--muted);font-size:.92rem}
+.wq-fallback .facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));list-style:none;padding:0;border:1px solid var(--line)}
+.wq-fallback .facts li{padding:12px 14px;border:1px solid var(--line)}.wq-fallback .facts span{display:block;font:500 .7rem var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.wq-fallback .caveat{border:1px solid var(--line);border-left:3px solid var(--sand);padding:12px 16px;margin:16px 0}
+.wq-fallback .status-chip,.wq-fallback .sched-kind{display:inline-block;font:600 .68rem var(--font-mono);letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--line-strong);padding:4px 8px;margin-right:8px}
+.wq-fallback .chips{display:flex;flex-wrap:wrap;gap:6px 14px;list-style:none;padding:0}
+.wq-fallback .skip{position:absolute;left:-999px}
+.wq-fallback .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+
+/* shared */
+.wq-main{padding-top:calc(var(--nav-h,58px) + 28px);padding-bottom:60px}
+.wq-main h1{margin:.2em 0}
+.wq-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:30px;align-items:start}
+.wq-list{list-style:none;padding:0;margin:0;display:grid;gap:14px}
+.wq-card{display:block;padding:18px 20px}
+.wq-list>li{border-bottom:0}
+.side .panel+.panel{margin-top:0}
+.wq-card h3,.wq-h{margin:.35em 0 .2em;font-size:1.2rem}
+.wq-card h3 a,.wq-h a{text-decoration:none}
+.wq-thumb{float:right;width:120px;height:72px;object-fit:cover;margin:0 0 8px 12px;border:1px solid var(--line)}
+.wq-form{display:grid;gap:12px}
+.wq-form fieldset{border:1px solid var(--line);padding:14px 16px;margin:0;display:grid;gap:12px}
+.wq-form legend{font:600 .72rem var(--font-mono,monospace);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding:0 6px}
+.wq-form label{display:grid;gap:4px}
+.wq-form label:has(> input[type=checkbox]),.wq-form label:has(> input[type=radio]),.wq-check{display:block}
+.wq-form label > input[type=checkbox],.wq-form label > input[type=radio],.wq-check > input{margin:0 8px 0 0;vertical-align:baseline}
+.wq-grid .facts,.wq-grid > section > .facts:first-child{margin-top:0}
+.wq-form input:not([type=checkbox]):not([type=radio]),.wq-form select,.wq-form textarea,.wq-table input{
+  width:100%;box-sizing:border-box;font:inherit;color:var(--text);background:rgba(225,228,232,.06);border:1px solid var(--line-strong);border-radius:var(--radius,2px);padding:9px 10px}
+.wq-form select option{background:#1a1b1d;color:#e1e4e8}
+.wq-form input:focus-visible,.wq-form select:focus-visible,.wq-form textarea:focus-visible,.btn:focus-visible,.linkish:focus-visible{outline:2px solid var(--accent,#c9b98f);outline-offset:2px}
+.wq-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.wq-table{width:100%;border-collapse:collapse}
+.wq-table th,.wq-table td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.wq-table th{font:500 .7rem var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.wq-roster{list-style:none;padding:0;margin:0 0 14px;display:flex;flex-wrap:wrap;gap:6px 16px}
+.wq-role{margin:16px 0 6px;font-size:1rem}
+.wq-rec{padding:8px 0;border-bottom:1px solid var(--line)}
+.wq-rec:last-child{border-bottom:0}
+.wq-desc{white-space:pre-line;margin-top:18px}
+.wq-inline{display:inline}
+.linkish{background:none;border:0;padding:0;color:var(--text);text-decoration:underline;cursor:pointer;font:inherit}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.wq-story{max-width:760px}
+.wq-body{font-size:1.06rem}
+.wq-body img{max-width:100%}
+.shot img,.wq-story img{max-width:100%;height:auto;display:block}
+.wq-foot{padding:30px 24px 50px;border-top:1px solid var(--line)}
+.wq .nav{position:relative}
+.wq-state-in_progress{border-color:var(--accent,#c4493c)}
+.wq-state-cancelled{opacity:.8;text-decoration:line-through}
+.wq details summary{cursor:pointer;margin:10px 0}
+@media (max-width:900px){.wq-grid{grid-template-columns:1fr}.wq-thumb{float:none;width:100%;height:auto;margin:0 0 8px}}
+.wq-meta{margin-top:16px}
+.wq-grid > section{padding:0}

@@ -1,0 +1,12 @@
+[Unit]
+Description=WoWQuester encrypted backup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/wowquester/current/deploy/backup/backup.sh
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=yes

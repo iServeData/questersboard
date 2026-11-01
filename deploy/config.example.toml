@@ -1,0 +1,245 @@
+# /etc/wowquester/config.toml   (owner root:wowquester, mode 0640)
+#
+# WoWQuester settings. NO SECRETS in this file. Tokens, client secrets and
+# database passwords are systemd credentials (see docs/configuration.md).
+# Discord IDs MUST be quoted strings.
+#
+# Reload behaviour: sections marked [live] are re-read about every 30 seconds
+# when the file changes AND the whole file still validates. Every other
+# section needs `sudo systemctl restart wowquester-*.service`.
+# All three services (web, bot, worker) read this same file.
+
+[community]                                   # restart
+name = "Example Community"
+guild_id = ""                                 # Discord server (guild) ID
+default_timezone = "America/Los_Angeles"      # IANA name
+public_base_url = "https://community.example.org"
+# Optional Discord role every member must hold to use WoWQuester at all.
+# Empty = any member of the guild.
+member_role_ids = []
+
+[discord]                                     # restart
+application_id = ""
+event_channel_id = ""                         # where event posts live
+review_channel_id = ""                        # optional: chronicle reviewers get a short notice here (no story text)
+allowed_command_channel_ids = []              # slash commands only work here (plus DMs if enabled)
+dm_enabled = true                             # members may use the bot in DMs; same permission checks apply
+notify_dm_on_material_change = true           # DM confirmed participants when time/location changes or event is cancelled
+reconfirm_window_hours = 24
+
+[roles]                                       # [live] Discord role IDs per capability
+event_creator = []          # create and publish events
+event_moderator = []        # start/end/cancel/edit ANY event; manage any signups
+exclusive_designator = []   # mark an event "exclusive"
+chronicle_editor = []       # edit any chronicle draft
+chronicle_reviewer = []     # approve / reject / request changes / unpublish
+trusted_author = []         # self-publish own chronicle entries (still audited, still consent-checked)
+admin = []                  # catalog and configuration admin in the web UI
+
+[scheduling]                                  # [live]
+max_simultaneous_wow_events = 1               # positive integer. 1 = no two WoW events may overlap.
+min_duration_minutes = 15
+max_duration_hours = 12
+max_days_ahead = 180
+late_join_default = false
+overrun_grace_minutes = 30                    # how long "in progress" may run past the planned end before a reminder
+reschedule_requires_reconfirm = true
+max_recurrence_occurrences = 26
+
+[signups]                                     # [live]
+default_policy = "open"                       # open | approval
+allow_tentative = true
+max_custom_roles = 10
+
+[reminders]                                   # [live]
+offsets_minutes = [60, 15]
+
+[chronicle]                                   # [live]
+public_path = "/wow/chronicle"
+public_after_approval = true
+# Neutral description for opted-out participants:
+#   "role"        -> "a healer"
+#   "role_class"  -> "a druid healer"   (more identifying; off by default)
+neutral_description_style = "role"
+max_body_chars = 8000
+
+[uploads]                                     # restart
+storage_dir = "/var/lib/wowquester/uploads"
+max_bytes = 5_000_000
+allowed_types = ["image/png", "image/jpeg", "image/webp"]
+max_per_entry = 6
+
+[ai]                                          # restart
+enabled = false                               # explicit opt-in
+provider = "openai_compatible"                # openai_compatible | none
+base_url = "https://api.openai.com/v1"
+model = ""
+timeout_seconds = 30
+max_output_tokens = 900
+credential = "ai-api-key"
+
+[feeds]                                       # restart
+items = 20
+cache_seconds = 300
+
+[calendar]                                    # restart
+public_enabled = true
+horizon_days = 90
+
+[web]                                         # restart
+bind = "fd:3"                                 # fd:3 = socket from wowquester-web.socket; or "127.0.0.1:8740" for local dev
+member_path = "/wow/quester"
+session_hours = 72
+cookie_secure = true
+assets_base = "/assets"                       # the existing site's CSS/fonts
+
+[branding]                                    # restart. Page chrome only; all values site-specific.
+site_name = "Example Community"
+home_url = "/"
+game_page_url = "/wow/"                       # the site's WoW page (back link)
+stylesheet = "/assets/css/styles.css"         # reuse the host site's stylesheet; empty = bundled fallback CSS
+body_class = "theme-wow"
+discord_invite_url = ""                       # optional "Join the Discord" link
+nav = [ { label = "Home", url = "/" }, { label = "WoW", url = "/wow/" } ]
+
+[retention]                                   # restart
+outbox_done_days = 14                         # finished background jobs
+api_cache_days = 30
+audit_days = 400                              # pruned by `wowquester-admin prune` (admin role), never by services
+withdrawn_signup_days = 365                   # withdrawn/rejected signups of past events
+session_days_after_expiry = 1
+
+[rate_limits]                                 # [live]
+web_requests_per_minute = 120
+actions_per_minute = 30
+
+[database]                                    # restart
+# No password here. App/worker passwords come from credentials db-app-password / db-worker-password.
+app_url = "postgresql+psycopg://wowquester_app@127.0.0.1:5432/wowquester"
+worker_url = "postgresql+psycopg://wowquester_worker@127.0.0.1:5432/wowquester"
+admin_url = "postgresql+psycopg://wowquester_admin@127.0.0.1:5432/wowquester"   # migrations + admin CLI only (credential db-admin-password)
+pool_size = 5
+
+[blizzard]                                    # restart
+enabled = false                               # turn on after credentials are installed
+oauth_base = "https://oauth.battle.net"
+api_host_template = "https://{region}.api.blizzard.com"
+timeout_seconds = 10
+max_retries = 3
+requests_per_second = 20                      # Blizzard's published ceiling is higher; stay well under
+cache_hours_static = 168
+cache_hours_profile = 6
+battlenet_link_enabled = false                # optional ownership verification (wow.profile scope)
+
+# ---------------------------------------------------------------------------
+# Game editions. Each WoWQuester event and character belongs to exactly one.
+# Namespaces use {region}. Leave a namespace empty when Blizzard has not
+# published one: the feature then shows "not available" instead of guessing.
+# api_status values: verified | unverified | unsupported
+# ---------------------------------------------------------------------------
+
+[[editions]]
+key = "forever"
+name = "WoW: Forever"
+uses_realms = false                           # Forever is realmless; rulesets replace realms
+rulesets = ["normal", "pvp", "rp"]
+default_ruleset = "pvp"
+regions = ["us"]
+default_region = "us"
+factions = ["horde", "alliance"]
+default_faction = "horde"
+max_level = 60
+catalog = "forever"                           # packaged race/class seed (src/wowquester/catalog/forever.toml)
+static_namespace = ""                         # unpublished by Blizzard as of 2026-10-31
+dynamic_namespace = ""
+profile_namespace = ""
+# Forever characters are addressed by ruleset, but the profile API still needs a
+# realm slug. Fill after launch once the slugs are observed (wowquester-admin blizzard probe).
+ruleset_realm_slugs = { normal = "", pvp = "", rp = "" }
+api_status = { reference = "unsupported", character = "unsupported", quests = "unsupported", locations = "unsupported", ownership = "unsupported" }
+
+[[editions]]
+key = "retail"
+name = "WoW (Retail)"
+uses_realms = true
+rulesets = []
+default_ruleset = ""
+regions = ["us", "eu"]
+default_region = "us"
+factions = ["horde", "alliance"]
+default_faction = "horde"
+max_level = 90
+catalog = ""                                  # import from Blizzard (wowquester-admin blizzard import-reference retail)
+static_namespace = "static-{region}"
+dynamic_namespace = "dynamic-{region}"
+profile_namespace = "profile-{region}"
+ruleset_realm_slugs = {}
+api_status = { reference = "unverified", character = "unverified", quests = "unverified", locations = "unverified", ownership = "unverified" }
+
+# Group-role presets offered to event creators (custom roles are also allowed).
+[[role_presets]]
+key = "tank"
+label = "Tank"
+[[role_presets]]
+key = "healer"
+label = "Healer"
+[[role_presets]]
+key = "damage"
+label = "Damage"
+[[role_presets]]
+key = "support"
+label = "Support"
+[[role_presets]]
+key = "guide"
+label = "Guide"
+[[role_presets]]
+key = "learner"
+label = "Learner"
+[[role_presets]]
+key = "rp"
+label = "RP role"
+
+# Activity catalog used for recommendations. Durations and sizes are the
+# organizers' own guidance, not game mechanics.
+[[activities]]
+key = "questing"
+type = "quest"
+label = "Questing group"
+min_minutes = 45
+min_size = 2
+max_size = 5
+tags = ["pve", "questing", "learning", "social"]
+[[activities]]
+key = "dungeon"
+type = "dungeon"
+label = "Dungeon run"
+min_minutes = 60
+min_size = 5
+max_size = 5
+roles = { tank = 1, healer = 1, damage = 3 }
+tags = ["pve", "dungeon"]
+[[activities]]
+key = "rp_meet"
+type = "rp"
+label = "RP gathering"
+min_minutes = 30
+min_size = 2
+max_size = 40
+tags = ["rp", "social"]
+[[activities]]
+key = "world_pvp"
+type = "world_pvp"
+label = "World PvP patrol"
+min_minutes = 45
+min_size = 3
+max_size = 40
+tags = ["pvp"]
+[[activities]]
+key = "raid"
+type = "raid"
+label = "Raid night"
+min_minutes = 120
+min_size = 10
+max_size = 40
+roles = { tank = 2, healer = 3, damage = 15 }
+tags = ["pve", "raid"]

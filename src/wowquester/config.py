@@ -1,0 +1,428 @@
+"""Configuration: one TOML file shared by the web app, bot and worker.
+
+No secrets live here. Validation is strict: an invalid file stops the service at
+startup (exit 78), and a live reload is only applied when the whole new file
+validates. Error messages name the setting, never a secret value.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+import os
+import re
+import threading
+import time
+import tomllib
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+log = logging.getLogger(__name__)
+
+DEFAULT_PATH = "/etc/wowquester/config.toml"
+SNOWFLAKE = re.compile(r"^\d{15,22}$")
+KEY = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+LIVE_SECTIONS = ("roles", "scheduling", "signups", "reminders", "chronicle", "rate_limits")
+API_STATUSES = ("verified", "unverified", "unsupported")
+API_CAPS = ("reference", "character", "quests", "locations", "ownership")
+
+
+class ConfigError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class Edition:
+    key: str
+    name: str
+    uses_realms: bool
+    rulesets: tuple[str, ...]
+    default_ruleset: str
+    regions: tuple[str, ...]
+    default_region: str
+    factions: tuple[str, ...]
+    default_faction: str
+    max_level: int
+    catalog: str
+    static_namespace: str
+    dynamic_namespace: str
+    profile_namespace: str
+    ruleset_realm_slugs: dict[str, str]
+    api_status: dict[str, str]
+
+    def namespace(self, kind: str, region: str) -> str | None:
+        tpl = {"static": self.static_namespace, "dynamic": self.dynamic_namespace,
+               "profile": self.profile_namespace}[kind]
+        if not tpl:
+            return None
+        return tpl.replace("{region}", region)
+
+    def capability(self, cap: str) -> str:
+        return self.api_status.get(cap, "unsupported")
+
+
+@dataclass(frozen=True)
+class RolePreset:
+    key: str
+    label: str
+
+
+@dataclass(frozen=True)
+class Activity:
+    key: str
+    type: str
+    label: str
+    min_minutes: int
+    min_size: int
+    max_size: int
+    roles: dict[str, int]
+    tags: tuple[str, ...]
+
+
+@dataclass
+class Config:
+    raw: dict[str, Any]
+    path: str = ""
+    section_hashes: dict[str, str] = field(default_factory=dict)
+
+    # convenience accessors -------------------------------------------------
+    def __getitem__(self, k: str) -> Any:
+        return self.raw[k]
+
+    @property
+    def guild_id(self) -> str:
+        return self.raw["community"]["guild_id"]
+
+    @property
+    def tz(self) -> ZoneInfo:
+        return ZoneInfo(self.raw["community"]["default_timezone"])
+
+    @property
+    def max_simultaneous(self) -> int:
+        return int(self.raw["scheduling"]["max_simultaneous_wow_events"])
+
+    def role_ids(self, capability: str) -> frozenset[str]:
+        return frozenset(self.raw["roles"].get(capability, []))
+
+    @property
+    def editions(self) -> dict[str, Edition]:
+        return self.raw["_editions"]
+
+    def edition(self, key: str) -> Edition:
+        try:
+            return self.editions[key]
+        except KeyError:
+            raise ConfigError(f"unknown edition {key!r}") from None
+
+    @property
+    def role_presets(self) -> tuple[RolePreset, ...]:
+        return self.raw["_role_presets"]
+
+    @property
+    def activities(self) -> tuple[Activity, ...]:
+        return self.raw["_activities"]
+
+
+# ---------------------------------------------------------------------------
+# Validation helpers
+# ---------------------------------------------------------------------------
+
+def _req(d: dict, key: str, typ, where: str):
+    if key not in d:
+        raise ConfigError(f"[{where}] {key} is required")
+    v = d[key]
+    if typ is int and isinstance(v, bool):
+        raise ConfigError(f"[{where}] {key} must be an integer")
+    if not isinstance(v, typ):
+        raise ConfigError(f"[{where}] {key} has the wrong type (expected {getattr(typ, '__name__', typ)})")
+    return v
+
+
+def _snowflake(v: Any, where: str, allow_empty: bool = True) -> str:
+    if not isinstance(v, str):
+        raise ConfigError(f"{where} must be a quoted string (Discord IDs are strings)")
+    if v == "" and allow_empty:
+        return v
+    if not SNOWFLAKE.match(v):
+        raise ConfigError(f"{where} is not a Discord ID")
+    return v
+
+
+def _snowflakes(v: Any, where: str) -> list[str]:
+    if not isinstance(v, list):
+        raise ConfigError(f"{where} must be a list of quoted Discord IDs")
+    return [_snowflake(x, f"{where}[]", allow_empty=False) for x in v]
+
+
+def _positive(v: Any, where: str, minimum: int = 1) -> int:
+    if isinstance(v, bool) or not isinstance(v, int) or v < minimum:
+        raise ConfigError(f"{where} must be an integer >= {minimum}")
+    return v
+
+
+def validate(raw: dict[str, Any]) -> dict[str, Any]:
+    r = dict(raw)
+    for sec in ("community", "discord", "roles", "scheduling", "signups", "reminders", "chronicle",
+                "uploads", "ai", "feeds", "calendar", "web", "rate_limits", "database", "blizzard"):
+        if not isinstance(r.get(sec), dict):
+            raise ConfigError(f"[{sec}] section is missing")
+
+    c = r["community"]
+    _req(c, "name", str, "community")
+    _snowflake(_req(c, "guild_id", str, "community"), "[community] guild_id")
+    try:
+        ZoneInfo(_req(c, "default_timezone", str, "community"))
+    except (ZoneInfoNotFoundError, ValueError):
+        raise ConfigError("[community] default_timezone is not a valid IANA zone") from None
+    if not _req(c, "public_base_url", str, "community").startswith("https://") and \
+            not c["public_base_url"].startswith("http://127.0.0.1") and \
+            not c["public_base_url"].startswith("http://localhost"):
+        raise ConfigError("[community] public_base_url must be https://")
+    c.setdefault("member_role_ids", [])
+    _snowflakes(c["member_role_ids"], "[community] member_role_ids")
+
+    d = r["discord"]
+    _snowflake(d.get("application_id", ""), "[discord] application_id")
+    _snowflake(d.get("event_channel_id", ""), "[discord] event_channel_id")
+    _snowflakes(d.get("allowed_command_channel_ids", []), "[discord] allowed_command_channel_ids")
+    d.setdefault("review_channel_id", "")
+    _snowflake(d["review_channel_id"], "[discord] review_channel_id")
+    for k in ("dm_enabled", "notify_dm_on_material_change"):
+        _req(d, k, bool, "discord")
+    _positive(d.get("reconfirm_window_hours", 24), "[discord] reconfirm_window_hours")
+
+    for cap in ("event_creator", "event_moderator", "exclusive_designator", "chronicle_editor",
+                "chronicle_reviewer", "trusted_author", "admin"):
+        r["roles"].setdefault(cap, [])
+        _snowflakes(r["roles"][cap], f"[roles] {cap}")
+    unknown = set(r["roles"]) - {"event_creator", "event_moderator", "exclusive_designator",
+                                 "chronicle_editor", "chronicle_reviewer", "trusted_author", "admin"}
+    if unknown:
+        raise ConfigError(f"[roles] unknown capability {sorted(unknown)[0]!r}")
+
+    s = r["scheduling"]
+    _positive(_req(s, "max_simultaneous_wow_events", int, "scheduling"),
+              "[scheduling] max_simultaneous_wow_events")
+    _positive(s.get("min_duration_minutes", 15), "[scheduling] min_duration_minutes")
+    _positive(s.get("max_duration_hours", 12), "[scheduling] max_duration_hours")
+    _positive(s.get("max_days_ahead", 180), "[scheduling] max_days_ahead")
+    _positive(s.get("overrun_grace_minutes", 30), "[scheduling] overrun_grace_minutes", 0)
+    _positive(s.get("max_recurrence_occurrences", 26), "[scheduling] max_recurrence_occurrences")
+    s.setdefault("late_join_default", False)
+    s.setdefault("reschedule_requires_reconfirm", True)
+
+    sg = r["signups"]
+    if sg.get("default_policy") not in ("open", "approval"):
+        raise ConfigError("[signups] default_policy must be open or approval")
+    sg.setdefault("allow_tentative", True)
+    _positive(sg.get("max_custom_roles", 10), "[signups] max_custom_roles")
+
+    offs = r["reminders"].get("offsets_minutes", [])
+    if not isinstance(offs, list) or any(isinstance(x, bool) or not isinstance(x, int) or x <= 0 for x in offs):
+        raise ConfigError("[reminders] offsets_minutes must be a list of positive integers")
+
+    ch = r["chronicle"]
+    if not str(ch.get("public_path", "")).startswith("/"):
+        raise ConfigError("[chronicle] public_path must start with /")
+    if ch.get("neutral_description_style", "role") not in ("role", "role_class"):
+        raise ConfigError("[chronicle] neutral_description_style must be role or role_class")
+    _positive(ch.get("max_body_chars", 8000), "[chronicle] max_body_chars", 200)
+
+    up = r["uploads"]
+    _positive(up.get("max_bytes", 5_000_000), "[uploads] max_bytes", 1024)
+    bad = set(up.get("allowed_types", [])) - {"image/png", "image/jpeg", "image/webp"}
+    if bad:
+        raise ConfigError("[uploads] allowed_types may only contain png, jpeg, webp images")
+
+    ai = r["ai"]
+    _req(ai, "enabled", bool, "ai")
+    if ai.get("provider") not in ("openai_compatible", "none"):
+        raise ConfigError("[ai] provider must be openai_compatible or none")
+    if ai["enabled"] and (not ai.get("model") or not str(ai.get("base_url", "")).startswith("https://")):
+        raise ConfigError("[ai] enabled requires model and an https:// base_url")
+
+    w = r["web"]
+    if not re.match(r"^(fd:\d+|unix:/\S+|127\.0\.0\.1:\d{2,5}|\[::1\]:\d{2,5})$", str(w.get("bind", ""))):
+        raise ConfigError("[web] bind must be fd:N, unix:/path, or a loopback host:port")
+    if not str(w.get("member_path", "")).startswith("/"):
+        raise ConfigError("[web] member_path must start with /")
+    _positive(w.get("session_hours", 72), "[web] session_hours")
+
+    ret = r.setdefault("retention", {})
+    for k, dflt in (("outbox_done_days", 14), ("api_cache_days", 30), ("audit_days", 400),
+                    ("withdrawn_signup_days", 365), ("session_days_after_expiry", 1)):
+        ret.setdefault(k, dflt)
+        _positive(ret[k], f"[retention] {k}")
+
+    b = r.setdefault("branding", {})
+    b.setdefault("site_name", c["name"])
+    b.setdefault("home_url", "/")
+    b.setdefault("game_page_url", "")
+    b.setdefault("stylesheet", "")
+    b.setdefault("body_class", "theme-wow")
+    b.setdefault("discord_invite_url", "")
+    b.setdefault("nav", [])
+    if not isinstance(b["nav"], list) or any(
+            not isinstance(n, dict) or not str(n.get("label", "")) or
+            not re.match(r"^(/|https://)", str(n.get("url", ""))) for n in b["nav"]):
+        raise ConfigError("[branding] nav must be a list of { label, url } with / or https:// urls")
+    for k in ("home_url", "game_page_url", "stylesheet", "discord_invite_url"):
+        if b[k] and not re.match(r"^(/|https://)", str(b[k])):
+            raise ConfigError(f"[branding] {k} must start with / or https://")
+    if not re.match(r"^[a-z0-9_ -]{0,64}$", str(b["body_class"])):
+        raise ConfigError("[branding] body_class may only contain lowercase letters, digits, - and _")
+
+    db = r["database"]
+    db.setdefault("admin_url", "")
+    for k in ("app_url", "worker_url", "admin_url"):
+        if k == "admin_url" and not db[k]:
+            continue
+        u = _req(db, k, str, "database")
+        if not u.startswith("postgresql"):
+            raise ConfigError(f"[database] {k} must be a postgresql URL")
+        if re.search(r"://[^/@]*:[^/@]*@", u):
+            raise ConfigError(f"[database] {k} must not contain a password; use credentials")
+
+    bz = r["blizzard"]
+    _req(bz, "enabled", bool, "blizzard")
+    _positive(bz.get("max_retries", 3), "[blizzard] max_retries", 0)
+
+    # editions
+    eds = r.get("editions")
+    if not isinstance(eds, list) or not eds:
+        raise ConfigError("[[editions]] at least one edition is required")
+    parsed: dict[str, Edition] = {}
+    for i, e in enumerate(eds):
+        where = f"editions[{i}]"
+        key = _req(e, "key", str, where)
+        if not KEY.match(key) or key in parsed:
+            raise ConfigError(f"{where} key must be unique lowercase")
+        uses_realms = _req(e, "uses_realms", bool, where)
+        rulesets = tuple(e.get("rulesets", []))
+        if not uses_realms and not rulesets:
+            raise ConfigError(f"{where} realmless editions need rulesets")
+        regions = tuple(e.get("regions", []))
+        if not regions or any(x not in ("us", "eu", "kr", "tw") for x in regions):
+            raise ConfigError(f"{where} regions must be some of us, eu, kr, tw")
+        status = dict(e.get("api_status", {}))
+        for cap in API_CAPS:
+            status.setdefault(cap, "unsupported")
+            if status[cap] not in API_STATUSES:
+                raise ConfigError(f"{where} api_status.{cap} must be one of {API_STATUSES}")
+        for kind in ("static_namespace", "dynamic_namespace", "profile_namespace"):
+            ns = e.get(kind, "")
+            if ns and ("{region}" not in ns or not re.match(r"^[a-z0-9{}-]+$", ns)):
+                raise ConfigError(f"{where} {kind} must be a template containing {{region}}")
+            if ns.startswith(("static-classic-ptr", "profile-classic-ptr")) or "-ptr" in ns:
+                raise ConfigError(f"{where} {kind}: PTR namespaces are not allowed in production config")
+        parsed[key] = Edition(
+            key=key, name=_req(e, "name", str, where), uses_realms=uses_realms, rulesets=rulesets,
+            default_ruleset=e.get("default_ruleset", rulesets[0] if rulesets else ""),
+            regions=regions, default_region=e.get("default_region", regions[0]),
+            factions=tuple(e.get("factions", ["horde", "alliance"])),
+            default_faction=e.get("default_faction", "horde"),
+            max_level=_positive(e.get("max_level", 60), f"{where} max_level"),
+            catalog=e.get("catalog", ""),
+            static_namespace=e.get("static_namespace", ""), dynamic_namespace=e.get("dynamic_namespace", ""),
+            profile_namespace=e.get("profile_namespace", ""),
+            ruleset_realm_slugs=dict(e.get("ruleset_realm_slugs", {})), api_status=status)
+    r["_editions"] = parsed
+
+    presets = []
+    for i, p in enumerate(r.get("role_presets", [])):
+        k = _req(p, "key", str, f"role_presets[{i}]")
+        if not KEY.match(k):
+            raise ConfigError(f"role_presets[{i}] key must be lowercase")
+        presets.append(RolePreset(k, _req(p, "label", str, f"role_presets[{i}]")))
+    r["_role_presets"] = tuple(presets)
+
+    acts = []
+    for i, a in enumerate(r.get("activities", [])):
+        where = f"activities[{i}]"
+        acts.append(Activity(
+            key=_req(a, "key", str, where), type=_req(a, "type", str, where), label=_req(a, "label", str, where),
+            min_minutes=_positive(a.get("min_minutes", 30), f"{where} min_minutes"),
+            min_size=_positive(a.get("min_size", 1), f"{where} min_size"),
+            max_size=_positive(a.get("max_size", 40), f"{where} max_size"),
+            roles={k: _positive(v, f"{where} roles.{k}") for k, v in a.get("roles", {}).items()},
+            tags=tuple(a.get("tags", []))))
+    r["_activities"] = tuple(acts)
+    return r
+
+
+def _hashes(raw: dict[str, Any]) -> dict[str, str]:
+    out = {}
+    for k, v in raw.items():
+        if k.startswith("_"):
+            continue
+        out[k] = hashlib.sha256(repr(v).encode()).hexdigest()[:16]
+    return out
+
+
+def load(path: str | os.PathLike | None = None) -> Config:
+    p = Path(path or os.environ.get("WOWQUESTER_CONFIG", DEFAULT_PATH))
+    try:
+        data = tomllib.loads(p.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise ConfigError(f"configuration file not found: {p}") from None
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"configuration is not valid TOML: {exc}") from None
+    raw = validate(data)
+    return Config(raw=raw, path=str(p), section_hashes=_hashes(data))
+
+
+class ConfigHolder:
+    """Holds the current Config and re-reads [live] sections when the file changes."""
+
+    def __init__(self, cfg: Config, on_change=None, interval: float = 30.0):
+        self._cfg = cfg
+        self._lock = threading.Lock()
+        self._mtime = self._stat()
+        self._on_change = on_change
+        self.interval = interval
+
+    def _stat(self) -> float:
+        try:
+            return os.stat(self._cfg.path).st_mtime if self._cfg.path else 0.0
+        except OSError:
+            return 0.0
+
+    @property
+    def cfg(self) -> Config:
+        return self._cfg
+
+    def check(self) -> list[str]:
+        """Return the changed live sections (applied) — restart-only changes are logged, not applied."""
+        m = self._stat()
+        if m == self._mtime:
+            return []
+        self._mtime = m
+        try:
+            new = load(self._cfg.path)
+        except ConfigError as exc:
+            log.error("config change ignored: %s", exc)
+            return []
+        changed = [k for k, h in new.section_hashes.items() if self._cfg.section_hashes.get(k) != h]
+        live = [k for k in changed if k in LIVE_SECTIONS]
+        restart = [k for k in changed if k not in LIVE_SECTIONS]
+        if restart:
+            log.warning("config sections changed that need a restart: %s", ", ".join(restart))
+        if live:
+            with self._lock:
+                merged = dict(self._cfg.raw)
+                for k in live:
+                    merged[k] = new.raw[k]
+                hashes = dict(self._cfg.section_hashes)
+                hashes.update({k: new.section_hashes[k] for k in live})
+                self._cfg = Config(raw=merged, path=self._cfg.path, section_hashes=hashes)
+            log.info("config live sections reloaded: %s", ", ".join(live))
+            if self._on_change:
+                self._on_change(live, self._cfg)
+        return live
+
+    def run_forever(self):  # pragma: no cover - thread loop
+        while True:
+            time.sleep(self.interval)
+            self.check()

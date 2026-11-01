@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-head"><span class="label"><span class="num">//</span> Stories from our WoW events</span><h1>Chronicle</h1></div>
+<p class="note">Written by the people who were there and checked before publishing. Players who opted out are described without names. <a href="{{ cp }}/feed.atom">Atom</a> · <a href="{{ cp }}/feed.xml">RSS</a> · <a href="{{ cp }}/feed.json">JSON Feed</a></p>
+<ul class="wq-list">
+{% for pc in items %}
+  <li class="panel wq-card">
+    {% if pc.images %}<img class="wq-thumb" src="{{ pc.images[0].url }}" alt="{{ pc.images[0].caption }}" loading="lazy" width="{{ pc.images[0].width }}" height="{{ pc.images[0].height }}">{% endif %}
+    <span class="sched-kind">{{ pc.activity_type }}</span><span class="note">{{ pc.event_date.strftime("%b %-d, %Y") }} · {{ pc.edition_name }} · {{ outcome.get(pc.outcome) }}</span>
+    <h2 class="wq-h"><a href="{{ cp }}/{{ pc.slug }}/">{{ pc.title }}</a></h2>
+    <p>{{ pc.summary }}</p>
+  </li>
+{% else %}<li class="note">No stories yet. They appear here as soon as a reviewer approves one.</li>{% endfor %}
+</ul>
+<p class="btns">{% if page > 1 %}<a class="btn ghost" href="?page={{ page - 1 }}">Newer</a>{% endif %}{% if more %}<a class="btn ghost" href="?page={{ page + 1 }}">Older</a>{% endif %}</p>
+{% endblock %}

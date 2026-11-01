@@ -1,0 +1,355 @@
+"""wowquester-worker: outbox delivery, reminders, overrun nudges, housekeeping.
+
+Runs as the wowquester_worker DB role. Every side effect (Discord post, DM) comes from
+an outbox row written in the same transaction as the change that caused it, so nothing
+is lost on crash and nothing is sent for a change that rolled back.
+
+Delivery is at-least-once with idempotency where Discord allows it:
+* event posts: one canonical message per event, edited in place; recreated if deleted.
+* DMs: one outbox row per (purpose, member, version); a DM is marked done before any
+  retry could duplicate it, and reminders are guarded by reminder_deliveries' primary key.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import signal
+import sys
+import threading
+import time
+from datetime import timedelta
+
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
+
+from .config import ConfigError, ConfigHolder, load
+from .db import Database, make_engine
+from .domain import outbox, scheduling
+from .domain.timeutil import discord_ts, fmt_local, now
+from .integrations import discord_rest as dr
+from .models import ChronicleEntry, ConfigChange, Event, EventCohost, Member, Signup
+from .secrets import SecretError, setup_logging
+
+log = logging.getLogger("wowquester.worker")
+MAX_ATTEMPTS = 8
+BATCH = 20
+
+
+def backoff(attempts: int) -> timedelta:
+    return timedelta(seconds=min(3600, 15 * (2 ** max(0, attempts - 1))))
+
+
+def log_config(s: Session, service: str, cfg, sections) -> None:
+    s.add(ConfigChange(service=service, sections=list(sections),
+                       hashes={k: cfg.section_hashes.get(k, "") for k in sections}, actor="file"))
+
+
+class Worker:
+    def __init__(self, holder: ConfigHolder, db: Database, rest: dr.DiscordRest | None):
+        self.holder, self.db, self.rest = holder, db, rest
+        self.stop = threading.Event()
+
+    @property
+    def cfg(self):
+        return self.holder.cfg
+
+    # ------------------------------------------------------------------ outbox
+    def claim(self) -> list[dict]:
+        with self.db.tx() as s:
+            rows = s.execute(text("""
+                UPDATE outbox SET locked_until = now() + interval '2 minutes', attempts = attempts + 1
+                 WHERE id IN (SELECT id FROM outbox
+                               WHERE done_at IS NULL AND dead_at IS NULL AND run_after <= now()
+                                 AND (locked_until IS NULL OR locked_until < now())
+                               ORDER BY run_after LIMIT :n FOR UPDATE SKIP LOCKED)
+             RETURNING id, kind, key, payload, attempts"""), {"n": BATCH}).mappings().all()
+        return [dict(r) for r in rows]
+
+    def finish(self, job: dict, error: str | None = None, dead: bool = False, retry_in: timedelta | None = None):
+        with self.db.tx() as s:
+            if error is None:
+                # if the job was re-enqueued while we worked (attempts reset to 0), leave it for another pass
+                s.execute(text("UPDATE outbox SET done_at = now(), locked_until = NULL "
+                               "WHERE id = :id AND attempts = :a"), {"id": job["id"], "a": job["attempts"]})
+                s.execute(text("UPDATE outbox SET locked_until = NULL WHERE id = :id AND done_at IS NULL"),
+                          {"id": job["id"]})
+            elif dead or job["attempts"] >= MAX_ATTEMPTS:
+                s.execute(text("UPDATE outbox SET dead_at = now(), last_error = :e, locked_until = NULL "
+                               "WHERE id = :id"), {"id": job["id"], "e": error[:500]})
+                log.error("outbox job %s %s gave up: %s", job["kind"], job["key"], error)
+            else:
+                s.execute(text("UPDATE outbox SET run_after = :ra, last_error = :e, locked_until = NULL "
+                               "WHERE id = :id"),
+                          {"id": job["id"], "e": error[:500], "ra": now() + (retry_in or backoff(job["attempts"]))})
+
+    def run_job(self, job: dict) -> None:
+        kind = job["kind"]
+        handler = getattr(self, "job_" + kind.replace(".", "_"), None)
+        if handler is None:
+            self.finish(job, f"unknown job kind {kind}", dead=True)
+            return
+        try:
+            with self.db.tx() as s:
+                handler(s, job["payload"] or {})
+        except dr.RateLimited as exc:
+            self.finish(job, str(exc), retry_in=timedelta(seconds=exc.retry_after + 0.5))
+        except dr.Forbidden as exc:
+            self.finish(job, str(exc), dead=True)
+        except (dr.Transient, dr.DiscordError) as exc:
+            self.finish(job, f"{type(exc).__name__}: {exc}")
+        except Exception as exc:  # noqa: BLE001 - keep the loop alive; error recorded on the job
+            log.exception("job %s failed", kind)
+            self.finish(job, f"{type(exc).__name__}: {exc}")
+        else:
+            self.finish(job)
+
+    def tick(self) -> int:
+        jobs = self.claim()
+        for j in jobs:
+            self.run_job(j)
+        return len(jobs)
+
+    # ------------------------------------------------------------------ helpers
+    def _need_rest(self):
+        if self.rest is None:
+            raise dr.Transient("Discord bot token not installed")
+        return self.rest
+
+    def _url(self, *parts: str) -> str:
+        base = self.cfg["community"]["public_base_url"].rstrip("/") + self.cfg["web"]["member_path"].rstrip("/")
+        return "/".join([base, *parts])
+
+    def _dm(self, s: Session, member_ids, purpose: str, version, content: str) -> None:
+        for mid in sorted(set(member_ids)):
+            outbox.enqueue(s, "dm", f"{purpose}:{version}:{mid}", {"member_id": mid, "content": content[:1900]})
+
+    def _managers(self, s: Session, ev: Event) -> set[int]:
+        return {ev.creator_id} | set(s.scalars(select(EventCohost.member_id).where(EventCohost.event_id == ev.id)))
+
+    # ------------------------------------------------------------------ jobs
+    def job_discord_render_event(self, s: Session, p: dict) -> None:
+        from .bot.render import event_message
+        ev = s.get(Event, p["event_id"])
+        if ev is None or ev.state == "draft":
+            return
+        channel = ev.discord_channel_id or self.cfg["discord"].get("event_channel_id")
+        if not channel:
+            log.info("event %s: no event channel configured; post skipped", ev.id)
+            return
+        rest = self._need_rest()
+        payload = event_message(s, self.cfg, ev)
+        if ev.discord_message_id:
+            try:
+                rest.edit(channel, ev.discord_message_id, payload)
+                return
+            except dr.Gone:
+                log.warning("event %s: post was deleted; reposting", ev.id)
+        mid = rest.post(channel, payload)
+        s.execute(text("UPDATE events SET discord_message_id = :m, discord_channel_id = :c WHERE id = :id"),
+                  {"m": mid, "c": channel, "id": ev.id})
+
+    def job_dm(self, s: Session, p: dict) -> None:
+        if not self.cfg["discord"].get("dm_enabled", True):
+            return
+        m = s.get(Member, p["member_id"])
+        if m is None or m.erased_at:
+            return
+        try:
+            self._need_rest().dm(m.discord_id, {"content": p["content"]})
+        except dr.Forbidden:
+            log.info("member %s has DMs closed; skipped", m.id)   # not retried: user choice
+        except dr.Gone:
+            log.info("member %s not reachable; skipped", m.id)
+
+    def job_notify_material_change(self, s: Session, p: dict) -> None:
+        if not self.cfg["discord"].get("notify_dm_on_material_change", True):
+            return
+        ev = s.get(Event, p["event_id"])
+        if ev is None:
+            return
+        people = set(s.scalars(select(Signup.member_id).where(
+            Signup.event_id == ev.id, Signup.state.in_(("confirmed", "tentative", "waitlisted", "pending")))))
+        people |= self._managers(s, ev)
+        if "cancelled" in p.get("changes", []):
+            msg = f"**{ev.title}** on {fmt_local(ev.start_at, ev.timezone)} was cancelled."
+        else:
+            msg = (f"**{ev.title}** changed ({', '.join(p.get('changes', []))}). It now starts "
+                   f"{discord_ts(ev.start_at, 'F')}.")
+            bumped = set(p.get("bumped", []))
+            for mid in bumped:
+                self._dm(s, [mid], f"bumped:{ev.id}", ev.version,
+                         msg + " You have another WoW event at the new time, so you're now tentative. "
+                         f"Reconfirm or leave: {self._url('events', str(ev.public_id))}")
+            people -= bumped
+            if self.cfg["scheduling"].get("reschedule_requires_reconfirm", True) and "time" in p.get("changes", []):
+                msg += f" Please reconfirm: {self._url('events', str(ev.public_id))}"
+        self._dm(s, people, f"change:{ev.id}", ev.version, msg)
+
+    def job_notify_signup_pending(self, s: Session, p: dict) -> None:
+        ev = s.get(Event, p["event_id"])
+        if ev:
+            self._dm(s, self._managers(s, ev), f"pending:{ev.id}", p["signup_id"],
+                     f"New signup waiting for approval on **{ev.title}**: {self._url('events', str(ev.public_id))}")
+
+    def job_notify_slot_open(self, s: Session, p: dict) -> None:
+        ev = s.get(Event, p["event_id"])
+        if ev:
+            self._dm(s, self._managers(s, ev), f"slot:{ev.id}", int(time.time() // 600),
+                     f"A spot opened on **{ev.title}** and people are waitlisted: "
+                     f"{self._url('events', str(ev.public_id))}")
+
+    def job_notify_signup_decision(self, s: Session, p: dict) -> None:
+        su = s.get(Signup, p["signup_id"])
+        if su is None:
+            return
+        ev = s.get(Event, su.event_id)
+        words = {"confirmed": "You're confirmed for", "promoted": "A spot opened: you're now confirmed for",
+                 "rejected": "Your signup wasn't accepted for"}
+        self._dm(s, [su.member_id], f"decision:{su.id}", p["decision"],
+                 f"{words.get(p['decision'], 'Update on')} **{ev.title}** ({discord_ts(ev.start_at, 'F')}).")
+
+    def job_notify_chronicle_prompt(self, s: Session, p: dict) -> None:
+        ev = s.get(Event, p["event_id"])
+        e = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == p["event_id"]))
+        if ev and e:
+            self._dm(s, self._managers(s, ev), f"chron:{e.id}", 1,
+                     f"**{ev.title}** is done. Mark attendance and tell the story (what you attempted, what "
+                     f"happened, the outcome, best moments, screenshots): {self._url('chronicle', str(e.id))}")
+
+    def job_notify_chronicle_review(self, s: Session, p: dict) -> None:
+        ch = self.cfg["discord"].get("review_channel_id")
+        if not ch:
+            return
+        note = "privacy update: screenshots need re-clearing" if p.get("privacy") else "a story is waiting"
+        self._need_rest().post(ch, {"content": f"Chronicle review: {note}. {self._url('review')}"})
+
+    def job_notify_chronicle_decision(self, s: Session, p: dict) -> None:
+        e = s.get(ChronicleEntry, p["entry_id"])
+        if e:
+            words = {"published": "is published", "changes_requested": "needs changes",
+                     "rejected": "wasn't approved"}
+            self._dm(s, [e.author_id], f"chron-decision:{e.id}", p["decision"] + str(e.updated_at.timestamp()),
+                     f"Your chronicle entry {words.get(p['decision'], 'was updated')}: "
+                     f"{self._url('chronicle', str(e.id))}")
+
+    # ------------------------------------------------------------------ scans
+    def scan_reminders(self) -> int:
+        offsets = self.cfg["reminders"].get("offsets_minutes", [])
+        if not offsets:
+            return 0
+        n = 0
+        with self.db.tx() as s:
+            horizon = now() + timedelta(minutes=max(offsets))
+            for ev in s.scalars(select(Event).where(Event.state == "scheduled", Event.start_at > now(),
+                                                    Event.start_at <= horizon)):
+                for off in offsets:
+                    due = ev.start_at - timedelta(minutes=off)
+                    if not (due <= now() < due + timedelta(minutes=15)):
+                        continue
+                    people = set(s.scalars(select(Signup.member_id).where(
+                        Signup.event_id == ev.id, Signup.state.in_(("confirmed", "tentative"))))) | \
+                        self._managers(s, ev)
+                    for mid in people:
+                        ins = s.execute(text(
+                            "INSERT INTO reminder_deliveries (event_id, member_id, offset_minutes, start_at) "
+                            "VALUES (:e, :m, :o, :st) ON CONFLICT DO NOTHING RETURNING event_id"),
+                            {"e": ev.id, "m": mid, "o": off, "st": ev.start_at}).first()
+                        if ins:
+                            outbox.enqueue(s, "dm", f"remind:{ev.id}:{off}:{int(ev.start_at.timestamp())}:{mid}",
+                                           {"member_id": mid, "content": f"Reminder: **{ev.title}** starts "
+                                            f"{discord_ts(ev.start_at, 'R')}."
+                                            + (f" Meet at {ev.muster_location['label']}."
+                                               if (ev.muster_location or {}).get("label") else "")})
+                            n += 1
+        return n
+
+    def scan_overruns(self) -> int:
+        """Overrun policy: the reservation keeps the planned end; organizers are nudged once to End or Extend.
+
+        Nothing is extended automatically (that could silently block someone else's event).
+        """
+        grace = timedelta(minutes=self.cfg["scheduling"].get("overrun_grace_minutes", 30))
+        n = 0
+        with self.db.tx() as s:
+            for ev in s.scalars(select(Event).where(Event.state == "in_progress", Event.end_at + grace < now())):
+                ins = s.execute(text(
+                    "INSERT INTO reminder_deliveries (event_id, member_id, offset_minutes, start_at) "
+                    "VALUES (:e, :m, -1, :st) ON CONFLICT DO NOTHING RETURNING event_id"),
+                    {"e": ev.id, "m": ev.creator_id, "st": ev.end_at}).first()
+                if ins:
+                    self._dm(s, self._managers(s, ev), f"overrun:{ev.id}", int(ev.end_at.timestamp()),
+                             f"**{ev.title}** is past its planned end. End it, or extend the end time "
+                             f"(the extension is checked for conflicts): {self._url('events', str(ev.public_id))}")
+                    n += 1
+        return n
+
+    def housekeeping(self) -> None:
+        r = self.cfg["retention"]
+        with self.db.tx() as s:
+            s.execute(text("DELETE FROM outbox WHERE done_at < now() - make_interval(days => :d)"),
+                      {"d": r["outbox_done_days"]})
+            s.execute(text("DELETE FROM api_cache WHERE expires_at < now() - make_interval(days => :d)"),
+                      {"d": r["api_cache_days"]})
+            s.execute(text("DELETE FROM rate_buckets WHERE window_start < now() - interval '1 day'"))
+
+    def sync_policy(self) -> None:
+        with self.db.tx() as s:
+            scheduling.sync_policy(s, self.cfg.max_simultaneous)
+
+    # ------------------------------------------------------------------ loop
+    def run(self) -> None:
+        last_scan = last_house = 0.0
+        self.sync_policy()
+        while not self.stop.is_set():
+            live = self.holder.check()
+            if live:
+                with self.db.tx() as s:
+                    log_config(s, "worker", self.cfg, live)
+                if "scheduling" in live:
+                    self.sync_policy()
+            try:
+                busy = self.tick()
+                t = time.monotonic()
+                if t - last_scan > 30:
+                    self.scan_reminders()
+                    self.scan_overruns()
+                    last_scan = t
+                if t - last_house > 3600:
+                    self.housekeeping()
+                    last_house = t
+            except Exception:  # noqa: BLE001 - DB hiccup: wait and retry
+                log.exception("worker loop error")
+                busy = 0
+            self.stop.wait(0.5 if busy else 3)
+
+
+def main() -> int:  # pragma: no cover - service entry point
+    setup_logging()
+    try:
+        cfg = load()
+    except ConfigError as exc:
+        log.error("invalid configuration: %s", exc)
+        return 78                      # EX_CONFIG: systemd won't restart-loop (RestartPreventExitStatus=78)
+    db = Database(make_engine(cfg["database"]["worker_url"], "db-worker-password",
+                              cfg["database"].get("pool_size", 5), "wowquester-worker"))
+    try:
+        rest = dr.DiscordRest()
+    except SecretError:
+        log.warning("discord-bot-token not installed: Discord delivery will retry until it is")
+        rest = None
+    holder = ConfigHolder(cfg)
+    w = Worker(holder, db, rest)
+    with db.tx() as s:
+        log_config(s, "worker", cfg, sorted(cfg.section_hashes))
+    signal.signal(signal.SIGTERM, lambda *_: w.stop.set())
+    log.info("worker started")
+    w.run()
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    sys.exit(main())
+
+
+__all__ = ["Worker", "main", "json"]

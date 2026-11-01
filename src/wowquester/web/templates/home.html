@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_macros.html" import roles_line, state_chip %}
+{% block content %}
+<div class="section-head"><span class="label"><span class="num">//</span> WoWQuester</span><h1>Quests &amp; events</h1></div>
+{% if actor %}
+<p class="btns"><a class="btn" href="{{ mp }}/events/new">Plan an event</a> <a class="btn ghost" href="{{ mp }}/characters">My characters</a>{% if can('chronicle_reviewer') %} <a class="btn ghost" href="{{ mp }}/review">Review queue</a>{% endif %}</p>
+{% else %}
+<p class="caveat">Log in with Discord to join events, add your characters and plan your own. Your Discord account must be in the community server.</p>
+{% endif %}
+
+<div class="wq-grid">
+<section>
+  <h2 class="sub">Upcoming</h2>
+  {% if not items %}<p class="note">No WoW events are scheduled yet.</p>{% endif %}
+  <ul class="wq-list">
+  {% for e in items %}
+    <li class="panel wq-card">
+      <span class="sched-kind">{{ e.activity_type }}</span>{% if e.state == "in_progress" %}{{ state_chip(e.state) }}{% endif %}
+      <h3><a href="{{ mp }}/events/{{ e.id }}">{{ e.title }}</a></h3>
+      <p class="big-when"><time datetime="{{ e.start }}" data-local>{{ e.start[:16].replace("T", " ") }} UTC</time></p>
+      <p class="note">{{ e.edition }}{% if e.ruleset %} · {{ e.ruleset }}{% endif %}{% if e.location %} · {{ e.location }}{% endif %}{% if e.exclusive %} · Exclusive{% endif %}</p>
+      <p class="note">{{ roles_line(e.roles) }}{% if e.signup_policy == "approval" %} · Approval needed{% endif %}</p>
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+{% if actor %}
+<aside class="side">
+  <div class="panel">
+    <h2 class="sub">My signups</h2>
+    {% for su, ev in mine %}
+      <p><a href="{{ mp }}/events/{{ ev.public_id }}">{{ ev.title }}</a><br><span class="note">{{ fmt_local(ev.start_at, ev.timezone) }} · {{ su.state }}{% if su.needs_reconfirm %} · <strong>please reconfirm</strong>{% endif %}</span></p>
+    {% else %}<p class="note">You haven't joined anything yet.</p>{% endfor %}
+    {% if drafts %}<h3 class="sub">My drafts</h3>{% for d in drafts %}<p><a href="{{ mp }}/events/{{ d.public_id }}">{{ d.title }}</a> <span class="note">(not visible to others)</span></p>{% endfor %}{% endif %}
+  </div>
+  <div class="panel">
+    <h2 class="sub">Suggested for you</h2>
+    {% for r in recs %}
+      <div class="wq-rec">
+        {% if r.event_public_id %}<a href="{{ mp }}/events/{{ r.event_public_id }}">{{ r.title }}</a>{% else %}<strong>{{ r.title }}</strong>{% endif %}
+        <details><summary class="note">Why?</summary><ul class="plain-list">{% for why in r.reasons %}<li>{{ why }}</li>{% endfor %}</ul></details>
+      </div>
+    {% else %}<p class="note">Nothing to suggest right now. Suggestions come from your characters' roles and the open slots in upcoming events.</p>
+    {% endfor %}
+  </div>
+</aside>
+{% endif %}
+</div>
+{% endblock %}

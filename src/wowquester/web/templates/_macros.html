@@ -1,0 +1,7 @@
+{% macro csrf_field() %}<input type="hidden" name="csrf" value="{{ csrf }}">{% endmacro %}
+{% macro roles_line(roles) -%}
+{% for r in roles %}{{ r.label }} {{ r.filled }}{% if r.quantity %}/{{ r.quantity }}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
+{%- endmacro %}
+{% macro state_chip(state) -%}
+<span class="status-chip wq-state-{{ state }}">{{ {"draft":"Draft","scheduled":"Scheduled","in_progress":"In progress","completed":"Completed","cancelled":"Cancelled"}.get(state, state) }}</span>
+{%- endmacro %}

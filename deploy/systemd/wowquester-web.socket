@@ -1,0 +1,15 @@
+# Unix socket for the WoWQuester web app. Owned by systemd so Nginx (www-data) can connect
+# without being added to the wowquester group (which can read /etc/wowquester).
+[Unit]
+Description=WoWQuester web socket
+PartOf=wowquester-web.service
+
+[Socket]
+ListenStream=/run/wowquester-web.sock
+SocketUser=root
+SocketGroup=www-data
+SocketMode=0660
+Accept=no
+
+[Install]
+WantedBy=sockets.target

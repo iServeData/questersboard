@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field %}
+{% block content %}
+{% set editing = ev is not none %}
+<div class="section-head"><h1>{{ "Edit event" if editing else "Plan an event" }}</h1></div>
+{% if not editing %}<p class="note">New events start as a <strong>draft</strong>: drafts reserve nothing and nobody else can see them. Publishing checks the WoW schedule (at most {{ cfg.max_simultaneous }} WoW event{{ "s" if cfg.max_simultaneous != 1 }} at once) and posts to Discord.</p>{% endif %}
+<form method="post" class="wq-form panel" action="{{ mp }}/events/{{ ev.public_id ~ '/edit' if editing else 'new' }}">
+  {{ csrf_field() }}
+  <fieldset><legend>Game</legend>
+    <label>Edition
+      <select name="edition" data-edition-select>
+        {% for k, ed in editions.items() %}<option value="{{ k }}" data-uses-realms="{{ 1 if ed.uses_realms else 0 }}"{% if editing and ev.edition == k %} selected{% endif %}>{{ ed.name }}</option>{% endfor %}
+      </select></label>
+    {% for k, ed in editions.items() %}{% if not ed.uses_realms %}
+    <label data-for-edition="{{ k }}" data-realmless>Ruleset <span class="note">({{ ed.name }} has no realms)</span>
+      <select name="ruleset">{% for r in ed.rulesets %}<option value="{{ r }}"{% if (editing and ev.ruleset == r) or (not editing and r == ed.default_ruleset) %} selected{% endif %}>{{ r|upper }}</option>{% endfor %}</select></label>
+    {% endif %}{% endfor %}
+    <label data-realm-field>Realm <span class="note">(needed for editions with realms, e.g. Retail)</span>
+      <input name="realm_slug" value="{{ ev.realm_slug or '' if editing else '' }}" placeholder="realm-slug" pattern="[a-z0-9-]{2,64}"></label>
+    <label>Faction
+      <select name="faction"><option value="any">Any</option><option value="horde"{% if not editing or ev.faction == 'horde' %} selected{% endif %}>Horde</option><option value="alliance"{% if editing and ev.faction == 'alliance' %} selected{% endif %}>Alliance</option></select></label>
+  </fieldset>
+
+  <fieldset><legend>What</legend>
+    <label>Title <input name="title" required minlength="3" maxlength="120" value="{{ ev.title if editing else '' }}"></label>
+    <label>Type
+      <select name="activity_type">{% for t in activity_types %}<option value="{{ t }}"{% if editing and ev.activity_type == t %} selected{% endif %}>{{ t.replace('_',' ')|title }}</option>{% endfor %}</select></label>
+    <label>Where (quest, dungeon or zone)
+      <input name="location" list="wq-locations" data-autocomplete="location" maxlength="200" value="{{ ev.activity_location.label if editing and ev.activity_location else '' }}" autocomplete="off">
+      <datalist id="wq-locations"></datalist>
+      <span class="note" data-autocomplete-status>Free text always works. Suggestions appear only where Blizzard data is available for this edition.</span></label>
+    <label>Meet at <input name="muster" maxlength="200" value="{{ ev.muster_location.label if editing and ev.muster_location else '' }}"></label>
+    <label>Description <textarea name="description" maxlength="2000" rows="4">{{ ev.description if editing else '' }}</textarea></label>
+    <label>Who can join <input name="eligibility" maxlength="500" value="{{ ev.eligibility if editing else '' }}" placeholder="e.g. level 18+, voice for raids"></label>
+  </fieldset>
+
+  <fieldset><legend>When</legend>
+    <div class="wq-row">
+      <label>Date <input type="date" name="date" {% if not editing %}required{% endif %} value="{{ local_date if local_date is defined else '' }}"></label>
+      <label>Start <input type="time" name="start_time" {% if not editing %}required{% endif %} value="{{ local_time if local_time is defined else '' }}"></label>
+      <label>Length (minutes) <input type="number" name="duration_minutes" min="15" max="720" step="15" value="{{ ((ev.end_at - ev.start_at).total_seconds() // 60)|int if editing else 120 }}"></label>
+    </div>
+    <label>Time zone <input name="timezone" value="{{ ev.timezone if editing else tz }}" required data-tz-default></label>
+    <label>If the time happens twice (clocks fall back)
+      <select name="fold"><option value="">Ask me</option><option value="0">First occurrence (daylight time)</option><option value="1">Second occurrence (standard time)</option></select></label>
+    {% if editing %}<p class="note">Leave date and start empty to keep the current time ({{ fmt_local(ev.start_at, ev.timezone) }}). Changing the time re-checks the schedule and asks confirmed players to reconfirm.</p>{% endif %}
+    {% if not editing %}
+    <label>Repeat <span class="note">(optional; creates one draft per occurrence)</span>
+      <select name="rrule"><option value="">Doesn't repeat</option><option value="FREQ=WEEKLY;COUNT=4">Weekly, 4 times</option><option value="FREQ=WEEKLY;COUNT=8">Weekly, 8 times</option><option value="FREQ=WEEKLY;INTERVAL=2;COUNT=4">Every 2 weeks, 4 times</option></select></label>
+    {% elif ev.series_id %}
+    <fieldset class="wq-scope"><legend>Recurring event</legend>
+      <label><input type="radio" name="scope" value="one" checked> Only this occurrence</label>
+      <label><input type="radio" name="scope" value="future"> This and future occurrences</label>
+    </fieldset>
+    {% endif %}
+  </fieldset>
+
+  <fieldset><legend>Signups</legend>
+    <label>Policy
+      <select name="signup_policy"><option value="open"{% if not editing or ev.signup_policy == 'open' %} selected{% endif %}>Open: joining confirms a spot</option><option value="approval"{% if editing and ev.signup_policy == 'approval' %} selected{% endif %}>Approval: hosts approve each signup</option></select></label>
+    <label>Participant limit <span class="note">(optional)</span> <input type="number" name="participant_limit" min="1" max="80" value="{{ ev.participant_limit or '' if editing else '' }}"></label>
+    <p class="note">Group roles are optional. Use presets, or type your own role names.</p>
+    <table class="wq-table wq-roles"><thead><tr><th>Role</th><th>Label</th><th>How many</th></tr></thead><tbody>
+    {% set cur = ev.roles if editing else [] %}
+    {% for i in range(8) %}{% set r = cur[i] if i < cur|length else none %}
+      <tr><td><input name="role_key_{{ i }}" list="wq-presets" value="{{ r.key if r else '' }}" aria-label="Role key {{ i+1 }}"></td>
+          <td><input name="role_label_{{ i }}" value="{{ r.label if r else '' }}" aria-label="Role label {{ i+1 }}"></td>
+          <td><input type="number" name="role_qty_{{ i }}" min="1" max="80" value="{{ r.quantity if r else '' }}" aria-label="Quantity {{ i+1 }}"></td></tr>
+    {% endfor %}</tbody></table>
+    <datalist id="wq-presets">{% for p in presets %}<option value="{{ p.key }}">{{ p.label }}</option>{% endfor %}</datalist>
+    <label><input type="checkbox" name="late_join" value="1"{% if editing and ev.late_join %} checked{% endif %}> Allow joining after the start</label>
+    <label><input type="checkbox" name="public_listing" value="1"{% if not editing or ev.public_listing %} checked{% endif %}> Show on the public schedule and calendar</label>
+    <label><input type="checkbox" name="chronicle_enabled" value="1"{% if not editing or ev.chronicle_enabled %} checked{% endif %}> Ask for a chronicle story afterwards</label>
+    {% if can('exclusive_designator') %}
+    <input type="hidden" name="has_exclusive" value="1">
+    <label><input type="checkbox" name="exclusive" value="1"{% if editing and ev.exclusive %} checked{% endif %}> Exclusive: no other WoW event may overlap</label>
+    {% endif %}
+    {% if not editing or ev.creator_id == actor.member_id or can('event_moderator') %}
+    <label>Co-hosts <span class="note">(Discord user IDs, separated by spaces; up to 5)</span>
+      <input name="cohosts" value="{{ cohost_ids if cohost_ids is defined else '' }}" inputmode="numeric"></label>
+    {% endif %}
+  </fieldset>
+  <div class="btns">
+    <button class="btn" type="submit">{{ "Save changes" if editing else "Save draft" }}</button>
+    {% if not editing and can('event_creator') %}<button class="btn ghost" type="submit" name="publish" value="1">Save and publish</button>{% endif %}
+    <a class="btn ghost" href="{{ mp }}/{{ 'events/' ~ ev.public_id if editing else '' }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

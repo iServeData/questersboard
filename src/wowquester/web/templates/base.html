@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} — {{ b.site_name }}</title>
+<meta name="robots" content="{{ 'index,follow' if public else 'noindex,nofollow' }}">
+{% if b.stylesheet %}<link rel="stylesheet" href="{{ b.stylesheet }}">{% endif %}
+<link rel="stylesheet" href="{{ mp }}/static/wowquester.css">
+{% if public %}<link rel="alternate" type="application/atom+xml" title="{{ b.site_name }} WoW Chronicle" href="{{ cp }}/feed.atom">
+<link rel="alternate" type="application/feed+json" title="{{ b.site_name }} WoW Chronicle" href="{{ cp }}/feed.json">{% endif %}
+<script src="{{ mp }}/static/wowquester.js" defer></script>
+</head>
+<body class="{{ b.body_class }} wq{% if not b.stylesheet %} wq-fallback{% endif %}">
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav" id="top">
+  <div class="wrap">
+    <a class="wordmark" href="{{ b.home_url }}">{{ b.site_name }}</a>
+    <ul id="menu">
+      {% for n in b.nav %}<li><a href="{{ n.url }}">{{ n.label }}</a></li>{% endfor %}
+      <li><a href="{{ mp }}/"{% if request.url.path.startswith(mp) %} aria-current="page"{% endif %}>Quests</a></li>
+      <li><a href="{{ cp }}/"{% if request.url.path.startswith(cp) %} aria-current="page"{% endif %}>Chronicle</a></li>
+      {% if not public %}
+        {% if actor %}
+        <li><a href="{{ mp }}/me">{{ actor.display_name or "Me" }}</a></li>
+        {% else %}
+        <li><a class="btn" href="{{ mp }}/login?next={{ request.url.path }}">Log in with Discord</a></li>
+        {% endif %}
+      {% elif b.discord_invite_url %}
+        <li><a class="btn" href="{{ b.discord_invite_url }}" rel="noopener">Join Discord</a></li>
+      {% endif %}
+    </ul>
+  </div>
+</header>
+<main id="content" class="wrap wq-main">
+  <nav class="crumb" aria-label="Breadcrumb"><a href="{{ b.game_page_url }}">WoW</a> / {% block crumb %}<span aria-current="page">{{ title }}</span>{% endblock %}</nav>
+  {% block content %}{% endblock %}
+</main>
+<footer class="wrap wq-foot note">
+  {% if not public and actor %}
+  <form method="post" action="{{ mp }}/logout" class="wq-inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="linkish" type="submit">Log out</button></form> ·
+  {% endif %}
+  <a href="{{ mp }}/calendar.ics">Public calendar (.ics)</a> · <a href="{{ cp }}/feed.atom">Chronicle feed</a>
+</footer>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-head"><h1>Chronicle review</h1></div>
+<p class="note">{{ rows|length }} waiting · {{ published }} published. Check consent, privacy and screenshots, then approve, request changes or reject. Approving makes the story public immediately.</p>
+<table class="wq-table"><thead><tr><th>Event</th><th>Submitted</th><th></th></tr></thead><tbody>
+{% for e, ev in rows %}<tr><td>{{ ev.title }}<br><span class="note">{{ fmt_local(ev.start_at, ev.timezone) }}</span></td><td>{{ fmt_local(e.updated_at, ev.timezone) }}</td><td><a class="btn ghost" href="{{ mp }}/chronicle/{{ e.id }}">Review</a></td></tr>
+{% else %}<tr><td colspan="3" class="note">Nothing to review.</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
