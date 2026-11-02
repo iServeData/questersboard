@@ -76,3 +76,15 @@ def test_bot_named_channel_outside_allowed_list_gets_a_note():
     roles, chans, bot = _guild()
     rep = da.build(_cfg(allowed_command_channel_ids=[CHAT]), G, roles, chans, bot, [{"id": "1", "name": "quest"}], [])
     assert "isn't in [discord] allowed_command_channel_ids" in rep.text()
+
+
+def test_commands_shown_everywhere_until_limited_in_integrations():
+    roles, chans, bot = _guild()
+    cmds = [{"id": "1", "name": "quest"}]
+    t = da.build(_cfg(), G, roles, chans, bot, cmds, []).text()
+    assert "Discord still offers WoWQuester commands in every channel" in t and "turn off All Channels" in t
+    limited = [{"id": fake_id(2), "permissions": [{"id": str(int(G) - 1), "type": 3, "permission": False},
+                                                  {"id": BOTCH, "type": 3, "permission": True}]}]
+    rep = da.build(_cfg(), G, roles, chans, bot, cmds, limited)
+    assert "Discord only offers WoWQuester commands in: #bot-commands" in rep.text()
+    assert rep.fixes == 0 and rep.notes == 0

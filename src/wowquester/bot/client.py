@@ -70,8 +70,15 @@ async def run_tx(fn, *a, **kw):
     return await asyncio.to_thread(work)
 
 
+def _md(text: str) -> str:
+    """Event titles inside a masked link: keep brackets and markdown from breaking it."""
+    return "".join("\\" + c if c in "[]()*_~`|\\" else c for c in str(text))
+
+
 async def reply(inter: discord.Interaction, text: str, view: discord.ui.View | None = None) -> None:
-    kw = {"content": text[:1900], "ephemeral": True, "allowed_mentions": discord.AllowedMentions.none()}
+    # suppress_embeds: links go through the login proxy, so Discord would otherwise preview its sign-in page
+    kw = {"content": text[:1900], "ephemeral": True, "allowed_mentions": discord.AllowedMentions.none(),
+          "suppress_embeds": True}
     if view is not None:
         kw["view"] = view
     if inter.response.is_done():
@@ -192,7 +199,7 @@ async def finish_join(inter, event_id, cid, role_key, tentative):
     state = await run_tx(_join, Ctx.cfg(), actor, event_id, cid, role_key, tentative)
     text = STATE_TEXT.get(state, f"Signup {state}.")
     if inter.response.is_done():
-        await inter.followup.send(text, ephemeral=True)
+        await inter.followup.send(text, ephemeral=True, suppress_embeds=True)
     else:
         await inter.response.edit_message(content=text, view=None)
 
@@ -323,8 +330,8 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
             if not rows:
                 await reply(inter, "No WoW events are scheduled.")
                 return
-            lines = [f"• **{t}** {discord_ts(st, 'F')}{' (in progress)' if state == 'in_progress' else ''} "
-                     f"<{member_url(Ctx.cfg(), 'events', pid)}>" for _, t, st, state, pid in rows]
+            lines = [f"• **[{_md(t)}](<{member_url(Ctx.cfg(), 'events', pid)}>)** {discord_ts(st, 'F')}"
+                     f"{' (in progress)' if state == 'in_progress' else ''}" for _, t, st, state, pid in rows]
             await reply(inter, "\n".join(lines))
         await guarded(inter, go())
 

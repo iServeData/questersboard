@@ -136,6 +136,7 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
     cmd_chs = [str(x) for x in d.get("allowed_command_channel_ids", [])]
     member_roles = [str(x) for x in cfg["community"].get("member_role_ids", [])]
     rep = Report()
+    all_ch = str(int(guild_id) - 1)
 
     # who we evaluate
     base = frozenset(member_roles)
@@ -183,9 +184,25 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
                 where = f"user {tgt}"
             state = "allowed" if pm.get("permission") else "turned OFF"
             line = f"Server Settings > Integrations > WoWQuester: {scope} {state} for {where}"
-            (rep.note if pm.get("permission") else rep.fix)(line)
+            expected = kind == "channel" and ((tgt == all_ch and not pm.get("permission")) or
+                                              (tgt in cmd_chs and pm.get("permission")))
+            (rep.ok if expected else rep.note if pm.get("permission") else rep.fix)(line)
+    app_level = [pm for e in command_perms or [] if str(e.get("id")) == str(d.get("application_id"))
+                 for pm in e.get("permissions", []) if int(pm.get("type", 0)) == 3]
+    hidden_elsewhere = any(str(pm.get("id")) == all_ch and not pm.get("permission") for pm in app_level)
+    shown_in = {str(pm.get("id")) for pm in app_level if pm.get("permission")}
+    if commands and cmd_chs:
+        if hidden_elsewhere and set(cmd_chs) <= shown_in:
+            rep.ok("Discord only offers WoWQuester commands in: "
+                   + ", ".join("#" + chans.get(c, {}).get("name", c) for c in cmd_chs)
+                   + " (members with Administrator still see them everywhere).")
+        else:
+            rep.note("Discord still offers WoWQuester commands in every channel (they're refused outside the "
+                     "command channel). To hide them: Server Settings > Integrations > WoWQuester > Channels: "
+                     "turn off All Channels and add " + ", ".join("#" + chans.get(c, {}).get("name", c) for c in cmd_chs)
+                     + ".")
     if cmd_chs:
-        rep.ok("Commands are limited to: " + ", ".join("#" + chans.get(c, {}).get("name", c) for c in cmd_chs))
+        rep.ok("WoWQuester only accepts commands in: " + ", ".join("#" + chans.get(c, {}).get("name", c) for c in cmd_chs))
     else:
         rep.note("[discord] allowed_command_channel_ids is empty, so commands would work in any channel the "
                  "member can use.")
