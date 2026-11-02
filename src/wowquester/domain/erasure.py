@@ -73,7 +73,8 @@ def plan(s: Session, member_id: int) -> Plan:
     p = Plan()
     p.leave = list(s.scalars(select(Event).join(Signup, Signup.event_id == Event.id).where(
         Signup.member_id == member_id, Signup.state.in_(signups.ACTIVE),
-        Event.state.in_(("scheduled", "in_progress"))).order_by(Event.start_at)))
+        Event.state.in_(("scheduled", "in_progress")), Event.creator_id != member_id).order_by(Event.start_at)))
+    # (events they host and are also signed up for are listed once, under "cancel")
     p.cancel = list(s.scalars(select(Event).where(Event.creator_id == member_id,
                                                   Event.state.in_(("scheduled", "in_progress")))
                               .order_by(Event.start_at)))

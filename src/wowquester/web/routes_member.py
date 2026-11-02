@@ -598,7 +598,7 @@ def router(cfg: Config) -> APIRouter:
         w = W(request)
         with w.db.tx() as s:
             p = erasure.plan(s, a.member_id)
-            for ev in p.leave + p.cancel:
+            for ev in {id(e): e for e in p.leave + p.cancel}.values():
                 s.expunge(ev)
         return render(request, "remove_me.html", {"title": "Remove me from WoWQuester", "p": p, "error": error,
                                                   "phrase": erasure.CONFIRM_PHRASE}, status=status)

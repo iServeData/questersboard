@@ -784,3 +784,27 @@ def test_remove_me_needs_typed_phrase_then_logs_out_with_receipt(app, seeded):
     # logging in again starts a brand-new empty profile
     again = login(app, 108)
     assert "Korrak" not in again.get("/wow/quester/characters").text
+
+
+def test_remove_me_when_signed_up_to_an_event_you_host(app, seeded):
+    """Regression: a host who joined their own event made the confirmation page fail (500)."""
+    org = login(app, 109, "event_creator")
+    tok = csrf(org)
+    start = at(30).astimezone(__import__("zoneinfo").ZoneInfo("America/Los_Angeles"))
+    url = org.post("/wow/quester/events/new", data={
+        "csrf": tok, "edition": "forever", "ruleset": "pvp", "faction": "horde", "title": "Own raid",
+        "activity_type": "dungeon", "date": start.strftime("%Y-%m-%d"), "start_time": start.strftime("%H:%M"),
+        "duration_minutes": "90", "timezone": "America/Los_Angeles", "signup_policy": "open",
+        "publish": "1"}).headers["location"]
+    org.post("/wow/quester/characters", data={"csrf": tok, "edition": "forever", "ruleset": "pvp", "name": "Hostchar",
+                                              "faction": "horde", "race_key": "Orc", "class_key": "Warrior",
+                                              "eligible_roles": ["tank"]})
+    cid = re.search(r'characters\?edit=(\d+)#character-form', org.get("/wow/quester/characters").text).group(1)
+    org.post(url + "/join", data={"csrf": tok, "character_id": cid})
+    page = org.get("/wow/quester/me/remove")
+    assert page.status_code == 200
+    assert page.text.count(">Own raid</a>") == 1 and "you host" in page.text and "You aren't signed up" in page.text
+    r = org.post("/wow/quester/me/remove", data={"csrf": tok, "confirm": "remove me"})
+    assert r.status_code == 200 and "Your request is complete" in r.text
+    with seeded.tx() as s:
+        assert s.execute(text("select state from events where title='Own raid'")).scalar() == "cancelled"
