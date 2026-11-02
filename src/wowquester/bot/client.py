@@ -21,7 +21,7 @@ from sqlalchemy import select
 
 from ..config import Config, ConfigError, ConfigHolder, load
 from ..db import Database, make_engine
-from ..domain import events, permissions, roster, signups, status
+from ..domain import catalog, events, permissions, roster, signups, status
 from ..domain.actor import Actor
 from ..domain.errors import DomainError
 from ..domain.timeutil import discord_ts, now, resolve_local
@@ -286,30 +286,115 @@ class CharacterModal(discord.ui.Modal, title="Add a WoW character"):
     place = discord.ui.TextInput(label="Ruleset (Forever) or realm (Retail)", placeholder="pvp", max_length=64)
     roles = discord.ui.TextInput(label="Roles you can fill", placeholder="tank, damage", required=False)
 
-    def __init__(self, edition: str):
+    def __init__(self, edition: str, draft: dict | None = None):
         super().__init__()
         self.edition = edition
+        # Reopened after a problem: put back everything the player typed so nothing has to be retyped.
+        for field in ("name", "race_class", "place", "roles"):
+            if draft and draft.get(field):
+                getattr(self, field).default = draft[field]
 
     async def on_submit(self, inter: discord.Interaction):
-        cfg = Ctx.cfg()
+        draft = {"edition": self.edition, "name": self.name.value.strip(), "race_class": self.race_class.value.strip(),
+                 "place": self.place.value.strip(), "roles": self.roles.value.strip()}
+        await guarded(inter, submit_character(inter, draft))
 
-        async def go():
-            actor = await build_actor(inter, "slash" if inter.guild_id else "dm")
-            ed = cfg.edition(self.edition)
-            parts = self.race_class.value.strip().lower().rsplit(" ", 1)
-            if len(parts) != 2:
-                await reply(inter, "Write race then class, e.g. `orc warrior` or `blood elf mage`.")
-                return
-            data = dict(edition=ed.key, name=self.name.value.strip(), race_key=parts[0].replace(" ", "_"),
-                        class_key=parts[1], eligible_roles=[r for r in re.split(r"[,\s]+", self.roles.value) if r])
-            place = self.place.value.strip().lower()
-            if ed.uses_realms:
-                data["realm_slug"] = place
-            else:
-                data["ruleset"] = place or ed.default_ruleset
-            ch = await run_tx(lambda s: roster.add_character(s, cfg, actor, data).name)
-            await reply(inter, f"Added **{ch}**. Edit details any time at {member_url(cfg, 'characters')}")
-        await guarded(inter, go())
+
+def _draft_parts(s, cfg: Config, draft: dict):
+    """(race text, class text, race choices, class choices) for a draft; choices are (key, label) for the pickers."""
+    ed = cfg.edition(draft["edition"])
+    faction = draft.get("faction") or ed.default_faction
+    race, klass = draft.get("race"), draft.get("klass")
+    if race is None or klass is None:
+        r, k = catalog.split_race_class(s, ed.key, faction, draft.get("race_class", ""))
+        race, klass = (r if race is None else race), (k if klass is None else klass)
+    races = [(o.key, o.label) for o in catalog.options(s, ed.key, "race", faction)]
+    classes = [(o.key, o.label) for o in catalog.options(s, ed.key, "class")]
+    ro = catalog.resolve(s, ed.key, "race", race, faction) if race else None
+    if ro is not None:
+        ok = {o.key.split(":", 1)[1] for o in catalog.options(s, ed.key, "race_class", faction, limit=1000)
+              if o.key.startswith(ro.key + ":")}
+        if ok:
+            classes = [c for c in classes if c[0] in ok]
+    return race, klass, races, classes
+
+
+def _save_character(s, cfg: Config, actor: Actor, draft: dict, race: str, klass: str) -> str:
+    ed = cfg.edition(draft["edition"])
+    data = dict(edition=ed.key, name=draft["name"], race_key=race, class_key=klass,
+                eligible_roles=[r for r in re.split(r"[,\s]+", draft.get("roles", "").lower()) if r])
+    place = draft.get("place", "").strip().lower()
+    if ed.uses_realms:
+        data["realm_slug"] = place
+    else:
+        data["ruleset"] = place or ed.default_ruleset
+    return roster.add_character(s, cfg, actor, data).name
+
+
+async def _answer(inter: discord.Interaction, text: str, view: discord.ui.View | None) -> None:
+    """From a picker or button on our own message, update that message; otherwise send a private reply."""
+    # A form reopened from our button also carries that message, so it is replaced rather than left stale.
+    if inter.message is not None and not inter.response.is_done() and \
+            inter.type in (discord.InteractionType.component, discord.InteractionType.modal_submit):
+        await inter.response.edit_message(content=text[:1900], view=view, allowed_mentions=discord.AllowedMentions.none())
+    else:
+        await reply(inter, text, view)
+
+
+async def submit_character(inter: discord.Interaction, draft: dict) -> None:
+    """Save the character, or ask for what's missing. Nothing typed is ever thrown away: a missing race or class
+    gets a picker, and any other problem comes with a button that reopens the form already filled in."""
+    cfg = Ctx.cfg()
+    actor = await build_actor(inter, "slash" if inter.guild_id else "dm")
+    race, klass, races, classes = await run_tx(_draft_parts, cfg, draft)
+    draft = {**draft, "race": race, "klass": klass}
+    who = f"**{draft['name']}**" if draft["name"] else "Your character"
+    if not race or not klass:
+        missing = "race" if not race else "class"
+        text = f"{who} isn't saved yet: pick a {missing} (you wrote \"{draft.get('race_class', '')}\")."
+        await _answer(inter, text, FinishCharacterView(draft, missing, races if missing == "race" else classes))
+        return
+    ck = await run_tx(lambda s: getattr(catalog.resolve(s, cfg.edition(draft["edition"]).key, "class", klass), "key", None))
+    if ck is not None and ck not in {k for k, _ in classes}:
+        missing = "class"
+        text = f"{who} isn't saved yet: {race.title()} can't be a {klass.title()} here. Pick a class it can be."
+        await _answer(inter, text, FinishCharacterView(draft, missing, races if missing == "race" else classes))
+        return
+    try:
+        name = await run_tx(_save_character, cfg, actor, draft, race, klass)
+    except DomainError as exc:
+        await _answer(inter, f"Not saved: {exc.message}", FinishCharacterView(draft, None, []))
+        return
+    await _answer(inter, f"Added **{name}**. Edit details any time at <{member_url(cfg, 'characters')}>", None)
+
+
+class PickSelect(discord.ui.Select):
+    def __init__(self, draft: dict, missing: str, choices):
+        self.draft, self.missing = draft, missing
+        super().__init__(placeholder=f"Choose a {missing}",
+                         options=[discord.SelectOption(label=label[:100], value=key) for key, label in choices[:25]])
+
+    async def callback(self, inter: discord.Interaction):
+        key = "race" if self.missing == "race" else "klass"
+        await guarded(inter, submit_character(inter, {**self.draft, key: self.values[0]}))
+
+
+class EditFormButton(discord.ui.Button):
+    def __init__(self, draft: dict):
+        super().__init__(label="Edit the form", style=discord.ButtonStyle.secondary)
+        self.draft = draft
+
+    async def callback(self, inter: discord.Interaction):
+        rc = " ".join(x for x in (self.draft.get("race"), self.draft.get("klass")) if x) or self.draft.get("race_class")
+        await inter.response.send_modal(CharacterModal(self.draft["edition"], {**self.draft, "race_class": rc}))
+
+
+class FinishCharacterView(discord.ui.View):
+    def __init__(self, draft: dict, missing: str | None, choices):
+        super().__init__(timeout=600)
+        if missing and choices:
+            self.add_item(PickSelect(draft, missing, choices))
+        self.add_item(EditFormButton(draft))
 
 
 # --------------------------------------------------------------------------- commands

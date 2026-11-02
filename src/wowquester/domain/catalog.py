@@ -103,3 +103,29 @@ def race_class_allowed(s: Session, edition: str, faction: str, race: str, klass:
         ReferenceOption.key == f"{race}:{klass}", ReferenceOption.parent_key == faction,
         ReferenceOption.retired_at.is_(None)))
     return hit is not None
+
+
+def split_race_class(s: Session, edition: str, faction: str, text: str) -> tuple[str, str]:
+    """Read one typed "race and class" line: "orc warrior", "Blood Elf Death Knight", "warrior orc", or just
+    "orc" / "warrior". Returns (race text, class text); a part that wasn't typed comes back "".
+    The catalog decides where the split goes, so multi-word races and classes both work; unknown words
+    fall back to "last word is the class"."""
+    words = text.split()
+    if not words:
+        return "", ""
+    if len(words) == 1:
+        w = words[0]
+        if resolve(s, edition, "class", w) is not None and resolve(s, edition, "race", w, faction) is None:
+            return "", w
+        return w, ""
+    def score(race: str, klass: str) -> int:
+        return (2 if resolve(s, edition, "class", klass) is not None else 0) + \
+               (1 if resolve(s, edition, "race", race, faction) is not None else 0)
+    best = (" ".join(words[:-1]), words[-1])
+    best_score = score(*best)
+    for i in range(1, len(words)):
+        a, b = " ".join(words[:i]), " ".join(words[i:])
+        for cand in ((a, b), (b, a)):
+            if (sc := score(*cand)) > best_score:
+                best, best_score = cand, sc
+    return best

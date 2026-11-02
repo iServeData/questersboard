@@ -25,6 +25,10 @@ Log in with Discord. WoWQuester only learns your Discord ID and display name.
   would stop it fitting events it is signed up for list those events with one "Leave these events and save"
   button. If the edition is locked, "Add it as a new character" keeps the original and adds the new one.
 - Pick race and class from the suggestions or type your own. Suggestions follow the edition, faction and race you choose. WoWQuester only refuses a pairing its catalog rules out (for example a Gnome on the Horde, or a Tauren Mage in Forever) and tells you which options are valid. Anything not in the catalog is saved as typed.
+- In Discord, `/character add` reads "Race and class" as one line ("orc warrior", "night elf druid", even
+  "warrior orc"). If you type only one of them, or a pairing that can't exist, nothing is lost: the reply
+  offers a picker for the missing or valid choice and saves as soon as you pick. Any other problem (a name
+  with a number, an unknown ruleset) comes with an "Edit the form" button that reopens it filled in.
 - Set the roles you can fill (tank, healer, damage, or your community's custom roles).
 - "Check with Blizzard" (Retail only for now) confirms the character exists. It doesn't prove it's yours.
 - "Prove a character is yours" (if your community turned it on): log in with Battle.net once. Matching
