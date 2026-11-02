@@ -32,6 +32,7 @@ sudo -u wowquester wowquester-admin check-config    # after editing config.toml
 | Give up on dead deliveries that no longer matter | `wowquester-admin outbox dismiss-dead` |
 | Health check | `sudo ./deploy/health.sh` fails on dead deliveries; `install.sh`/`rollback.sh` use `--deploy`, which only warns, so a Discord permission problem can't roll back a working release |
 | Revoke someone's private calendar link | `wowquester-admin calendar-revoke <discord id>` |
+| Check WoW channel permissions and slash-command registration (read-only) | `wowquester-admin discord-permissions` (needs the `discord-bot-token` credential; `--category <id>` to pick another category) |
 | Remove a member who can't log in (same as "Remove me") | `wowquester-admin erase-member <discord id>` shows the plan; add `--yes` to carry it out |
 | Prune old audit rows / signups / sessions | `wowquester-admin prune` (admin role; monthly is plenty) |
 | Re-import Blizzard reference data | `wowquester-admin blizzard import-reference retail --region us` |

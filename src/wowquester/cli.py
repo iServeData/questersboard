@@ -161,6 +161,23 @@ def cmd_sync_commands(args):
     return 0
 
 
+def cmd_discord_permissions(args):
+    """Read-only: effective permissions in the WoW category and slash-command registration."""
+    cfg = _cfg(args)
+    from .integrations import discord_audit
+    from .integrations.discord_rest import DiscordError, DiscordRest
+    try:
+        data = discord_audit.fetch(DiscordRest(), cfg)
+    except DiscordError as exc:
+        print(f"Discord lookup failed: {exc}", file=sys.stderr)
+        return 1
+    rep = discord_audit.build(cfg, cfg.guild_id, *data, category_id=args.category)
+    print(rep.text())
+    print(discord_audit.LEGEND)
+    print(f"\n{rep.fixes} to fix, {rep.notes} note(s). Read-only: nothing was changed in Discord.")
+    return 2 if rep.fixes else 0
+
+
 def cmd_calendar_revoke(args):
     cfg = _cfg(args)
     db = _db(cfg, "app")
@@ -269,6 +286,9 @@ def main(argv=None) -> int:
     sc.add_argument("--yes", action="store_true")
     sc.add_argument("--dry-run", action="store_true")
     sc.set_defaults(fn=cmd_sync_commands)
+    dp = sub.add_parser("discord-permissions", help="read-only check of WoW channel permissions and slash commands")
+    dp.add_argument("--category", help="category channel ID (default: the event channel's category)")
+    dp.set_defaults(fn=cmd_discord_permissions)
     cr = sub.add_parser("calendar-revoke")
     cr.add_argument("discord_id")
     cr.set_defaults(fn=cmd_calendar_revoke)
