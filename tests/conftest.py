@@ -88,6 +88,13 @@ def actor(n: int, *caps: str, source: str = "web", name: str | None = None) -> A
 def admin_engine():
     if not REACHABLE:
         pytest.skip("test PostgreSQL not reachable")
+    # Bring the schema to head first (a no-op when it already is), so a fresh cluster works without a manual step.
+    from alembic import command
+    from alembic.config import Config as AConfig
+    ac = AConfig()
+    ac.set_main_option("script_location", str(ROOT / "src" / "wowquester" / "migrations"))
+    os.environ["WOWQUESTER_MIGRATE_URL"] = url("wowquester_admin")
+    command.upgrade(ac, "head")
     e = create_engine(url("wowquester_admin"), isolation_level="AUTOCOMMIT")
     yield e
     e.dispose()
