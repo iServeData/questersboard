@@ -32,6 +32,9 @@ event cards, status cards). Not yet serving the public site; see `docs/productio
   PostgreSQL roles and pg_hba hardening, systemd units with encrypted credentials, `deploy/health.sh`,
   outbox status and dead-letter handling, `wowquester-admin discord-permissions` (read-only permission
   report) and `sync-commands` (approval-gated).
+- **Login return address**: rebuilt from the member-area prefix and a checked remainder (CodeQL
+  `py/url-redirection`); `tests/test_login_next.py`.
+- **Public repository**: `CONTRIBUTING.md`; `SECURITY.md` points to private vulnerability reporting.
 - **Go live**: `deploy/go_live.sh` switches the public address and adds the live Nginx include with
   checks, a backup, automatic restore on a failed `nginx -t`, live-host checks and `--rollback`.
 - **Repository**: tests workflow (full suite against PostgreSQL with production roles; database tests

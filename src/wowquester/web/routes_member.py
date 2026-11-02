@@ -44,6 +44,16 @@ def _redirect(url: str) -> RedirectResponse:
     return RedirectResponse(url, status_code=303)
 
 
+def _local_next(value: str, mp: str) -> str:
+    """Where to send someone after login: only a path inside the member area, never another site.
+    Rebuilt as the constant member prefix + the checked remainder, so the host can't come from input."""
+    prefix = mp + "/"
+    rest = value[len(prefix):] if isinstance(value, str) and value.startswith(prefix) else ""
+    if not re.fullmatch(r"[A-Za-z0-9_./?=&%-]*", rest) or rest.startswith("/") or "//" in rest or ".." in rest:
+        rest = ""
+    return prefix + rest
+
+
 def _bool(form, k) -> bool:
     return str(form.get(k, "")).lower() in ("1", "on", "true", "yes")
 
@@ -175,7 +185,7 @@ def router(cfg: Config) -> APIRouter:
                                                     "message": "Discord login isn't configured on this server."})
         state = pysecrets.token_urlsafe(24)
         resp = _redirect("about:blank")
-        safe_next = next if next.startswith(mp + "/") and "//" not in next else mp + "/"
+        safe_next = _local_next(next, mp)
         w.new_session(resp, None, {"oauth_state": state, "next": safe_next})
         resp.headers["location"] = w.oauth.authorize_url(
             w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/oauth/callback", state)
@@ -188,7 +198,7 @@ def router(cfg: Config) -> APIRouter:
         if pre is None or pre.member_id is not None or not state or \
                 not pysecrets.compare_digest(state, pre.data.get("oauth_state", "")):
             raise PermissionDenied("That login link expired. Please try logging in again.")
-        nxt = pre.data.get("next", mp + "/")
+        nxt = _local_next(pre.data.get("next", ""), mp)
         resp = _redirect(nxt)
         w.drop_session(request, resp)           # state is single-use
         discord_id, name = w.oauth.identify(code, w.cfg["community"]["public_base_url"].rstrip("/") +

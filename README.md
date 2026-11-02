@@ -35,6 +35,8 @@ WOWQUESTER_PREVIEW_ADMIN_DB=postgresql+psycopg://wowquester_admin:${WQT_ADMIN_PW
 .venv/bin/python tools/preview_server.py --port 8740 --reset
 ```
 
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Ground rules baked in
 
 - No secrets in the repository or in `config.toml`; secrets are systemd credentials.

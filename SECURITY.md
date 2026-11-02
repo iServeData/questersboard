@@ -2,9 +2,8 @@
 
 ## Reporting a problem
 
-Please don't open a public issue for a security problem. Contact the maintainers privately (this
-repository is private; if it is ever made public, use GitHub's **Report a vulnerability** on the
-Security tab). Include what you found, how to reproduce it, and the release or commit you're running
+Please don't open a public issue for a security problem. Use **Report a vulnerability** on the
+repository's Security tab, which reaches the maintainers privately. Include what you found, how to reproduce it, and the release or commit you're running
 (`git -C ~/wowquester log -1 --oneline` on the host).
 
 ## What WoWQuester protects
