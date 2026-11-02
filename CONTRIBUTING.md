@@ -6,8 +6,9 @@ repository itself works for any community.
 
 ## Get it running
 
+Clone the repository (the **Code** button on GitHub), then from its folder:
+
 ```sh
-git clone https://github.com/iServeData/wowquester.git && cd wowquester
 uv venv -p 3.12 .venv
 uv pip install -r requirements.lock -r requirements-dev.lock && uv pip install -e . --no-deps
 ```
