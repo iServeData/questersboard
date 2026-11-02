@@ -19,6 +19,15 @@ prototype to the live host; the prototype keeps its gate but its WoWQuester link
 | 8 | Checks: `deploy/health.sh`; `https://LIVE_HOST/wow/quester/status.json` returns JSON without a sign-in; Discord login works; a published event card links to `LIVE_HOST`; `/wow/` status card shows Online | host, browser | none | steps 6, 5 |
 | 9 | Discord: limit slash commands to the bot channel (Integrations); announce in Discord; optionally remove the prototype OAuth redirect | Discord | publish | - |
 
+Steps 5, 6 and 8 are one command, `deploy/go_live.sh` (checks first, backs up, changes, `nginx -t` with
+automatic restore, restarts, then checks the live host):
+
+```sh
+sudo ./deploy/go_live.sh --url https://LIVE_HOST --site-file /etc/nginx/sites-available/SITE \
+     --after 'include /etc/nginx/snippets/AN_EXISTING_INCLUDE.conf;'
+sudo ./deploy/go_live.sh --rollback /root/wowquester_go_live_STAMP.tgz     # undo
+```
+
 Not needed: firewall or DNS changes (the web service listens on a unix socket; PostgreSQL on localhost), new
 migrations (0002 is the current head), new slash-command registration (unchanged since the last sync).
 
