@@ -1,0 +1,73 @@
+# Full test suite against a disposable PostgreSQL cluster with the production roles and pg_hba rules
+# (docs/testing.md). Discord, Blizzard and the AI service are FIXTURE fakes; nothing leaves the runner.
+name: tests
+
+on:
+  push:
+    branches: [main, prototype]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (hash-pinned)
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --require-hashes --no-deps -r deploy/build_requirements.lock
+          .venv/bin/pip install --require-hashes -r requirements.lock
+          .venv/bin/pip install --require-hashes -r requirements-dev.lock
+          .venv/bin/pip install --no-deps --no-build-isolation -e .
+
+      - name: Disposable PostgreSQL with the production roles
+        run: |
+          set -euo pipefail
+          PGBIN=/usr/lib/postgresql/$(ls /usr/lib/postgresql | sort -V | tail -1)/bin
+          sudo install -d -o postgres -g postgres -m 0755 /tmp/pgt
+          sudo -u postgres "$PGBIN/initdb" -D /tmp/pgt/data --auth-local=peer --auth-host=scram-sha-256 >/dev/null
+          sudo cp deploy/postgres/pg_hba.conf /tmp/pgt/data/pg_hba.conf
+          sudo chown postgres:postgres /tmp/pgt/data/pg_hba.conf
+          sudo -u postgres "$PGBIN/pg_ctl" -D /tmp/pgt/data -o "-p 5433 -k /tmp/pgt -c listen_addresses=127.0.0.1" -l /tmp/pgt/log -w start
+          for n in ADMIN APP WORKER READONLY; do
+            pw=$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')
+            echo "::add-mask::$pw"
+            echo "WQT_${n}_PW=$pw" >> "$GITHUB_ENV"
+            export "WQ_${n}_PW=$pw"
+          done
+          sudo --preserve-env=WQ_ADMIN_PW,WQ_APP_PW,WQ_WORKER_PW,WQ_READONLY_PW -u postgres \
+            psql -h /tmp/pgt -p 5433 -q < deploy/postgres/roles.sql
+          echo "WQT_PG_SOCKET=/tmp/pgt" >> "$GITHUB_ENV"
+
+      - name: Private-terms list (masked secret; skipped if not set)
+        env:
+          DENYLIST: ${{ secrets.WOWQUESTER_DENYLIST }}
+        run: |
+          if [ -n "$DENYLIST" ]; then
+            printf '%s\n' "$DENYLIST" > "$RUNNER_TEMP/denylist.txt"
+            echo "WOWQUESTER_DENYLIST=$RUNNER_TEMP/denylist.txt" >> "$GITHUB_ENV"
+          fi
+
+      - name: Tests (database tests must run, not skip)
+        env:
+          WQT_REQUIRE_DB: "1"
+        run: .venv/bin/python -m pytest -q -rs -p no:cacheprovider tests
+
+      - name: Sanitized-repo check
+        run: .venv/bin/python tools/check_sanitized.py

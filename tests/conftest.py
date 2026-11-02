@@ -55,6 +55,8 @@ def _reachable() -> bool:
 
 
 REACHABLE = _reachable()
+if not REACHABLE and os.environ.get("WQT_REQUIRE_DB") == "1":   # CI: a missing cluster is a failure, not a skip
+    raise RuntimeError("WQT_REQUIRE_DB=1 but the test PostgreSQL is not reachable")
 needs_db = pytest.mark.skipif(not REACHABLE, reason="test PostgreSQL not reachable")
 
 

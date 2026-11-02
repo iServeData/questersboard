@@ -22,7 +22,8 @@ upcoming events from a small JSON endpoint with a static fallback.
 | `tests/` | pytest suite (needs a disposable local PostgreSQL; see `docs/testing.md`) |
 | `tools/` | Local preview server (fixture data) and the repository sanitization check |
 
-Start with [`docs/plan.md`](docs/plan.md), then [`docs/install.md`](docs/install.md).
+Start with [`docs/plan.md`](docs/plan.md), then [`docs/install.md`](docs/install.md). Going live: [`docs/production_rollout.md`](docs/production_rollout.md).
+Changes: [`CHANGELOG.md`](CHANGELOG.md). Security: [`SECURITY.md`](SECURITY.md).
 
 ## Quick local run (fixture data, no Discord)
 

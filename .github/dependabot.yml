@@ -1,0 +1,20 @@
+# Dependency update pull requests. Security updates are switched on in the repository settings;
+# these are the routine version bumps, grouped so they arrive as one PR per ecosystem per week.
+# Review every bump against requirements.lock (hashes) before merging; nothing deploys automatically.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
