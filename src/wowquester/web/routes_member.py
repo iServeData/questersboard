@@ -183,22 +183,36 @@ def router(cfg: Config) -> APIRouter:
         if w.oauth is None:
             return render(request, "message.html", {"title": "Login unavailable",
                                                     "message": "Discord login isn't configured on this server."})
+        return _start_login(w, _local_next(next, mp), "none")
+
+    def _start_login(w, safe_next: str, prompt: str):
         state = pysecrets.token_urlsafe(24)
         resp = _redirect("about:blank")
-        safe_next = _local_next(next, mp)
-        w.new_session(resp, None, {"oauth_state": state, "next": safe_next})
+        w.new_session(resp, None, {"oauth_state": state, "next": safe_next, "prompt": prompt})
         resp.headers["location"] = w.oauth.authorize_url(
-            w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/oauth/callback", state)
+            w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/oauth/callback", state, prompt=prompt)
         return resp
 
     @r.get(mp + "/oauth/callback")
-    def callback(request: Request, code: str = "", state: str = ""):
+    def callback(request: Request, code: str = "", state: str = "", error: str = ""):
         w = W(request)
         pre = w.load_session(request)
         if pre is None or pre.member_id is not None or not state or \
                 not pysecrets.compare_digest(state, pre.data.get("oauth_state", "")):
             raise PermissionDenied("That login link expired. Please try logging in again.")
         nxt = _local_next(pre.data.get("next", ""), mp)
+        if error or not code:
+            if error == "access_denied" and pre.data.get("prompt") == "none":
+                # First login (or the app's authorization was removed): show Discord's Authorize screen.
+                w.forget_session(request)       # old state is single-use; the new cookie replaces it
+                return _start_login(w, nxt, "consent")
+            resp = render(request, "message.html", {
+                "title": "Login not finished",
+                "message": "Discord didn't confirm the login (Cancel was pressed, or Discord declined it). "
+                           "Nothing was saved. You can try again.",
+                "retry_url": f"{mp}/login?next={nxt}"}, status=400, public=True)
+            w.drop_session(request, resp)
+            return resp
         resp = _redirect(nxt)
         w.drop_session(request, resp)           # state is single-use
         discord_id, name = w.oauth.identify(code, w.cfg["community"]["public_base_url"].rstrip("/") +

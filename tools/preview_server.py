@@ -44,7 +44,7 @@ PREVIEW_USER = fid(1)
 
 
 class FakeOAuth:  # FIXTURE
-    def authorize_url(self, redirect_uri, state):
+    def authorize_url(self, redirect_uri, state, prompt="none"):
         return f"{redirect_uri}?code={PREVIEW_USER}&state={state}"
 
     def identify(self, code, redirect_uri):

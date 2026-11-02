@@ -21,8 +21,8 @@ pytestmark = needs_db
 
 class FakeOAuth:
     """FIXTURE: pretends Discord identified the user named in the code."""
-    def authorize_url(self, redirect_uri, state):
-        return f"https://discord.example.invalid/authorize?state={state}"
+    def authorize_url(self, redirect_uri, state, prompt="none"):
+        return f"https://discord.example.invalid/authorize?state={state}&prompt={prompt}"
 
     def identify(self, code, redirect_uri):
         return code, f"User{code[-3:]}"
@@ -821,3 +821,40 @@ def test_phone_menu_button_and_logged_out_login_button(app):
     assert 'class="menu-btn"' in c.get("/wow/quester/privacy").text
     js = c.get("/wow/quester/static/wowquester.js").text
     assert 'querySelector(".menu-btn")' in js and 'classList.toggle("open"' in js
+
+
+def test_first_login_access_denied_retries_with_the_authorize_screen(app):
+    """Discord answers prompt=none with error=access_denied for accounts that never authorized the app;
+    the callback then asks again with prompt=consent, and that login completes normally."""
+    c = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
+    app.state.fake_rest.roles[fake_id(41)] = set()
+    r = c.get("/wow/quester/login?next=/wow/quester/me")
+    assert "prompt=none" in r.headers["location"]
+    s1 = re.search(r"state=([^&]+)", r.headers["location"]).group(1)
+    r = c.get(f"/wow/quester/oauth/callback?error=access_denied&error_description=x&state={s1}&iss=https%3A%2F%2Fdiscord.com")
+    assert r.status_code == 303 and "prompt=consent" in r.headers["location"]
+    s2 = re.search(r"state=([^&]+)", r.headers["location"]).group(1)
+    assert s2 != s1
+    assert c.get(f"/wow/quester/oauth/callback?code={fake_id(41)}&state={s1}").status_code == 403   # old state is gone
+    r = c.get(f"/wow/quester/oauth/callback?code={fake_id(41)}&state={s2}")
+    assert r.status_code == 303 and r.headers["location"] == "/wow/quester/me"
+    assert c.get("/wow/quester/me").status_code == 200
+
+
+def test_cancel_on_the_authorize_screen_explains_and_offers_retry(app):
+    c = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
+    r = c.get("/wow/quester/login?next=/wow/quester/")
+    s1 = re.search(r"state=([^&]+)", r.headers["location"]).group(1)
+    r = c.get(f"/wow/quester/oauth/callback?error=access_denied&state={s1}")
+    s2 = re.search(r"state=([^&]+)", r.headers["location"]).group(1)
+    r = c.get(f"/wow/quester/oauth/callback?error=access_denied&state={s2}")
+    assert r.status_code == 400 and "Login not finished" in r.text and "Nothing was saved" in r.text
+    assert 'href="/wow/quester/login?next=/wow/quester/"' in r.text
+    assert c.get(f"/wow/quester/oauth/callback?code=x&state={s2}").status_code == 403
+
+
+def test_real_authorize_url_prompts():
+    from wowquester.web.app import DiscordOAuth
+    o = DiscordOAuth("1", "FIXTURE-secret")
+    assert "prompt=none" in o.authorize_url("https://community.example.org/cb", "s")
+    assert "prompt=consent" in o.authorize_url("https://community.example.org/cb", "s", prompt="consent")

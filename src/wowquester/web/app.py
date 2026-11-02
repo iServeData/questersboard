@@ -57,10 +57,13 @@ class DiscordOAuth:
         self.client_id, self.client_secret = client_id, client_secret
         self.http = http or httpx.Client(timeout=10)
 
-    def authorize_url(self, redirect_uri: str, state: str) -> str:
+    def authorize_url(self, redirect_uri: str, state: str, prompt: str = "none") -> str:
+        # prompt=none skips Discord's Authorize screen, but only for accounts that have authorized the app
+        # before; Discord answers everyone else with error=access_denied, and the callback then asks again
+        # with prompt=consent (the normal Authorize screen).
         return "https://discord.com/oauth2/authorize?" + urlencode(dict(
             client_id=self.client_id, response_type="code", scope="identify", state=state,
-            redirect_uri=redirect_uri, prompt="none"))
+            redirect_uri=redirect_uri, prompt=prompt))
 
     def identify(self, code: str, redirect_uri: str) -> tuple[str, str]:
         if not self.client_secret:
@@ -117,6 +120,13 @@ class Web:
         response.set_cookie(COOKIE, raw, max_age=hours * 3600, httponly=True, samesite="lax",
                             secure=self.cfg["web"].get("cookie_secure", True), path="/")
         return row
+
+    def forget_session(self, request: Request) -> None:
+        """Delete the request's session row but leave cookies alone (a new session replaces it)."""
+        raw = request.cookies.get(COOKIE)
+        if raw:
+            with self.db.tx() as s:
+                s.execute(delete(WebSession).where(WebSession.id_hash == _h(raw)))
 
     def drop_session(self, request: Request, response: Response) -> None:
         raw = request.cookies.get(COOKIE)

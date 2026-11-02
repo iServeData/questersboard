@@ -22,7 +22,7 @@
   </form>
   <p class="note">The existing character stays as it is, with its events.</p>
   {% endif %}
-  <p>{% if back_url %}<a class="btn{% if leave_events or as_new_fields %} ghost{% endif %}" href="{{ back_url }}" data-back>Back to the form</a> {% endif %}<a class="btn ghost" href="{{ mp }}/">Quests</a></p>
+  <p>{% if retry_url %}<a class="btn" href="{{ retry_url }}">Log in with Discord</a> {% endif %}{% if back_url %}<a class="btn{% if leave_events or as_new_fields %} ghost{% endif %}" href="{{ back_url }}" data-back>Back to the form</a> {% endif %}<a class="btn ghost" href="{{ mp }}/">Quests</a></p>
   {% if restore_action %}<p class="note">What you entered is kept in this browser tab until you go back.</p>{% endif %}
 </section>
 {% endblock %}

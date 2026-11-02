@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Login**: first-time Discord logins no longer fail with `access_denied`. The quiet login
+  (`prompt=none`) only works for accounts that already authorized the app; on `access_denied` the
+  callback now asks once more with Discord's normal Authorize screen. Pressing Cancel there shows
+  "Login not finished" with a retry button instead of a generic failure.
+
 ## 0.1.0 (2026-11-02)
 
 First release, tested on the community's protected prototype host (Discord login, slash commands,
