@@ -190,4 +190,63 @@
       ev.preventDefault(); history.back();
     }
   });
+  // Privacy / terms table of contents: mark the section being read. The last heading above the upper
+  // third of the screen wins; at the very bottom, the last section does.
+  var toc = document.querySelector("[data-toc]");
+  if (toc) {
+    var links = Array.prototype.slice.call(toc.querySelectorAll('a[href^="#"]'));
+    var targets = links.map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); });
+    // A clicked entry (or one in the address) stays marked until the reader scrolls on their own:
+    // sections near the end of the page can't reach the top of the screen.
+    var spyTick = false, pinned = -1;
+    var pinTo = function (hash) {
+      pinned = links.findIndex(function (a) { return a.getAttribute("href") === hash; });
+    };
+    links.forEach(function (a) { a.addEventListener("click", function () { pinTo(a.getAttribute("href")); spy(); }); });
+    if (location.hash) { pinTo(location.hash); }
+    ["wheel", "touchmove", "keydown"].forEach(function (ev) {
+      window.addEventListener(ev, function () { pinned = -1; }, { passive: true });
+    });
+    var spy = function () {
+      spyTick = false;
+      var line = window.innerHeight / 3, cur = -1;
+      targets.forEach(function (el, i) { if (el && el.getBoundingClientRect().top <= line) { cur = i; } });
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) { cur = targets.length - 1; }
+      if (pinned >= 0) { cur = pinned; }
+      links.forEach(function (a, i) {
+        if (i === cur) { a.setAttribute("aria-current", "true"); } else { a.removeAttribute("aria-current"); }
+      });
+    };
+    window.addEventListener("scroll", function () { if (!spyTick) { spyTick = true; requestAnimationFrame(spy); } }, { passive: true });
+    window.addEventListener("resize", spy);
+    spy();
+  }
+  // Back to top on long pages, like the rest of the site: shown after scrolling more than a screen,
+  // hidden over the footer, instant when reduced motion is on.
+  if (!document.querySelector(".to-top")) {
+    var top = document.createElement("a");
+    top.className = "to-top"; top.href = "#top"; top.setAttribute("aria-label", "Back to top");
+    top.innerHTML = '<span aria-hidden="true">&uarr;</span> Top';
+    document.body.appendChild(top);
+    var nearEnd = false, topTick = false;
+    var showTop = function () {
+      topTick = false;
+      top.classList.toggle("is-shown", window.scrollY > window.innerHeight * 1.2 && !nearEnd);
+    };
+    window.addEventListener("scroll", function () { if (!topTick) { topTick = true; requestAnimationFrame(showTop); } }, { passive: true });
+    window.addEventListener("resize", showTop);
+    var foot = document.querySelector("body > footer");
+    if (foot && "IntersectionObserver" in window) {
+      new IntersectionObserver(function (es) { nearEnd = es[0].isIntersecting; showTop(); }).observe(foot);
+    }
+    top.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+      if (history.replaceState && location.hash) { history.replaceState(null, "", location.pathname + location.search); }
+      var first = document.querySelector(".nav a");
+      if (first) { first.focus({ preventScroll: true }); }
+    });
+    showTop();
+  }
 })();

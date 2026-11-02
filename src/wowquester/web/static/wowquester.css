@@ -105,3 +105,24 @@ tr[hidden]{display:none}
 .wq-remove-form{margin-top:1.4em;max-width:32rem}
 .wq-phrase{font-family:var(--mono,monospace);font-weight:700;background:rgba(255,255,255,.08);padding:.05em .4em;border-radius:3px;display:inline}
 .wq-remove-form label[for=confirm]{display:block}
+.wq-legal-layout{display:grid;grid-template-columns:15.5rem minmax(0,72ch);gap:30px;align-items:start}
+.wq-toc{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow:auto;padding:16px 18px;box-sizing:border-box}
+.wq-toc .label{margin:0 0 10px}
+.wq-toc ol{list-style:none;margin:0;padding:0}
+.wq-toc ol ol{margin:2px 0 4px 12px}
+.wq-toc li{margin:0}
+.wq-toc a{display:block;padding:5px 0 5px 10px;border-left:2px solid transparent;color:var(--muted);text-decoration:none;font-size:.92rem;line-height:1.35}
+.wq-toc a:hover{color:var(--text)}
+.wq-toc a[aria-current]{color:var(--text);border-left-color:var(--accent,#c9b98f)}
+.wq-toc-other{margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line);font-size:.88rem}
+.wq-toc-other a{padding-left:0;border:0;color:var(--text);text-decoration:underline}
+.wq-legal [id]{scroll-margin-top:20px}
+.wq-legal li:target{outline:1px solid var(--accent,#c9b98f);outline-offset:6px}
+@media (max-width:900px){.wq-legal-layout{grid-template-columns:1fr}.wq-toc{position:static;max-height:none}}
+/* Back to top: same as the host site's (styles.css "Back to top"); wowquester.js adds it */
+.to-top{position:fixed;right:clamp(18px,3vw,32px);bottom:clamp(18px,3vw,32px);z-index:55;display:inline-flex;align-items:center;gap:.45em;padding:.6rem .9rem;font:500 .76rem var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--text);background:rgba(16,17,18,.82);border:1px solid var(--line-strong);border-radius:var(--radius,2px);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);text-decoration:none;opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .2s ease,transform .2s ease,border-color .2s ease}
+.to-top.is-shown{opacity:1;transform:none;pointer-events:auto}
+.to-top:hover{border-color:var(--accent,var(--sand))}
+.to-top:focus-visible{outline:2px solid var(--accent,var(--sand));outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.to-top{transition:none;transform:none}}
+@media print{.to-top,.wq-toc{display:none}.wq-legal-layout{display:block}}

@@ -399,6 +399,20 @@ def test_privacy_and_terms_render_public_from_config(app, wcfg):
     assert 'href="/wow/quester/privacy"' in c.get("/wow/chronicle/").text
 
 
+def test_privacy_and_terms_have_a_table_of_contents_with_remove_me(app):
+    import re as _re
+    c = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
+    for path in ("/wow/quester/privacy", "/wow/quester/terms"):
+        html = c.get(path).text
+        toc = html.split('<nav class="wq-toc panel" aria-label="On this page" data-toc>', 1)[1].split("</nav>", 1)[0]
+        targets = _re.findall(r'href="#([a-z-]+)"', toc)
+        assert len(targets) >= 7, path
+        for t in targets:                                    # every entry lands on a real section
+            assert f'id="{t}"' in html, (path, t)
+    p = c.get("/wow/quester/privacy").text
+    assert '<a href="#choices">Your choices</a>' in p and '<a href="#remove-me">Remove me</a>' in p
+
+
 def test_legal_config_validation(tmp_path):
     from wowquester.config import ConfigError
     with pytest.raises(ConfigError):

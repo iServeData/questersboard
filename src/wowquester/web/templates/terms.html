@@ -1,15 +1,19 @@
 {% extends "base.html" %}
+{% from "_legal_toc.html" import legal_toc %}
 {% block content %}
 {% set lg = cfg["legal"] %}{% set operator = lg.operator or cfg["community"]["name"] %}
+{% set toc = [("who", "Who can use it", []), ("conduct", "Be a decent guildmate", []), ("content", "What you post", []), ("moderation", "Moderation", []), ("blizzard", "Not affiliated with Blizzard", []), ("no-guarantees", "No guarantees", []), ("contact", "Changes and contact", [])] %}
+<div class="wq-legal-layout">
+{{ legal_toc(toc, mp ~ "/privacy", "Privacy") }}
 <article class="panel wq-legal">
   <div class="section-head"><span class="label"><span class="num">//</span> WoWQuester</span><h1>Terms of use</h1></div>
   {% if lg.effective_date %}<p class="note">Last updated <time datetime="{{ lg.effective_date }}">{{ lg.effective_date }}</time></p>{% endif %}
   <p>WoWQuester is a free, community-run tool for {{ cfg["community"]["name"] }}. It is run by {{ operator }}. By logging in or using the community bot you agree to these terms. They're short on purpose.</p>
 
-  <h2 class="sub">Who can use it</h2>
+  <h2 class="sub" id="who">Who can use it</h2>
   <p>You need a Discord account that is a member of the {{ cfg["community"]["name"] }} Discord server, and you must follow <a href="https://discord.com/terms" rel="noopener">Discord's terms</a> and the community's own rules. If you leave the server or lose the roles a feature needs, that feature stops working for you.</p>
 
-  <h2 class="sub">Be a decent guildmate</h2>
+  <h2 class="sub" id="conduct">Be a decent guildmate</h2>
   <ul>
     <li>Only add characters that are yours, and keep event details honest.</li>
     <li>Don't post anything hateful, harassing, sexual, or anyone's private information, in events, stories or screenshots.</li>
@@ -17,20 +21,21 @@
     <li>Don't try to break, overload or get around the site, the bot or their permissions.</li>
   </ul>
 
-  <h2 class="sub">What you post</h2>
+  <h2 class="sub" id="content">What you post</h2>
   <p>You keep ownership of what you write and upload. By submitting a Chronicle story or screenshot, you let the community show it on its site, feeds and Discord. Organisers review stories before they go public, and they can edit, decline or unpublish anything at any time.</p>
 
-  <h2 class="sub">Moderation</h2>
+  <h2 class="sub" id="moderation">Moderation</h2>
   <p>Organisers can change or cancel events, decline signups, and decline or unpublish stories and screenshots. Access to WoWQuester follows your Discord membership and roles, so the community's Discord moderators decide who can use it. Moderation actions are recorded in a security log.</p>
 
-  <h2 class="sub">Not affiliated with Blizzard</h2>
+  <h2 class="sub" id="blizzard">Not affiliated with Blizzard</h2>
   <p>WoWQuester is a fan-made community tool. It is not made, endorsed or supported by Blizzard Entertainment or Discord. World of Warcraft and Battle.net are trademarks of Blizzard Entertainment, Inc.</p>
 
-  <h2 class="sub">No guarantees</h2>
+  <h2 class="sub" id="no-guarantees">No guarantees</h2>
   <p>WoWQuester is provided as-is by volunteers. It may be down, slow, or lose a reminder now and then, and we can change or retire features. Please don't rely on it for anything important outside the game. To the extent the law allows, the people running it aren't responsible for losses that come from using it.</p>
 
-  <h2 class="sub">Changes and contact</h2>
+  <h2 class="sub" id="contact">Changes and contact</h2>
   <p>We may update these terms; meaningful changes will be announced in the Discord. {{ lg.contact }}</p>
   <p class="note">How we handle your data is covered on the <a href="{{ mp }}/privacy">privacy page</a>.</p>
 </article>
+</div>
 {% endblock %}

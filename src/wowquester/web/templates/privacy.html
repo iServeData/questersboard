@@ -1,20 +1,26 @@
 {% extends "base.html" %}
+{% from "_legal_toc.html" import legal_toc %}
 {% block content %}
 {% set lg = cfg["legal"] %}{% set operator = lg.operator or cfg["community"]["name"] %}
 {% set ret = cfg["retention"] %}{% set up = cfg["uploads"] %}
+{% set toc = [("short", "The short version", []), ("keep", "What we keep", []), ("public", "What the public can see", []),
+  ("others", "Who else is involved", []), ("retention", "How long we keep things", []),
+  ("choices", "Your choices", [("remove-me", "Remove me")]), ("contact", "Questions or requests", [])] %}
+<div class="wq-legal-layout">
+{{ legal_toc(toc, mp ~ "/terms", "Terms of use") }}
 <article class="panel wq-legal">
   <div class="section-head"><span class="label"><span class="num">//</span> WoWQuester</span><h1>Privacy</h1></div>
   {% if lg.effective_date %}<p class="note">Last updated <time datetime="{{ lg.effective_date }}">{{ lg.effective_date }}</time></p>{% endif %}
   <p>WoWQuester is the event planner and Chronicle for {{ cfg["community"]["name"] }}'s World of Warcraft players. It is run by {{ operator }} on the community's own server. This page explains, in plain terms, what it keeps about you and why.</p>
 
-  <h2 class="sub">The short version</h2>
+  <h2 class="sub" id="short">The short version</h2>
   <ul>
     <li>We keep only what the planner needs: who you are on Discord, the characters you add, and the events you join.</li>
     <li>No ads, no tracking scripts, no selling or sharing your data.</li>
     <li>Nothing about you appears in a public Chronicle story unless you have said yes.</li>
   </ul>
 
-  <h2 class="sub">What we keep</h2>
+  <h2 class="sub" id="keep">What we keep</h2>
   <ul>
     <li><strong>Your Discord identity.</strong> When you log in with Discord we ask only for the <code>identify</code> permission. That gives us your Discord user ID and display name. We do not see your email, your servers or your messages. Your community roles are checked through the community bot when you use WoWQuester; they aren't stored as a profile.</li>
     <li><strong>Your characters.</strong> What you type in: name, game edition, region, realm or ruleset, faction, race, class, level, spec, preferred role and any notes. You can remove a character at any time.</li>
@@ -30,7 +36,7 @@
   <p>Public pages (the event list, the public calendar and the Chronicle) show event details and head counts. They never show Discord names or IDs.</p>
   <p>When you join an event you choose whether to <strong>name your character</strong>. If you do, your character's name appears on that event's roster, on its event card in Discord, and in any Chronicle story about it. If you don't, you're shown as "a tank", "a healer" and so on, or counted as "+1 other". Hosts and officers still see your character so they can organise the group. Naming is off unless you turn it on. You can change it per event, set your default under My events &rarr; Privacy, and press <strong>Stop naming me in this story</strong> on a published story at any time; that takes effect straight away.</p>
 
-  <h2 class="sub">Who else is involved</h2>
+  <h2 class="sub" id="others">Who else is involved</h2>
   <ul>
     <li><strong>Discord</strong> handles login and the community bot, under <a href="https://discord.com/privacy" rel="noopener">Discord's privacy policy</a>.</li>
     {% if cfg["blizzard"]["enabled"] %}<li><strong>Blizzard.</strong> WoWQuester looks up public game data (such as realms and classes) from Blizzard's API.{% if cfg["blizzard"]["battlenet_link_enabled"] %} If you choose to link Battle.net to verify a character, we store an encrypted snapshot of that character list. <strong>Forget my Battle.net link</strong> deletes it.{% endif %}</li>{% endif %}
@@ -38,7 +44,7 @@
   </ul>
   <p>Nobody else receives your data. People with administrator access to the community server can technically read the database, as with any self-hosted service.</p>
 
-  <h2 class="sub">How long we keep things</h2>
+  <h2 class="sub" id="retention">How long we keep things</h2>
   <ul>
     <li>Login sessions: until they expire, plus {{ ret.session_days_after_expiry }} day{{ "s" if ret.session_days_after_expiry != 1 }}.</li>
     <li>Withdrawn or rejected signups for past events: {{ ret.withdrawn_signup_days }} days.</li>
@@ -49,7 +55,7 @@
     <li>Your Discord identity, characters and event history: for as long as you use WoWQuester, or until you use <a href="#remove-me">Remove me</a>.</li>
   </ul>
 
-  <h2 class="sub">Your choices</h2>
+  <h2 class="sub" id="choices">Your choices</h2>
   <ul>
     <li>Remove your characters and withdraw from events at any time.</li>
     <li>Turn Chronicle naming off for any event, or stop being named in a published story.</li>
@@ -58,8 +64,9 @@
     <li>Ask for a copy of what we hold about you.</li>
   </ul>
 
-  <h2 class="sub">Questions or requests</h2>
+  <h2 class="sub" id="contact">Questions or requests</h2>
   <p>{{ lg.contact }}{% if cfg["branding"]["discord_invite_url"] %} <a href="{{ cfg['branding']['discord_invite_url'] }}" rel="noopener">Join the Discord</a>.{% endif %}</p>
   <p class="note">If this page changes in a way that matters, we'll say so in the Discord. See also the <a href="{{ mp }}/terms">terms of use</a>.</p>
 </article>
+</div>
 {% endblock %}
