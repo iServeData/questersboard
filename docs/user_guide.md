@@ -2,6 +2,18 @@
 
 ## For members
 
+**Discord or the web.**
+
+| Command or button | Where you finish |
+| --- | --- |
+| `/quest list`, `/quest my`, `/quest join`, `/quest leave` | Discord |
+| `/character list`, `/character remove` | Discord |
+| Join / Tentative / Leave on event cards | Discord |
+| `/quest create` | starts in Discord (draft); add roles and location and publish on the web |
+| `/character add` | Discord for the basics; faction, level, spec, preferred role and focus on the web |
+| `/character edit`, Organizer button | link to the web |
+| Edit, start, end events; attendance; Chronicle; privacy; calendar link; Remove me | web only |
+
 **Getting in.** Open the WoW page and choose "Sign up / my events", or use `/quest list` in Discord.
 Log in with Discord. WoWQuester only learns your Discord ID and display name.
 
