@@ -6,16 +6,17 @@
 <title>{{ title }} — {{ b.site_name }}</title>
 <meta name="robots" content="{{ 'index,follow' if public else 'noindex,nofollow' }}">
 {% if b.stylesheet %}<link rel="stylesheet" href="{{ b.stylesheet }}">{% endif %}
-<link rel="stylesheet" href="{{ mp }}/static/wowquester.css">
+<link rel="stylesheet" href="{{ mp }}/static/wowquester.css?v={{ static_v }}">
 {% if public %}<link rel="alternate" type="application/atom+xml" title="{{ b.site_name }} WoW Chronicle" href="{{ cp }}/feed.atom">
 <link rel="alternate" type="application/feed+json" title="{{ b.site_name }} WoW Chronicle" href="{{ cp }}/feed.json">{% endif %}
-<script src="{{ mp }}/static/wowquester.js" defer></script>
+<script src="{{ mp }}/static/wowquester.js?v={{ static_v }}" defer></script>
 </head>
 <body class="{{ b.body_class }} wq{% if not b.stylesheet %} wq-fallback{% endif %}">
 <a class="skip" href="#content">Skip to content</a>
 <header class="nav" id="top">
   <div class="wrap">
     <a class="wordmark" href="{{ b.home_url }}">{{ b.site_name }}</a>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="menu">Menu</button>
     <ul id="menu">
       {% for n in b.nav %}<li><a href="{{ n.url }}">{{ n.label }}</a></li>{% endfor %}
       <li><a href="{{ mp }}/"{% if request.url.path.startswith(mp) %} aria-current="page"{% endif %}>Quests</a></li>

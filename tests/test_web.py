@@ -808,3 +808,16 @@ def test_remove_me_when_signed_up_to_an_event_you_host(app, seeded):
     assert r.status_code == 200 and "Your request is complete" in r.text
     with seeded.tx() as s:
         assert s.execute(text("select state from events where title='Own raid'")).scalar() == "cancelled"
+
+
+def test_phone_menu_button_and_logged_out_login_button(app):
+    """Phones: the community stylesheet hides the menu under 760px until the Menu button opens it, so
+    every page carries the button, and the logged-out home page has its own login button."""
+    c = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
+    home = c.get("/wow/quester/").text
+    assert '<button class="menu-btn" type="button" aria-expanded="false" aria-controls="menu">' in home
+    assert home.count('href="/wow/quester/login?next=/wow/quester/"') == 2
+    assert 'wowquester.js?v=' in home and 'wowquester.css?v=' in home
+    assert 'class="menu-btn"' in c.get("/wow/quester/privacy").text
+    js = c.get("/wow/quester/static/wowquester.js").text
+    assert 'querySelector(".menu-btn")' in js and 'classList.toggle("open"' in js

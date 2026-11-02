@@ -11,6 +11,9 @@
 .wq-fallback .nav .wrap{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;width:100%}
 .wq-fallback .nav ul{display:flex;flex-wrap:wrap;gap:6px 18px;list-style:none;margin:0;padding:0}
 .wq-fallback .nav a{text-decoration:none}
+.wq-fallback .menu-btn{display:none}
+.wq .caveat > p:last-child{margin-bottom:0}
+@media (max-width:760px){.wq .nav ul a.btn{display:flex;justify-content:center}}
 .wq-fallback .wordmark{font-weight:700;letter-spacing:.06em}
 .wq-fallback .panel{background:var(--panel);border:1px solid var(--line);padding:22px;border-radius:var(--radius)}
 .wq-fallback .btn{display:inline-flex;padding:10px 16px;border:1px solid var(--text);background:var(--text);color:#121212;font:600 .78rem/1 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;text-decoration:none;cursor:pointer;border-radius:var(--radius)}

@@ -5,7 +5,10 @@
 {% if actor %}
 <p class="btns"><a class="btn" href="{{ mp }}/events/new">Plan an event</a> <a class="btn ghost" href="{{ mp }}/characters">My characters</a>{% if can('chronicle_reviewer') %} <a class="btn ghost" href="{{ mp }}/review">Review queue</a>{% endif %}</p>
 {% else %}
-<p class="caveat">Log in with Discord to join events, add your characters and plan your own. Your Discord account must be in the community server.</p>
+<div class="caveat">
+  <p>Log in with Discord to join events, add your characters and plan your own. Your Discord account must be in the community server.</p>
+  <p class="btns"><a class="btn" href="{{ mp }}/login?next={{ request.url.path }}">Log in with Discord</a></p>
+</div>
 {% endif %}
 
 <div class="wq-grid">

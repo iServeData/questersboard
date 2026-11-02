@@ -1,6 +1,20 @@
 // WoWQuester progressive enhancement. Every page works without this file.
 (function () {
   "use strict";
+  // Phone menu: the community stylesheet hides the menu under 760px until this button opens it.
+  var menuBtn = document.querySelector(".menu-btn"), menu = document.getElementById("menu");
+  if (menuBtn && menu) {
+    var setMenu = function (open) {
+      menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      menuBtn.textContent = open ? "Close" : "Menu";
+      menu.classList.toggle("open", open);
+    };
+    menuBtn.addEventListener("click", function () { setMenu(menuBtn.getAttribute("aria-expanded") !== "true"); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && menu.classList.contains("open")) { setMenu(false); menuBtn.focus(); }
+    });
+    menu.addEventListener("click", function (e) { if (e.target.tagName === "A") setMenu(false); });
+  }
   // Realm vs ruleset: show the realm field only for editions with realms, ruleset only for realmless ones.
   function syncEdition(sel) {
     var form = sel.form, opt = sel.options[sel.selectedIndex];

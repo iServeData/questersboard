@@ -32,6 +32,9 @@ event cards, status cards). Not yet serving the public site; see `docs/productio
   PostgreSQL roles and pg_hba hardening, systemd units with encrypted credentials, `deploy/health.sh`,
   outbox status and dead-letter handling, `wowquester-admin discord-permissions` (read-only permission
   report) and `sync-commands` (approval-gated).
+- **Phones**: a Menu button on every WoWQuester page (the community stylesheet hides the menu under
+  760px until it is opened), a login button on the logged-out home page, and `?v=` cache-busting on
+  WoWQuester's CSS and script.
 - **Login return address**: rebuilt from the member-area prefix and a checked remainder (CodeQL
   `py/url-redirection`); `tests/test_login_next.py`.
 - **Public repository**: `CONTRIBUTING.md`; `SECURITY.md` points to private vulnerability reporting.

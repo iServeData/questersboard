@@ -191,7 +191,9 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
     web = Web(holder, db, oauth, rest, blizzard)
     app.state.web = web
     tpl = Jinja2Templates(directory=str(HERE / "templates"))
-    tpl.env.globals.update(fmt_local=fmt_local)
+    # Cache-busting: ?v= changes whenever a static file changes, so phones don't keep an old script.
+    sv = hashlib.sha256(b"".join(f.read_bytes() for f in sorted((HERE / "static").glob("*")) if f.is_file())).hexdigest()[:10]
+    tpl.env.globals.update(fmt_local=fmt_local, static_v=sv)
     tpl.env.autoescape = True
     app.state.tpl = tpl
     member = cfg["web"]["member_path"].rstrip("/")
