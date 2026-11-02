@@ -146,14 +146,18 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
     for cap in sorted(cfg["roles"]):
         for rid in cfg["roles"][cap]:
             cap_roles.setdefault(str(rid), []).append(cap)
-    for rid, caps in cap_roles.items():
-        subjects.append(Subject(f"{rname(rid)} ({', '.join(caps)})", base | {rid}))
+    for rid in cap_roles:
+        subjects.append(Subject(rname(rid), base | {rid}))
     bot_user = str((bot_member.get("user") or {}).get("id", ""))
     bot = Subject("WoWQuester bot", frozenset(str(r) for r in bot_member.get("roles", [])), bot_user)
     subjects.append(bot)
     members = subjects[1:1 + len(member_roles)] or subjects[:1]       # ordinary members
     reviewers = [Subject(rname(r), base | {r}) for r, caps in cap_roles.items()
                  if set(caps) & {"chronicle_reviewer", "chronicle_editor", "admin"}]
+
+    rep.head("WoWQuester roles")
+    for rid, caps in cap_roles.items():
+        rep.lines.append(f"  {rname(rid):<30} {', '.join(caps)}")
 
     # 1. slash commands
     rep.head("Slash commands")
@@ -197,7 +201,7 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
                     key=lambda c: (int(c.get("type", 0)) in (2, 13), c.get("position", 0)))
     rep.head(f"Category \"{category.get('name')}\" ({len(inside)} channels)")
     for subj in subjects:
-        rep.lines.append(f"  {subj.label:<46} {_flags(effective(guild_id, roles, category, subj))}")
+        rep.lines.append(f"  {subj.label:<30} {_flags(effective(guild_id, roles, category, subj))}")
 
     for ch in inside:
         cid = str(ch["id"])
@@ -207,7 +211,7 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
         sync = "synced with category" if _synced(ch, category) else "own permissions"
         rep.head(f"#{ch.get('name')}  [{kind}{', ' + purpose if purpose else ''}; {sync}]")
         for subj in subjects:
-            rep.lines.append(f"  {subj.label:<46} {_flags(effective(guild_id, roles, ch, subj))}")
+            rep.lines.append(f"  {subj.label:<30} {_flags(effective(guild_id, roles, ch, subj))}")
         p = lambda s: effective(guild_id, roles, ch, s)  # noqa: E731
         if cid == event_ch:
             miss = _missing(p(bot), (VIEW, SEND, EMBED, HISTORY))
