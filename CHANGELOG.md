@@ -15,6 +15,12 @@ No database migration. Host config: set Retail's `catalog = "retail"`; `common_t
   the server (no outside API), grouped by region with current UTC offsets, community default and
   `[community] common_timezones` first. "Community default" can be chosen again in My settings.
 - **My time zone** now sets the starting zone of events you create (it was saved but unused).
+- **Bot matches the site**: the `/quest join` role picker shows each role's fill ("Tank · 1 of 1
+  taken", "Full: you'd be waitlisted"); `/character add` offers only races that can be the class typed;
+  `/quest create` prefills your saved time zone and accepts a city ("New York") or IANA name;
+  `/character list` and the join picker use catalog names ("Mag'har Orc Death Knight", "RP-PvP");
+  `/quest list` follows the same member, channel and DM rules as the other commands. No command
+  re-registration needed (the command definitions are unchanged).
 
 ## 2026-11-02
 

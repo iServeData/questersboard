@@ -87,6 +87,21 @@ def resolve(s: Session, edition: str, kind: str, text: str, parent: str | None =
     return hits[0] if len(hits) == 1 else None
 
 
+def label(s: Session, edition: str, kind: str, key: str) -> str:
+    """Display name for a saved race/class key ("maghar_orc" -> "Mag'har Orc"); falls back to the key."""
+    hit = s.scalar(select(ReferenceOption.label).where(ReferenceOption.edition == edition,
+                                                       ReferenceOption.kind == kind, ReferenceOption.key == key))
+    return hit or key.replace("_", " ").title()
+
+
+def races_for_class(s: Session, edition: str, faction: str, klass: str) -> set[str] | None:
+    """Race keys of this faction that can be the class; None when the catalog has no combos."""
+    rows = options(s, edition, "race_class", faction, limit=1000)
+    if not rows:
+        return None
+    return {o.key.split(":", 1)[0] for o in rows if o.key.split(":", 1)[1] == klass}
+
+
 def race_class_map(s: Session, edition: str) -> dict:
     """{faction: [{key, label, classes: [class keys]}]} plus class labels, for the character form."""
     combos: dict[tuple[str, str], list[str]] = {}

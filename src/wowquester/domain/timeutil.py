@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -112,3 +113,22 @@ def tz_label(name: str, now: datetime | None = None) -> str:
     except (ZoneInfoNotFoundError, ValueError):
         return name
     return f"{name.replace('_', ' ')} \u00b7 {_offset_label(off)}"
+
+
+def find_zone(text: str) -> str:
+    """A time zone from what someone typed in Discord: an IANA name in any case ("america/new_york"),
+    or a city from the IANA list ("New York", "los angeles"). Raises Invalid with examples otherwise."""
+    from zoneinfo import available_timezones
+    want = (text or "").strip()
+    if not want:
+        raise Invalid("Type a time zone, for example America/Los_Angeles or a city such as New York.")
+    names = available_timezones()
+    norm = lambda x: re.sub(r"[^a-z0-9]+", "", x.lower())  # noqa: E731
+    exact = [n for n in names if n.lower() == want.lower().replace(" ", "_")]
+    if exact:
+        return exact[0]
+    city = [n for n in names if n.partition("/")[0] in TZ_REGIONS and norm(n.rsplit("/", 1)[-1]) == norm(want)]
+    if len(city) == 1:
+        return city[0]
+    raise Invalid(f"Unknown time zone {want!r}. Use a city from the time zone list (New York, London, "
+                  f"Sydney) or an IANA name such as America/Los_Angeles.")

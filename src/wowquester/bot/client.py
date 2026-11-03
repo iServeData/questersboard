@@ -17,15 +17,15 @@ from datetime import datetime, timedelta
 
 import discord
 from discord import app_commands
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..config import Config, ConfigError, ConfigHolder, load
 from ..db import Database, make_engine
 from ..domain import catalog, events, permissions, roster, signups, status
 from ..domain.actor import Actor
 from ..domain.errors import DomainError
-from ..domain.timeutil import discord_ts, now, resolve_local
-from ..models import Event, Signup
+from ..domain.timeutil import discord_ts, find_zone, now, resolve_local
+from ..models import Event, Member, Signup
 from ..secrets import SecretError, get_secret, setup_logging
 
 log = logging.getLogger("wowquester.bot")
@@ -106,11 +106,21 @@ def _fitting(s, cfg: Config, actor: Actor, event_id: int):
     ev = events.get(s, event_id)
     mine = roster.list_characters(s, actor.member_id)
     chars = [c for c in mine if not signups.fit_problems(cfg, ev, c)]
-    roles = [(r.key, r.label) for r in ev.roles]
+    # Same fill counts as the web signup form, so players can balance the group from Discord too.
+    taken = dict(s.execute(select(Signup.role_key, func.count()).where(
+        Signup.event_id == ev.id, Signup.state == "confirmed", Signup.role_key.is_not(None))
+        .group_by(Signup.role_key)).all())
+    roles = [(r.key, f"{r.label} \u00b7 {taken.get(r.key, 0)} of {r.quantity} taken",
+              "Full: you'd be waitlisted" if taken.get(r.key, 0) >= r.quantity else
+              f"{r.quantity - taken.get(r.key, 0)} open") for r in ev.roles]
     why = {"need": signups.event_requirement(cfg, ev),
            "misfits": [(c.name, signups.fit_problems(cfg, ev, c)) for c in mine if c not in chars]}
-    return ev.title, ev.state, [(c.id, f"{c.name} · {c.race_key.title()} {c.class_key.title()}") for c in chars], \
-        roles, why
+    return ev.title, ev.state, [(c.id, f"{c.name} · {_rc(s, c)}") for c in chars], roles, why
+
+
+def _rc(s, c) -> str:
+    """ "Mag'har Orc Shaman" from a character's saved keys, using the catalog's names."""
+    return f"{catalog.label(s, c.edition, 'race', c.race_key)} {catalog.label(s, c.edition, 'class', c.class_key)}"
 
 
 def no_fit_text(cfg: Config, title: str, why: dict) -> str:
@@ -173,7 +183,8 @@ class RoleSelect(discord.ui.Select):
     def __init__(self, event_id: int, cid: int, roles, tentative: bool):
         self.event_id, self.cid, self.tentative = event_id, cid, tentative
         super().__init__(placeholder="Choose a role",
-                         options=[discord.SelectOption(label=label[:100], value=key) for key, label in roles[:25]])
+                         options=[discord.SelectOption(label=label[:100], value=key, description=desc[:100])
+                                  for key, label, desc in roles[:25]])
 
     async def callback(self, inter: discord.Interaction):
         await guarded(inter, finish_join(inter, self.event_id, self.cid, self.values[0], self.tentative))
@@ -256,16 +267,20 @@ class EventButton(discord.ui.DynamicItem[discord.ui.Button], template=CID):
 class CreateModal(discord.ui.Modal, title="Plan a WoW event"):
     name = discord.ui.TextInput(label="Title", min_length=3, max_length=120)
     when = discord.ui.TextInput(label="Start (YYYY-MM-DD HH:MM, your time zone)", placeholder="2026-11-07 19:00")
-    tz = discord.ui.TextInput(label="Time zone (IANA)", placeholder="America/Los_Angeles", required=False)
+    tz = discord.ui.TextInput(label="Time zone (city or IANA name)", placeholder="Los Angeles", max_length=64)
     minutes = discord.ui.TextInput(label="Length in minutes", default="120", max_length=4)
     kind = discord.ui.TextInput(label="Type (dungeon, quest, raid, rp, world_pvp…)", default="quest", max_length=24)
+
+    def __init__(self, tz_default: str):
+        super().__init__()
+        self.tz.default = tz_default      # the host's saved zone (My settings), else the community default
 
     async def on_submit(self, inter: discord.Interaction):
         cfg = Ctx.cfg()
 
         async def go():
             actor = await build_actor(inter, "slash" if inter.guild_id else "dm")
-            tzname = (self.tz.value or cfg["community"]["default_timezone"]).strip()
+            tzname = find_zone(self.tz.value or cfg["community"]["default_timezone"])
             try:
                 local = datetime.strptime(self.when.value.strip(), "%Y-%m-%d %H:%M")
                 mins = int(self.minutes.value)
@@ -312,6 +327,11 @@ def _draft_parts(s, cfg: Config, draft: dict):
         race, klass = (r if race is None else race), (k if klass is None else klass)
     races = [(o.key, o.label) for o in catalog.options(s, ed.key, "race", faction)]
     classes = [(o.key, o.label) for o in catalog.options(s, ed.key, "class")]
+    co = catalog.resolve(s, ed.key, "class", klass) if klass else None
+    if co is not None and not race:                 # class typed, race missing: offer races that can be it
+        fit = catalog.races_for_class(s, ed.key, faction, co.key)
+        if fit:
+            races = [r for r in races if r[0] in fit]
     ro = catalog.resolve(s, ed.key, "race", race, faction) if race else None
     if ro is not None:
         ok = {o.key.split(":", 1)[1] for o in catalog.options(s, ed.key, "race_class", faction, limit=1000)
@@ -415,6 +435,8 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
     @quest.command(name="list", description="Upcoming WoW events")
     async def q_list(inter: discord.Interaction):
         async def go():
+            # same access rules as every other command (member, allowed channel, DMs if enabled)
+            permissions.require_member(Ctx.cfg(), await build_actor(inter, "slash" if inter.guild_id else "dm"))
             rows = await run_tx(_list, Ctx.cfg())
             if not rows:
                 await reply(inter, "No WoW events are scheduled.")
@@ -453,7 +475,10 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
 
     @quest.command(name="create", description="Plan a new event (saved as a draft)")
     async def q_create(inter: discord.Interaction):
-        await inter.response.send_modal(CreateModal())
+        cfg = Ctx.cfg()
+        saved = await run_tx(lambda s: s.scalar(select(Member.timezone).where(
+            Member.discord_id == str(inter.user.id), Member.erased_at.is_(None))))
+        await inter.response.send_modal(CreateModal(saved or cfg["community"]["default_timezone"]))
 
     async def edition_autocomplete(inter: discord.Interaction, current: str):
         return [app_commands.Choice(name=ed.name, value=k) for k, ed in Ctx.cfg().editions.items()
@@ -474,11 +499,14 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
 
             def q(s):
                 a = roster.ensure_member(s, actor)
-                return [(c.name, Ctx.cfg().edition(c.edition).name, c.ruleset or c.realm_slug or "", c.race_key,
-                         c.class_key) for c in roster.list_characters(s, a.member_id)]
+                out = []
+                for c in roster.list_characters(s, a.member_id):
+                    ed = Ctx.cfg().edition(c.edition)
+                    out.append((c.name, ed.name, ed.ruleset_label(c.ruleset) if c.ruleset else c.realm_slug or "",
+                                _rc(s, c)))
+                return out
             rows = await run_tx(q)
-            await reply(inter, "\n".join(f"• **{n}** · {e} {p.upper() if p in ('pvp', 'rp', 'normal') else p} · "
-                                         f"{r.replace('_', ' ').title()} {k.title()}" for n, e, p, r, k in rows)
+            await reply(inter, "\n".join(f"• **{_md(n)}** · {e} {p} · {rc}" for n, e, p, rc in rows)
                         or "No characters yet. Use `/character add`.")
         await guarded(inter, go())
 
