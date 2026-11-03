@@ -261,10 +261,12 @@ def set_member_prefs(s: Session, cfg: Config, actor: Actor, recognition_default:
     m = s.get(Member, actor.member_id)
     if recognition_default is not None:
         m.recognition_default = bool(recognition_default)
-    if timezone:
+    if timezone:                       # None = leave as is, "" = back to the community default
         from .timeutil import zone
         zone(timezone)
         m.timezone = timezone
+    elif timezone == "":
+        m.timezone = None
     audit.record(s, actor, "member.prefs", "member", m.id)
     return m
 

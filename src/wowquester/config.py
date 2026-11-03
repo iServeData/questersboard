@@ -188,6 +188,14 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
         ZoneInfo(_req(c, "default_timezone", str, "community"))
     except (ZoneInfoNotFoundError, ValueError):
         raise ConfigError("[community] default_timezone is not a valid IANA zone") from None
+    common = c.setdefault("common_timezones", [])
+    if not isinstance(common, list) or not all(isinstance(z, str) for z in common):
+        raise ConfigError("[community] common_timezones must be a list of IANA names")
+    for z in common:
+        try:
+            ZoneInfo(z)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ConfigError(f"[community] common_timezones: {z!r} is not a valid IANA zone") from None
     if not _req(c, "public_base_url", str, "community").startswith("https://") and \
             not c["public_base_url"].startswith("http://127.0.0.1") and \
             not c["public_base_url"].startswith("http://localhost"):

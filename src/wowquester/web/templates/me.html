@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf_field, naming_tip, naming_help with context %}
+{% from "_macros.html" import csrf_field, naming_tip, naming_help, tz_select with context %}
 {% block content %}
 <div class="section-head"><h1>My settings</h1></div>
 <div class="wq-grid">
@@ -7,7 +7,8 @@
   <h2 class="sub">Privacy</h2>
   <label><input type="checkbox" name="recognition_default" value="1"{% if m.recognition_default %} checked{% endif %}> Name my characters in public rosters and chronicle stories by default {{ naming_tip("tip-naming-default") }}</label>{{ naming_help("tip-naming-default") }}
   <p class="note">You can change this per event when you join, and remove yourself from a published story at any time. If you opt out, stories describe you neutrally (for example "a healer"), never with an invented name.</p>
-  <label>My time zone <input name="timezone" value="{{ m.timezone or '' }}" placeholder="{{ cfg['community']['default_timezone'] }}"></label>
+  <label>My time zone {{ tz_select("timezone", m.timezone or "", blank_label="Community default (" ~ tz_label(cfg['community']['default_timezone']) ~ ")") }}</label>
+  <p class="note">New events you create start in this zone (you can change it per event). Without one, the form uses your device's zone. Event pages also show times in your device's zone, and Discord shows its own local times. The list is the IANA time zone database, kept current by the server's system updates.</p>
   <button class="btn" type="submit">Save</button>
 </form>
 <div class="panel">

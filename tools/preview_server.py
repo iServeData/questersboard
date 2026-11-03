@@ -106,7 +106,8 @@ def seed(db: Database, cfg: Config) -> None:
              ("Embervale", "undead", "mage", ["damage"], "damage", True),
              ("Vashka", "troll", "hunter", ["damage"], "damage", False)]
     with db.tx() as s:
-        catalog.seed_edition(s, cfg, "forever")
+        for ed in cfg.editions:
+            catalog.seed_edition(s, cfg, ed)
         mychar = roster.add_character(s, cfg, org, dict(edition="forever", ruleset="pvp", faction="horde",
                                                          name="Hollowfang", race_key="orc", class_key="hunter",
                                                          eligible_roles=["damage"], preferred_role="damage"))

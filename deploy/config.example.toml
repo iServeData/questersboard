@@ -13,6 +13,10 @@
 name = "Example Community"
 guild_id = ""                                 # Discord server (guild) ID
 default_timezone = "America/Los_Angeles"      # IANA name
+# Time zones listed first in the time zone pickers (the full IANA list follows). The community default
+# is always first. Optional.
+common_timezones = ["America/Los_Angeles", "America/Denver", "America/Chicago", "America/New_York",
+                    "Europe/London", "Europe/Berlin", "Australia/Sydney"]
 public_base_url = "https://community.example.org"
 # Optional Discord role every member must hold to use WoWQuester at all.
 # Empty = any member of the guild.
@@ -192,7 +196,7 @@ default_region = "us"
 factions = ["horde", "alliance"]
 default_faction = "horde"
 max_level = 90
-catalog = ""                                  # import from Blizzard (wowquester-admin blizzard import-reference retail)
+catalog = "retail"                            # packaged race/class seed; dungeons and raids come from a Blizzard import (wowquester-admin blizzard import-reference retail)
 static_namespace = "static-{region}"
 dynamic_namespace = "dynamic-{region}"
 profile_namespace = "profile-{region}"

@@ -134,3 +134,5 @@ tr[hidden]{display:none}
 .to-top:focus-visible{outline:2px solid var(--accent,var(--sand));outline-offset:3px}
 @media (prefers-reduced-motion:reduce){.to-top{transition:none;transform:none}}
 @media print{.to-top,.wq-toc{display:none}.wq-legal-layout{display:block}}
+.wq-form label[hidden]{display:none}
+.note.wq-warn{color:#e8a33d}

@@ -36,8 +36,10 @@
     sel.addEventListener("change", function () { syncEdition(sel); });
     syncEdition(sel);
   });
-  // Race/class suggestions follow edition -> faction -> race. Typing anything else is still allowed;
-  // the server only refuses pairings the catalog rules out.
+  // Race and class are real dropdowns that follow edition -> faction -> race. iOS Safari's datalist
+  // suggestions only match what's already typed, so a filled-in field showed no list at all.
+  // Each dropdown writes into the (named) text field the server reads; "Other" reveals that field
+  // for anything the catalog doesn't list. Editions without a catalog show just the text field.
   var mapEl = document.getElementById("wq-race-map");
   if (mapEl) {
     var raceMap = {};
@@ -45,37 +47,93 @@
     var form = mapEl.closest("form");
     var edSel = form.querySelector("[data-edition-select]"), facSel = form.querySelector("[data-faction-select]");
     var raceIn = form.querySelector("[data-race-input]"), classIn = form.querySelector("[data-class-input]");
-    var raceList = document.getElementById("wq-race-list"), classList = document.getElementById("wq-class-list");
+    var raceSel = form.querySelector("[data-race-select]"), classSel = form.querySelector("[data-class-select]");
+    var hint = form.querySelector("[data-race-hint]");
+    var OTHER = "__other__";
     var norm = function (t) { return (t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); };
-    var fill = function (list, labels) {
-      list.textContent = "";
-      labels.forEach(function (l) { var o = document.createElement("option"); o.value = l; list.appendChild(o); });
+    var match = function (items, text) {         // items: [{key, label}]
+      var n = norm(text);
+      if (!n) return null;
+      return items.filter(function (it) {
+        return norm(it.key) === n || norm(it.label) === n || norm(it.label).split(" ")[0] === n; })[0] || null;
     };
-    var current = function () {
+    var setOptions = function (sel, prompt, items) {
+      sel.textContent = "";
+      var first = document.createElement("option"); first.value = ""; first.textContent = prompt;
+      sel.appendChild(first);
+      items.forEach(function (it) {
+        var o = document.createElement("option"); o.value = it.key; o.textContent = it.label; sel.appendChild(o); });
+      var other = document.createElement("option"); other.value = OTHER; other.textContent = "Other (type it)";
+      sel.appendChild(other);
+    };
+    var show = function (el, on) { (el.closest("label") || el).hidden = !on; };
+    // Point a dropdown at its text field's value; returns the matched item or null.
+    var attach = function (sel, input, items) {
+      if (!items.length) {                       // no catalog: plain text entry
+        show(sel, false); sel.required = false; show(input, true); input.required = true;
+        return null;
+      }
+      show(sel, true); sel.required = true;
+      var hit = match(items, input.value);
+      if (hit) { sel.value = hit.key; input.value = hit.key; show(input, false); input.required = false; }
+      else if (input.dataset.typed === "1") { sel.value = OTHER; show(input, true); input.required = true; }
+      else { sel.value = ""; input.value = ""; show(input, false); input.required = false; }
+      return hit;
+    };
+    var state = function () {
       var m = raceMap[edSel.value] || { factions: {}, classes: {} };
-      var races = (m.factions || {})[facSel.value] || [];
-      var typed = norm(raceIn.value);
-      var race = races.filter(function (r) {
-        return norm(r.label) === typed || norm(r.key) === typed || norm(r.label).split(" ")[0] === typed;
-      })[0];
-      return { m: m, races: races, race: race };
+      var races = ((m.factions || {})[facSel.value] || []).map(function (r) {
+        return { key: r.key, label: r.label, classes: r.classes || [] }; });
+      return { m: m, races: races };
     };
-    var syncRace = function () {
-      var c = current();
-      fill(raceList, c.races.map(function (r) { return r.label; }));
-      var keys = c.race && c.race.classes.length ? c.race.classes : Object.keys(c.m.classes || {});
-      fill(classList, keys.map(function (k) { return (c.m.classes || {})[k] || k; }));
-      var hint = form.querySelector("[data-race-hint]");
+    var classItems = function (m, race) {
+      var keys = race && race.classes.length ? race.classes : Object.keys(m.classes || {});
+      return keys.map(function (k) { return { key: k, label: (m.classes || {})[k] || k }; });
+    };
+    var sync = function (why) {
+      var c = state();
+      var prevClass = classIn.value;
+      setOptions(raceSel, "Pick a race", c.races);
+      var race = attach(raceSel, raceIn, c.races);
+      var items = classItems(c.m, race);
+      setOptions(classSel, race || !c.races.length || raceSel.value === OTHER ? "Pick a class" : "Pick a race first", items);
+      var klass = attach(classSel, classIn, items);
+      var msg = "";
+      if (race && prevClass && !klass && classIn.dataset.typed !== "1") {
+        var was = (c.m.classes || {})[prevClass] || prevClass;
+        msg = race.label + " can't be " + was + ", so the class was cleared. ";
+      }
       if (hint) {
-        hint.textContent = c.race ? c.race.label + " can be: " + keys.map(function (k) {
-          return (c.m.classes || {})[k] || k; }).join(", ") + "."
-          : "Pick from the list or type your own.";
+        hint.textContent = msg + (race ? race.label + " can be: " + items.map(function (i) { return i.label; }).join(", ") + "."
+          : c.races.length ? "Pick a race to see its classes." : "Type the race and class.");
+        hint.classList.toggle("wq-warn", !!msg);
       }
     };
-    [edSel, facSel].forEach(function (el) { el.addEventListener("change", syncRace); });
-    raceIn.addEventListener("input", syncRace);
-    raceIn.addEventListener("change", syncRace);
-    syncRace();
+    raceSel.addEventListener("change", function () {
+      if (raceSel.value === OTHER) { raceIn.value = ""; raceIn.dataset.typed = "1"; show(raceIn, true); raceIn.required = true; raceIn.focus(); }
+      else { raceIn.value = raceSel.value; raceIn.dataset.typed = ""; }
+      sync("race");
+    });
+    classSel.addEventListener("change", function () {
+      if (classSel.value === OTHER) { classIn.value = ""; classIn.dataset.typed = "1"; show(classIn, true); classIn.required = true; classIn.focus(); }
+      else { classIn.value = classSel.value; classIn.dataset.typed = ""; show(classIn, false); classIn.required = false; }
+      if (hint) hint.classList.remove("wq-warn");
+    });
+    raceIn.addEventListener("input", function () { raceIn.dataset.typed = "1"; });
+    classIn.addEventListener("input", function () { classIn.dataset.typed = "1"; });
+    // Restoring a form after an error sets the text fields and fires change: re-sync from them.
+    var hiddenField = function (el) { return (el.closest("label") || el).hidden; };
+    raceIn.addEventListener("change", function () { if (hiddenField(raceIn)) sync("restore"); });
+    classIn.addEventListener("change", function () { if (hiddenField(classIn)) { classIn.dataset.typed = ""; sync("restore"); } });
+    // A saved race or class the catalog doesn't list was typed by hand: keep it, under "Other".
+    (function () {
+      var c = state();
+      if (raceIn.value && c.races.length && !match(c.races, raceIn.value)) raceIn.dataset.typed = "1";
+      var all = Object.keys(c.m.classes || {}).map(function (k) { return { key: k, label: c.m.classes[k] }; });
+      if (classIn.value && all.length && !match(all, classIn.value)) classIn.dataset.typed = "1";
+    })();
+    [edSel, facSel].forEach(function (el) { el.addEventListener("change", function () { sync("parent"); }); });
+    sync("load");
   }
   // Show times in the viewer's own zone as well.
   document.querySelectorAll("time[data-local]").forEach(function (t) {
@@ -87,8 +145,12 @@
     }
   });
   // Default the time zone field to the browser's zone for new events.
-  document.querySelectorAll("input[data-tz-default]").forEach(function (i) {
-    try { if (!i.form.action.match(/edit$/)) i.value = Intl.DateTimeFormat().resolvedOptions().timeZone || i.value; } catch (e) {}
+  // (the picker only switches when the browser's zone is in its list)
+  document.querySelectorAll("select[data-tz-default]").forEach(function (sel) {
+    try {
+      var z = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (z && sel.querySelector('option[value="' + z.replace(/"/g, "") + '"]')) sel.value = z;
+    } catch (e) {}
   });
   document.querySelectorAll("[data-confirm]").forEach(function (b) {
     b.addEventListener("click", function (e) { if (!window.confirm(b.getAttribute("data-confirm"))) e.preventDefault(); });

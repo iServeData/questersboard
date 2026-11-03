@@ -45,6 +45,8 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   web sessions re-check roles (see `docs/permissions_data_model.md`).
 - **Scheduling**: `max_simultaneous_wow_events` (default 1), duration limits, how far ahead,
   overrun grace, `reschedule_requires_reconfirm`, maximum recurrence count.
+- **Time zones** (`[community]`): `default_timezone` (IANA name) and optional `common_timezones`, the
+  zones listed first in the time zone pickers. The full list is the server's IANA tzdata (no API calls).
 - **Editions** (`[[editions]]`): name, `uses_realms`, rulesets, regions, factions, max level, catalog,
   Blizzard namespaces with `{region}`, and `api_status` per capability. Forever ships realmless with
   empty namespaces and every capability `unsupported`. When Blizzard publishes Forever namespaces:
@@ -55,6 +57,8 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   Discovery; level 60, `classic1x` namespaces), `classic_anniversary` (Burning Crusade Anniversary; 70,
   `classicann`) and `mists_classic` (90, `classic`). Their race/class and "Where" lists are packaged seeds
   marked unverified: after adding an edition run `wowquester-admin seed-catalog`. Editions load at restart.
+  Retail uses `catalog = "retail"` (packaged race/class seed, unverified); a Blizzard import adds
+  dungeons and raids once the API is enabled.
 - **Group sizes** (`[signups.party_size_max]`): the largest group per activity type (quest 5, dungeon 5,
   arena 5, raid 40, battleground 40; others 80). The participant limit can't go above it, a blank limit
   becomes it, and an event's role "How many" numbers can't add up to more than the limit. Live setting.

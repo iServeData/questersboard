@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf_field with context %}
+{% from "_macros.html" import csrf_field, tz_select with context %}
 {% block content %}
 {% set editing = ev is not none %}
 <div class="section-head"><h1>{{ "Edit event" if editing else "Plan an event" }}</h1></div>
@@ -41,7 +41,7 @@
       <label>Start <input type="time" name="start_time" required value="{{ local_time if local_time is defined else '' }}"></label>
       <label>Length (minutes) <input type="number" name="duration_minutes" min="15" max="720" step="15" value="{{ ((ev.end_at - ev.start_at).total_seconds() // 60)|int if editing else 120 }}"></label>
     </div>
-    <label>Time zone <input name="timezone" value="{{ ev.timezone if editing else tz }}" required data-tz-default></label>
+    <label>Time zone {{ tz_select("timezone", ev.timezone if editing else tz, required=True, browser_default=not editing and not tz_from_settings) }}</label>
     <label>If the time happens twice (clocks fall back)
       <select name="fold"><option value="">Ask me</option><option value="0">First occurrence (daylight time)</option><option value="1">Second occurrence (standard time)</option></select></label>
     {% if editing %}<p class="note">Showing the current time ({{ fmt_local(ev.start_at, ev.timezone) }}). Leave it as it is to keep it. Changing the date, start or length re-checks the schedule and asks confirmed players to reconfirm.</p>{% endif %}

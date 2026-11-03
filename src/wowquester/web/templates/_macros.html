@@ -18,3 +18,18 @@
   <button type="button" class="btn ghost" popovertarget="{{ tip_id }}" popovertargetaction="hide">Close</button>
 </div>
 {%- endmacro %}
+{# Time zone picker: community default and [community] common_timezones first, then every IANA
+   region/city grouped by region. blank_label adds an empty choice (e.g. "use the community default"). #}
+{% macro tz_select(name, selected, blank_label="", required=False, browser_default=False) -%}
+{% set dflt = cfg['community']['default_timezone'] %}
+{% set common = [dflt] + (cfg['community'].get('common_timezones') or [])|reject('equalto', dflt)|list %}
+{% set groups = tz_choices() %}
+{% set known = namespace(found=(selected in common) or not selected) %}
+{% for _r, zs in groups %}{% for z, _l in zs %}{% if z == selected %}{% set known.found = true %}{% endif %}{% endfor %}{% endfor %}
+<select name="{{ name }}"{% if required %} required{% endif %}{% if browser_default %} data-tz-default{% endif %}>
+  {% if blank_label %}<option value=""{% if not selected %} selected{% endif %}>{{ blank_label }}</option>{% endif %}
+  {% if not known.found %}<option value="{{ selected }}" selected>{{ tz_label(selected) }}</option>{% endif %}
+  <optgroup label="Common">{% for z in common %}<option value="{{ z }}"{% if z == selected %} selected{% endif %}>{{ tz_label(z) }}</option>{% endfor %}</optgroup>
+  {% for region, zs in groups %}<optgroup label="{{ region }}">{% for z, lbl in zs if z not in common %}<option value="{{ z }}"{% if z == selected %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</optgroup>{% endfor %}
+</select>
+{%- endmacro %}

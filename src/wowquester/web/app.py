@@ -36,7 +36,7 @@ from ..db import Database
 from ..domain.actor import Actor
 from ..domain.errors import DomainError, PermissionDenied
 from ..config import RULESET_LABELS
-from ..domain.timeutil import fmt_local, now
+from ..domain.timeutil import fmt_local, now, tz_choices, tz_label
 from ..models import Member
 from ..models import Session as WebSession
 
@@ -215,7 +215,7 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
     tpl = Jinja2Templates(directory=str(HERE / "templates"))
     # Cache-busting: ?v= changes whenever a static file changes, so phones don't keep an old script.
     sv = hashlib.sha256(b"".join(f.read_bytes() for f in sorted((HERE / "static").glob("*")) if f.is_file())).hexdigest()[:10]
-    tpl.env.globals.update(fmt_local=fmt_local, static_v=sv,
+    tpl.env.globals.update(fmt_local=fmt_local, static_v=sv, tz_choices=tz_choices, tz_label=tz_label,
                            ruleset_label=lambda r: RULESET_LABELS.get(r or "", (r or "").replace("_", " ").title()))
     tpl.env.autoescape = True
     app.state.tpl = tpl

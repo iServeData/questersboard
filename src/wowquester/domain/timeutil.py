@@ -66,3 +66,49 @@ def discord_ts(instant: datetime, style: str = "F") -> str:
 
 def minutes(n: int) -> timedelta:
     return timedelta(minutes=n)
+
+
+# Time zone picker. The list is the IANA Time Zone Database (https://www.iana.org/time-zones) as
+# installed on the server (the OS tzdata package), read locally: no outside API is called, and the
+# list updates whenever the OS updates tzdata. Only region/city names are offered (no "US/Pacific"
+# style aliases or POSIX names); a saved name outside the list is still kept and shown.
+TZ_REGIONS = ("Africa", "America", "Antarctica", "Arctic", "Asia", "Atlantic", "Australia", "Europe",
+              "Indian", "Pacific")
+_tz_cache: dict = {}
+
+
+def _offset_label(minutes: int) -> str:
+    sign = "+" if minutes >= 0 else "\u2212"
+    h, m = divmod(abs(minutes), 60)
+    return f"UTC{sign}{h:02d}:{m:02d}"
+
+
+def tz_choices(now: datetime | None = None) -> list[tuple[str, list[tuple[str, str]]]]:
+    """[(region, [(iana name, "Los Angeles · UTC−08:00"), ...]), ...] plus a UTC group, cached hourly
+    so the offsets follow daylight saving."""
+    from zoneinfo import available_timezones
+    now = now or datetime.now(UTC)
+    key = now.replace(minute=0, second=0, microsecond=0)
+    if _tz_cache.get("key") == key:
+        return _tz_cache["value"]
+    groups: dict[str, list[tuple[int, str, str]]] = {}
+    for name in available_timezones():
+        region, _, city = name.partition("/")
+        if region not in TZ_REGIONS or not city:
+            continue
+        off = int(now.astimezone(ZoneInfo(name)).utcoffset().total_seconds() // 60)
+        groups.setdefault(region, []).append(
+            (off, name, f"{city.replace('_', ' ').replace('/', ' / ')} \u00b7 {_offset_label(off)}"))
+    value = [(r, [(n, lbl) for _, n, lbl in sorted(groups[r], key=lambda t: (t[2]))]) for r in sorted(groups)]
+    value.append(("Other", [("UTC", "UTC \u00b7 UTC+00:00")]))
+    _tz_cache.update(key=key, value=value)
+    return value
+
+
+def tz_label(name: str, now: datetime | None = None) -> str:
+    """"America/Los_Angeles · UTC−08:00" for the current offset, or the name itself if unknown."""
+    try:
+        off = int((now or datetime.now(UTC)).astimezone(ZoneInfo(name)).utcoffset().total_seconds() // 60)
+    except (ZoneInfoNotFoundError, ValueError):
+        return name
+    return f"{name.replace('_', ' ')} \u00b7 {_offset_label(off)}"

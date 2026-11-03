@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+No database migration. Host config: set Retail's `catalog = "retail"`; `common_timezones` is optional.
+
+- **Race and class are real dropdowns** (iPad/iPhone): Safari's typed-suggestion lists only showed
+  entries matching what was already in the field, so after the first pick no list appeared. Changing
+  the race now clears a class that race can't be, and says so. "Other (type it)" keeps free text.
+- **Retail race/class list**: packaged seed for Midnight's 26 races (marked unverified); Retail
+  previously had none until a Blizzard import.
+- **Time zone pickers** on My settings and the event form: the IANA time zone database installed on
+  the server (no outside API), grouped by region with current UTC offsets, community default and
+  `[community] common_timezones` first. "Community default" can be chosen again in My settings.
+- **My time zone** now sets the starting zone of events you create (it was saved but unused).
+
+## 2026-11-02
+
 Needs database migration `0003` (installed by `deploy/install.sh`) and a few host config edits.
 
 - **Attendance**: the menus now show the saved value. Before, every save reset anyone not changed to

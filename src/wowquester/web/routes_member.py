@@ -266,8 +266,12 @@ def router(cfg: Config) -> APIRouter:
     def _form_ctx(w, a, ev=None):
         with w.db.tx() as s:
             chars = roster.list_characters(s, a.member_id)
+            my_tz = s.scalar(select(Member.timezone).where(Member.id == a.member_id)) if a.member_id else None
+        # New events start in the host's saved zone (My settings); without one, the browser's zone
+        # (filled in by the page script), then the community default.
         return {"editions": w.cfg.editions, "activity_types": ACTIVITY_TYPES, "presets": w.cfg.role_presets,
-                "ev": ev, "chars": chars, "tz": w.cfg["community"]["default_timezone"],
+                "ev": ev, "chars": chars, "tz": my_tz or w.cfg["community"]["default_timezone"],
+                "tz_from_settings": bool(my_tz),
                 "max_roles": MAX_ROLE_ROWS, "party_sizes": w.cfg["signups"]["party_size_max"]}
 
     @r.get(mp + "/events/new")
@@ -624,7 +628,7 @@ def router(cfg: Config) -> APIRouter:
         w = W(request)
         with w.db.tx() as s:
             roster.set_member_prefs(s, w.cfg, a, recognition_default=_bool(form, "recognition_default"),
-                                    timezone=form.get("timezone") or None)
+                                    timezone=form.get("timezone"))
         return _redirect(mp + "/me")
 
     @r.post(mp + "/me/calendar")
