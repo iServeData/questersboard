@@ -86,45 +86,64 @@
         return { key: r.key, label: r.label, classes: r.classes || [] }; });
       return { m: m, races: races };
     };
-    var classItems = function (m, race) {
-      var keys = race && race.classes.length ? race.classes : Object.keys(m.classes || {});
-      return keys.map(function (k) { return { key: k, label: (m.classes || {})[k] || k }; });
-    };
-    var sync = function (why) {
-      var c = state();
-      var prevClass = classIn.value;
-      setOptions(raceSel, "Pick a race", c.races);
-      var race = attach(raceSel, raceIn, c.races);
-      var items = classItems(c.m, race);
-      setOptions(classSel, race || !c.races.length || raceSel.value === OTHER ? "Pick a class" : "Pick a race first", items);
+    // Each list only offers what fits the other: a picked class narrows the races, a picked race
+    // narrows the classes. The first choice in each list clears it, which widens the other again.
+    var pretty = function (k) { return k.replace(/_/g, " ").replace(/\b[a-z]/g, function (x) { return x.toUpperCase(); }); };
+    var sync = function () {
+      var c = state(), cls = c.m.classes || {};
+      var allClasses = Object.keys(cls).map(function (k) { return { key: k, label: cls[k] }; });
+      var raceTyped = raceIn.dataset.typed === "1", classTyped = classIn.dataset.typed === "1";
+      var cleared = [];
+      // classes some race of this faction can be (all of them when there's no race list)
+      var pool = allClasses;
+      if (c.races.length) {
+        var any = {};
+        c.races.forEach(function (r) { (r.classes.length ? r.classes : Object.keys(cls)).forEach(function (k) { any[k] = 1; }); });
+        pool = allClasses.filter(function (i) { return any[i.key]; });
+      }
+      var curClass = classTyped ? null : match(pool, classIn.value);
+      if (!classTyped && classIn.value && !curClass && c.races.length) {
+        cleared.push(cls[classIn.value] || pretty(classIn.value)); classIn.value = "";
+      }
+      var fits = function (r) { return !curClass || !r.classes.length || r.classes.indexOf(curClass.key) >= 0; };
+      var races = c.races.filter(fits);
+      var race = raceTyped ? null : match(races, raceIn.value);
+      if (!raceTyped && raceIn.value && !race && c.races.length) {
+        var gone = match(c.races, raceIn.value);
+        cleared.push(gone ? gone.label : pretty(raceIn.value)); raceIn.value = "";
+      }
+      setOptions(raceSel, race ? "Clear race (show all classes)" : curClass ? "Pick a race (" + curClass.label + ")" : "Pick a race", races);
+      race = attach(raceSel, raceIn, races);
+      var items = race && race.classes.length
+        ? allClasses.filter(function (i) { return race.classes.indexOf(i.key) >= 0; }) : pool;
+      setOptions(classSel, curClass ? "Clear class (show all races)" : race ? "Pick a class (" + race.label + ")" : "Pick a class", items);
       var klass = attach(classSel, classIn, items);
-      var msg = "";
-      if (race && prevClass && !klass && classIn.dataset.typed !== "1") {
-        var was = (c.m.classes || {})[prevClass] || prevClass;
-        msg = race.label + " can't be " + was + ", so the class was cleared. ";
-      }
-      if (hint) {
-        hint.textContent = msg + (race ? race.label + " can be: " + items.map(function (i) { return i.label; }).join(", ") + "."
-          : c.races.length ? "Pick a race to see its classes." : "Type the race and class.");
-        hint.classList.toggle("wq-warn", !!msg);
-      }
+      if (!hint) return;
+      var msg = cleared.length ? cleared.join(" and ") + (cleared.length > 1 ? " aren't" : " isn't") +
+        " available for this edition and faction, so " + (cleared.length > 1 ? "they were" : "it was") + " cleared. " : "";
+      var list = function (xs) { return xs.map(function (i) { return i.label; }).join(", "); };
+      hint.textContent = msg + (!c.races.length ? "Type the race and class."
+        : race ? race.label + " can be: " + list(items) + "."
+        : klass ? "Races that can be " + klass.label + ": " + list(races) + "."
+        : "Pick a race or a class first; the other list then shows only what fits.");
+      hint.classList.toggle("wq-warn", !!msg);
     };
     raceSel.addEventListener("change", function () {
       if (raceSel.value === OTHER) { raceIn.value = ""; raceIn.dataset.typed = "1"; show(raceIn, true); raceIn.required = true; raceIn.focus(); }
       else { raceIn.value = raceSel.value; raceIn.dataset.typed = ""; }
-      sync("race");
+      sync();
     });
     classSel.addEventListener("change", function () {
       if (classSel.value === OTHER) { classIn.value = ""; classIn.dataset.typed = "1"; show(classIn, true); classIn.required = true; classIn.focus(); }
-      else { classIn.value = classSel.value; classIn.dataset.typed = ""; show(classIn, false); classIn.required = false; }
-      if (hint) hint.classList.remove("wq-warn");
+      else { classIn.value = classSel.value; classIn.dataset.typed = ""; }
+      sync();
     });
     raceIn.addEventListener("input", function () { raceIn.dataset.typed = "1"; });
     classIn.addEventListener("input", function () { classIn.dataset.typed = "1"; });
     // Restoring a form after an error sets the text fields and fires change: re-sync from them.
     var hiddenField = function (el) { return (el.closest("label") || el).hidden; };
-    raceIn.addEventListener("change", function () { if (hiddenField(raceIn)) sync("restore"); });
-    classIn.addEventListener("change", function () { if (hiddenField(classIn)) { classIn.dataset.typed = ""; sync("restore"); } });
+    raceIn.addEventListener("change", function () { if (hiddenField(raceIn)) sync(); });
+    classIn.addEventListener("change", function () { if (hiddenField(classIn)) { classIn.dataset.typed = ""; sync(); } });
     // A saved race or class the catalog doesn't list was typed by hand: keep it, under "Other".
     (function () {
       var c = state();
@@ -132,8 +151,8 @@
       var all = Object.keys(c.m.classes || {}).map(function (k) { return { key: k, label: c.m.classes[k] }; });
       if (classIn.value && all.length && !match(all, classIn.value)) classIn.dataset.typed = "1";
     })();
-    [edSel, facSel].forEach(function (el) { el.addEventListener("change", function () { sync("parent"); }); });
-    sync("load");
+    [edSel, facSel].forEach(function (el) { el.addEventListener("change", function () { sync(); }); });
+    sync();
   }
   // Show times in the viewer's own zone as well.
   document.querySelectorAll("time[data-local]").forEach(function (t) {

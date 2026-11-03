@@ -7,6 +7,8 @@ No database migration. Host config: set Retail's `catalog = "retail"`; `common_t
 - **Race and class are real dropdowns** (iPad/iPhone): Safari's typed-suggestion lists only showed
   entries matching what was already in the field, so after the first pick no list appeared. Changing
   the race now clears a class that race can't be, and says so. "Other (type it)" keeps free text.
+  The lists filter each other: pick a class first and only races that can be it are offered, and the
+  other way round. The first choice in each list ("Clear class (show all races)") widens it again.
 - **Retail race/class list**: packaged seed for Midnight's 26 races (marked unverified); Retail
   previously had none until a Blizzard import.
 - **Time zone pickers** on My settings and the event form: the IANA time zone database installed on
