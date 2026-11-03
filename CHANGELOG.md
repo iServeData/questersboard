@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+Needs database migration `0003` (installed by `deploy/install.sh`) and a few host config edits.
+
+- **Attendance**: the menus now show the saved value. Before, every save reset anyone not changed to
+  Unknown, which also dropped them from the chronicle.
+- **Roles**: presets are Tank, Healer, Damage (Support, Guide, Learner and RP role removed; custom roles
+  still allowed). The signup form shows each role's fill ("Tank · 1 of 1 taken (full, you'd be
+  waitlisted)") and open spots. People who joined before roles existed are listed under "No role picked
+  yet", asked by DM to pick one, and the change form no longer shows the first role as if chosen.
+- **Group sizes**: per activity type in `[signups.party_size_max]` (quest/dungeon/arena 5, raid and
+  battleground 40, others 80). Participant limit can't exceed it; role counts can't exceed the limit.
+- **Editions**: Forever gains the RP-PvP ruleset. Example config adds Classic Era (incl. Hardcore and
+  Season of Discovery realms), Burning Crusade Anniversary and Mists of Pandaria Classic, with packaged
+  race/class seeds and "Where" suggestions (zones, dungeons, raids, battlegrounds) marked unverified.
+- **Co-hosts by name**: type Discord usernames, comma separated; IDs and mentions still work. Usernames
+  are saved at sign-in (`members.username`, cleared on account removal).
+- **Notices**: when a host or co-host edits an event, the other hosts get a DM listing what changed.
+  Bot DMs and review posts no longer show Discord link preview cards.
+- **Chronicle**: every attendee can write their own story; all published stories appear on the event's
+  one chronicle page (host, co-hosts, then others). The guided answers always appear as sections. Every
+  save is a new version with time and author in History. Co-authors are ticked from the event's people
+  and can be removed. Unpublishing DMs the author with the reason; review decisions include the note.
+
 - **Login**: first-time Discord logins no longer fail with `access_denied`. The quiet login
   (`prompt=none`) only works for accounts that already authorized the app; on `access_denied` the
   callback now asks once more with Discord's normal Authorize screen. Pressing Cancel there shows

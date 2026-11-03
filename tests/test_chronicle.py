@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from wowquester.domain import chronicle, events, signups
 from wowquester.domain.errors import Invalid, PermissionDenied
-from wowquester.models import ChronicleEntry
+from wowquester.models import ChronicleEntry, Member
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator")
@@ -163,9 +163,11 @@ def test_cohost_is_not_coauthor_until_assigned(seeded, cfg, monkeypatch):
         events.start(s, cfg, CO, ev.id)                                # co-host may run the event...
         events.end(s, cfg, CO, ev.id)
         e = s.query(ChronicleEntry).filter_by(event_id=ev.id).one()
+        co_id = s.query(Member).filter_by(discord_id=CO.discord_id).one().id
         with pytest.raises(PermissionDenied):
             chronicle.save(s, cfg, CO, e.id, GOOD)                     # ...but isn't an author by default
         with pytest.raises(PermissionDenied):
-            chronicle.set_coauthors(s, cfg, CO, e.id, [CO.discord_id])  # only the author/editor assigns
-        chronicle.set_coauthors(s, cfg, ORG, e.id, [CO.discord_id])
+            chronicle.set_coauthors(s, cfg, CO, e.id, [co_id])          # only the author/editor assigns
+        assert co_id in dict(chronicle.coauthor_choices(s, cfg, e))     # co-hosts are offered
+        chronicle.set_coauthors(s, cfg, ORG, e.id, [co_id])
         chronicle.save(s, cfg, CO, e.id, GOOD)                         # now a co-author may edit

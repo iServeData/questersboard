@@ -161,7 +161,29 @@ def _apply_fields(s: Session, cfg: Config, actor: Actor, ev: Event, data: dict, 
             ev.exclusive = want
 
 
-def _set_roles(s: Session, ev: Event, roles: list[dict]) -> None:
+def party_max(cfg: Config, activity_type: str | None) -> int:
+    return int((cfg["signups"].get("party_size_max") or {}).get(activity_type or "", 80))
+
+
+def _check_sizes(cfg: Config, ev: Event) -> None:
+    """Participant limit <= the activity's group size; role spots add up to no more than the limit."""
+    cap = party_max(cfg, ev.activity_type)
+    kind = (ev.activity_type or "event").replace("_", " ")
+    if ev.participant_limit is not None and ev.participant_limit > cap:
+        raise Invalid(f"A {kind} holds at most {cap} players. Lower the participant limit to {cap} or less.")
+    auto = ev.participant_limit is None
+    if auto and cap < 80:
+        ev.participant_limit = cap             # a quest with no limit still holds one group
+    limit = ev.participant_limit or cap
+    total = sum(r.quantity for r in ev.roles)
+    if total > limit:
+        what = f"{kind} group size" if auto else "participant limit"
+        raise Invalid(f"The roles add up to {total} spots but the {what} is {limit}. "
+                      "Lower the How many numbers or raise the limit.")
+
+
+def _set_roles(s: Session, ev: Event, roles: list[dict]) -> list[int]:
+    """Returns the signups that now need to pick a role (their role was added/renamed away)."""
     current = {r.key: r for r in ev.roles}
     wanted = {r["key"]: r for r in roles}
     for key, r in current.items():
@@ -182,6 +204,16 @@ def _set_roles(s: Session, ev: Event, roles: list[dict]) -> None:
         else:
             ev.roles.append(EventRole(key=key, label=r["label"], quantity=r["quantity"], position=pos))
     s.flush()
+    keys = set(wanted)
+    ask = []
+    if keys:          # people who joined before roles existed get asked to pick one
+        for su in s.scalars(select(Signup).where(Signup.event_id == ev.id, Signup.state.in_(ACTIVE_SIGNUP))):
+            if su.role_key not in keys:
+                if not su.needs_reconfirm:
+                    ask.append(su.id)
+                su.needs_reconfirm = True
+                su.updated_at = now()
+    return ask
 
 
 def _set_cohosts(s: Session, ev: Event, discord_ids: list[str]) -> set[int]:
@@ -233,6 +265,7 @@ def create_draft(s: Session, cfg: Config, actor: Actor, data: dict) -> Event:
     s.add(ev)
     s.flush()
     _set_roles(s, ev, _roles(cfg, data.get("roles")))
+    _check_sizes(cfg, ev)
     if data.get("cohosts"):
         _set_cohosts(s, ev, data["cohosts"])
     audit.record(s, actor, "event.create_draft", "event", ev.id, copied_from=data.get("copied_from_id"))
@@ -250,11 +283,14 @@ def update(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> 
         raise InvalidTransition("Finished events can't be edited.")
     result = {"reconfirm": [], "bumped": []}
     material = []
+    before = _snapshot(s, ev)
     old_loc = (ev.activity_location, ev.muster_location)
     _apply_fields(s, cfg, actor, ev, {k: v for k, v in data.items() if k not in ("start_at", "end_at", "timezone")},
                   creating=False)
+    pick_role = []
     if "roles" in data:
-        _set_roles(s, ev, _roles(cfg, data["roles"]))
+        pick_role = _set_roles(s, ev, _roles(cfg, data["roles"]))
+    _check_sizes(cfg, ev)
     if "cohosts" in data:
         if not (actor.member_id == ev.creator_id or has(cfg, actor, "event_moderator")):
             raise PermissionDenied("Only the creator or an event moderator can change co-hosts.")
@@ -296,9 +332,56 @@ def update(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> 
     if material and ev.state in scheduling.HOLDING:
         outbox.enqueue(s, "notify.material_change", f"{ev.id}:{ev.version}",
                        {"event_id": ev.id, "changes": material, "bumped": result["bumped"]})
-    audit.record(s, actor, "event.update", "event", ev.id, fields=sorted(k for k in data), material=material)
+    changed = _diff(before, _snapshot(s, ev))
+    if pick_role and ev.state in scheduling.HOLDING:
+        outbox.enqueue(s, "notify.pick_role", f"{ev.id}:{ev.version}", {"event_id": ev.id, "signup_ids": pick_role})
+    if changed and (actor.member_id != ev.creator_id or cohosts):
+        # tell the other hosts what changed (the person who made the edit is skipped)
+        outbox.enqueue(s, "notify.event_edited", f"{ev.id}:{ev.version}",
+                       {"event_id": ev.id, "actor_id": actor.member_id, "changes": changed})
+    audit.record(s, actor, "event.update", "event", ev.id, fields=changed, material=material)
     _notify_post(s, cfg, ev)
     return result
+
+
+_LABELS = {"title": "title", "description": "description", "edition": "edition", "ruleset": "ruleset",
+           "realm_slug": "realm", "region": "region", "activity_type": "type", "activity_location": "where",
+           "muster_location": "meeting point", "signup_policy": "signup policy",
+           "participant_limit": "participant limit", "signup_deadline": "signup deadline",
+           "late_join": "late joining", "chronicle_enabled": "chronicle", "public_listing": "public listing",
+           "exclusive": "exclusive", "time": "time", "roles": "roles", "cohosts": "co-hosts",
+           "eligibility": "who can join", "cover": "cover image"}
+
+
+def _snapshot(s: Session, ev: Event) -> dict:
+    out = {}
+    for col in Event.__table__.columns:
+        if col.key in ("id", "version", "updated_at", "created_at", "state", "discord_channel_id",
+                       "discord_message_id", "actual_start", "actual_end", "public_id", "creator_id"):
+            continue
+        out[col.key] = getattr(ev, col.key)
+    out["time"] = (ev.start_at, ev.end_at, ev.timezone)
+    for k in ("start_at", "end_at", "timezone"):
+        out.pop(k, None)
+    out["roles"] = [(r.key, r.label, r.quantity) for r in sorted(ev.roles, key=lambda r: r.position)]
+    out["cohosts"] = sorted(scheduling.cohost_ids(s, ev.id))
+    return out
+
+
+def _diff(a: dict, b: dict) -> list[str]:
+    seen, out = set(), []
+    for k in b:
+        if a.get(k) != b.get(k):
+            lbl = _LABELS.get(k)
+            if lbl is None:
+                lbl = k.replace("_id", "").replace("_", " ")
+                for pre in ("eligibility", "cover"):
+                    if k.startswith(pre):
+                        lbl = _LABELS[pre]
+            if lbl not in seen:
+                seen.add(lbl)
+                out.append(lbl)
+    return out
 
 
 def publish(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
@@ -433,7 +516,8 @@ def record_attendance(s: Session, cfg: Config, actor: Actor, event_id: int, stat
             row = Attendance(event_id=ev.id, member_id=su.member_id, character_id=su.character_id,
                              role_key=su.role_key)
             s.add(row)
-        row.status, row.recorded_by, row.recorded_at = st, actor.member_id, now()
+        if row.status != st or row.recorded_by is None:     # unchanged rows keep who/when recorded them
+            row.status, row.recorded_by, row.recorded_at = st, actor.member_id, now()
     audit.record(s, actor, "event.attendance", "event", ev.id, count=len(statuses))
     from . import chronicle
     chronicle.refresh_if_published(s, cfg, ev.id)

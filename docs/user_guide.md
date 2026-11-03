@@ -15,7 +15,7 @@
 | Edit, start, end events; attendance; Chronicle; privacy; calendar link; Remove me | web only |
 
 **Getting in.** Open the WoW page and choose "Sign up / my events", or use `/quest list` in Discord.
-Log in with Discord. WoWQuester only learns your Discord ID and display name.
+Log in with Discord. WoWQuester only learns your Discord ID, username and display name.
 
 **Your characters** (My characters).
 - WoW: Forever characters have a ruleset (no realm). Retail characters need a realm.
@@ -71,16 +71,25 @@ community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
 ## For hosts (event creators and co-hosts)
 
 1. **Plan an event**: title, WoW edition, ruleset (Forever) or realm (Retail), faction, activity, start/end in
-   your time zone, optional roles (presets or custom, with counts), open or approval signup, optional repeat.
-   It is saved as a draft: drafts hold no time slot.
+   your time zone, optional roles (Tank / Healer / Damage or custom, with counts), open or approval signup,
+   optional repeat. It is saved as a draft: drafts hold no time slot. Group sizes are enforced: a quest,
+   dungeon or arena holds 5, a raid or battleground 40, and the role counts can't add up to more than the
+   participant limit. **Co-hosts** are typed as Discord usernames separated by commas
+   (`@questgiver, @healbot`); a numeric Discord ID also works. A name is found if that person has signed in
+   to WoWQuester once (or, when the bot can search the server, from Discord).
 2. **Publish**: WoWQuester checks the community limit (by default only one WoW event at a time) and that
    you aren't already in another event then. If it clashes, it says with what. On publish, one post appears
    in the event channel with Join / Tentative / Leave buttons; it updates itself.
 3. **Before the event**: approve, waitlist or reject pending signups; change someone's role; add co-hosts.
-   Editing the time re-checks everything and asks players to reconfirm.
+   Editing the time re-checks everything and asks players to reconfirm. When a co-host (or the host) edits
+   the event, the other hosts get a DM listing what changed. Adding roles to an event that people already
+   joined asks them (by DM and on the event page) to pick one.
+   Players see how many spots each role has left ("Tank · 1 of 1 taken") so they can pick another role to
+   balance the group.
 4. **Run it**: Start when you begin. End when you're done. If it runs long you get one reminder; use
    "Extend 30 min" if needed. Nothing is extended automatically.
-5. **Afterwards**: record attendance (attended / absent / unknown) and write the chronicle.
+5. **Afterwards**: record attendance (attended / absent / unknown) and write the chronicle. The menus show
+   what you saved last time, so saving again only changes what you change.
 6. **Copy** makes a fresh draft of the same event, without signups. **Repeating events**: when editing one
    occurrence, choose "only this one" or "this and future".
 
@@ -88,14 +97,23 @@ Co-hosts can run the event but aren't chronicle co-authors unless the author add
 
 ## Chronicle (authors and reviewers)
 
-- When an event ends, a chronicle draft is created for the host. Choose the **outcome** yourself
-  (Completed, Partly completed, Not completed, Social): WoWQuester never guesses it.
-- Write the story, add screenshots (PNG/JPEG/WebP; they're re-encoded and their metadata removed),
-  add co-authors. "Suggest wording" (if enabled) proposes text you can edit; it is never published by itself.
+- When an event ends, a chronicle draft is created for the host, and co-hosts and everyone who took part
+  get a DM inviting their own story ("Write your story" on the event page; anyone marked absent can't).
+  Each story is reviewed on its own. The event has **one** chronicle page and card: the host's story
+  first, then co-hosts', then everyone else's in the order they were published.
+- The host chooses the **outcome** (Completed, Partly completed, Not completed, Social): WoWQuester never
+  guesses it. Other stories need at least "What happened" or a written story.
+- The guided answers become the sections of the story: **The plan**, **What happened** (also the summary
+  on the chronicle card), **Best moments**, then **The story** if you write one.
+- Add screenshots (PNG/JPEG/WebP; they're re-encoded and their metadata removed). Co-authors are ticked
+  from the people at the event and can be unticked to remove them; they get a DM when added.
+  "Suggest wording" (if enabled) proposes text you can edit; it is never published by itself.
+- Every save that changes something is a new version (v1, v2, ...); History shows when and by whom.
 - Submit for review. Reviewers approve & publish, request changes, or reject with a note. You can't review
   your own story. Trusted authors can publish their own, but the privacy check still runs.
 - Editing a published story creates a new version for review; the current one stays public until the new
-  one is approved. Reviewers can unpublish at any time.
+  one is approved. Reviewers can unpublish at any time; the author gets a DM with the reason.
+- DMs from the bot carry plain links, without Discord's link preview card.
 - Published stories appear at `/wow/chronicle/`, in the WoW page's chronicle widget, and in the RSS, Atom
   and JSON feeds. No site update or deployment is involved.
 

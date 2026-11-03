@@ -11,6 +11,8 @@ class FakeDiscord:
     def __init__(self):
         self.messages: dict[str, dict] = {}
         self.dms: list[tuple[str, str]] = []
+        self.dm_flags: list[int] = []
+        self.directory: list[dict] = []          # FIXTURE guild members for /members/search
         self.calls: list[tuple[str, str]] = []
         self.fail_next: list[int] = []
         self.forbid_channels: set[str] = set()
@@ -34,6 +36,7 @@ class FakeDiscord:
                 assert body.get("allowed_mentions") == {"parse": []}
                 if ch.startswith("dm-"):
                     self.dms.append((ch[3:], body["content"]))
+                    self.dm_flags.append(body.get("flags", 0))
                     return httpx.Response(200, json={"id": str(next(self.ids))})
                 mid = str(next(self.ids))
                 self.messages[mid] = body
@@ -44,6 +47,10 @@ class FakeDiscord:
                     return httpx.Response(404, json={"code": 10008})
                 self.messages[mid] = body
                 return httpx.Response(200, json={"id": mid})
+        if parts[0] == "guilds" and parts[2:] == ["members", "search"]:
+            q = req.url.params.get("query", "").lower()
+            return httpx.Response(200, json=[{"user": u} for u in self.directory
+                                             if u["username"].lower().startswith(q)])
         if parts[0] == "guilds" and parts[2] == "members":
             return httpx.Response(200, json={"roles": [], "nick": "Nick", "user": {"username": "u"}})
         return httpx.Response(404, json={})

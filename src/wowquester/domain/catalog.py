@@ -37,6 +37,14 @@ def seed_edition(s: Session, cfg: Config, edition_key: str) -> int:
                 rows.append(dict(edition=ed.key, kind="race_class", key=f"{rk}:{c}", label=f"{r['label']} {c}",
                                  parent_key=faction, source="seed", source_ref=src, verification="unverified",
                                  data={}))
+    for lname in data.get("locations", []):
+        for cat, labels in load_seed(lname).items():
+            if not isinstance(labels, list):
+                continue
+            for lbl in labels:
+                key = re.sub(r"[^a-z0-9]+", "_", lbl.lower()).strip("_")[:60]
+                rows.append(dict(edition=ed.key, kind="location", key=key, label=lbl, parent_key=cat,
+                                 source="seed", source_ref=src, verification="unverified", data={"category": cat}))
     n = 0
     for row in rows:
         # Seed rows pick up label fixes from a newer seed; Blizzard-imported rows are never touched.

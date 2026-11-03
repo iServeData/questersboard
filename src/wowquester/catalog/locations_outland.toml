@@ -1,0 +1,12 @@
+# Starter "Where" suggestions added by The Burning Crusade. source = "seed", verification = "unverified".
+zone = ["Hellfire Peninsula", "Zangarmarsh", "Terokkar Forest", "Nagrand", "Blade's Edge Mountains",
+  "Netherstorm", "Shadowmoon Valley", "Shattrath City", "Eversong Woods", "Ghostlands", "Silvermoon City",
+  "Azuremyst Isle", "Bloodmyst Isle", "The Exodar", "Isle of Quel'Danas"]
+dungeon = ["Hellfire Ramparts", "The Blood Furnace", "The Shattered Halls", "The Slave Pens", "The Underbog",
+  "The Steamvault", "Mana-Tombs", "Auchenai Crypts", "Sethekk Halls", "Shadow Labyrinth",
+  "Old Hillsbrad Foothills", "The Black Morass", "The Mechanar", "The Botanica", "The Arcatraz",
+  "Magisters' Terrace"]
+raid = ["Karazhan", "Gruul's Lair", "Magtheridon's Lair", "Serpentshrine Cavern", "Tempest Keep",
+  "Hyjal Summit", "Black Temple", "Zul'Aman", "Sunwell Plateau"]
+battleground = ["Eye of the Storm"]
+arena = ["Nagrand Arena", "Blade's Edge Arena", "Ruins of Lordaeron"]

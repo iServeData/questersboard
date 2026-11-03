@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 
 import httpx
+from urllib.parse import quote
 
 from ..secrets import get_secret
 
@@ -99,6 +100,13 @@ class DiscordRest:
             return False, frozenset(), ""
         name = m.get("nick") or (m.get("user") or {}).get("global_name") or (m.get("user") or {}).get("username", "")
         return True, frozenset(m.get("roles", [])), name
+
+    def search_members(self, guild_id: str, query: str, limit: int = 5) -> list[dict]:
+        """Guild member search by name prefix. UNVERIFIED live: Discord may require the Server Members
+        intent for this endpoint; when it fails the caller treats the name as not found."""
+        rows = self._call("GET", f"/guilds/{guild_id}/members/search?query={quote(query[:32])}&limit={limit}")
+        return [{"id": str(r["user"]["id"]), "username": r["user"].get("username", ""),
+                 "global_name": r["user"].get("global_name") or ""} for r in rows or [] if r.get("user")]
 
     def put_commands(self, application_id: str, guild_id: str, commands: list[dict]) -> list[dict]:
         """Registers slash commands. Only called by `wowquester-admin sync-commands --yes` (approval required)."""

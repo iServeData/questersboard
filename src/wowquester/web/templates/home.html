@@ -21,7 +21,7 @@
       <span class="sched-kind">{{ e.activity_type }}</span>{% if e.state == "in_progress" %}{{ state_chip(e.state) }}{% endif %}
       <h3><a href="{{ mp }}/events/{{ e.id }}">{{ e.title }}</a></h3>
       <p class="big-when"><time datetime="{{ e.start }}" data-local>{{ e.start[:16].replace("T", " ") }} UTC</time></p>
-      <p class="note">{{ e.edition }}{% if e.ruleset %} · {{ e.ruleset }}{% endif %}{% if e.location %} · {{ e.location }}{% endif %}{% if e.exclusive %} · Exclusive{% endif %}</p>
+      <p class="note">{{ e.edition }}{% if e.ruleset %} · {{ ruleset_label(e.ruleset) }}{% endif %}{% if e.location %} · {{ e.location }}{% endif %}{% if e.exclusive %} · Exclusive{% endif %}</p>
       <p class="note">{{ roles_line(e.roles) }}{% if e.signup_policy == "approval" %} · Approval needed{% endif %}</p>
     </li>
   {% endfor %}

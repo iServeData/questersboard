@@ -1,0 +1,18 @@
+# Starter "Where" suggestions for Azeroth (original zones, dungeons, raids, battlegrounds).
+# source = "seed", verification = "unverified". Free text is always allowed in the event form;
+# a Blizzard import (when the edition has a static namespace) adds verified entries.
+zone = ["Alterac Mountains", "Arathi Highlands", "Badlands", "Blasted Lands", "Burning Steppes", "Deadwind Pass",
+  "Dun Morogh", "Duskwood", "Eastern Plaguelands", "Elwynn Forest", "Hillsbrad Foothills", "Loch Modan",
+  "Redridge Mountains", "Searing Gorge", "Silverpine Forest", "Stranglethorn Vale", "Swamp of Sorrows",
+  "The Hinterlands", "Tirisfal Glades", "Western Plaguelands", "Westfall", "Wetlands",
+  "Ashenvale", "Azshara", "Darkshore", "Desolace", "Durotar", "Dustwallow Marsh", "Felwood", "Feralas",
+  "Moonglade", "Mulgore", "Silithus", "Stonetalon Mountains", "Tanaris", "Teldrassil", "The Barrens",
+  "Thousand Needles", "Un'Goro Crater", "Winterspring",
+  "Orgrimmar", "Thunder Bluff", "Undercity", "Stormwind City", "Ironforge", "Darnassus"]
+dungeon = ["Ragefire Chasm", "The Deadmines", "Wailing Caverns", "Shadowfang Keep", "Blackfathom Deeps",
+  "The Stockade", "Gnomeregan", "Razorfen Kraul", "Scarlet Monastery", "Razorfen Downs", "Uldaman",
+  "Zul'Farrak", "Maraudon", "Sunken Temple", "Blackrock Depths", "Lower Blackrock Spire",
+  "Upper Blackrock Spire", "Dire Maul", "Stratholme", "Scholomance"]
+raid = ["Molten Core", "Onyxia's Lair", "Blackwing Lair", "Zul'Gurub", "Ruins of Ahn'Qiraj",
+  "Temple of Ahn'Qiraj", "Naxxramas"]
+battleground = ["Warsong Gulch", "Arathi Basin", "Alterac Valley"]

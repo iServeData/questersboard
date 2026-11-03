@@ -108,7 +108,7 @@
           .then(function (r) { return r.ok ? r.json() : { items: [] }; })
           .then(function (j) {
             list.textContent = "";
-            (j.items || []).forEach(function (o) { var op = document.createElement("option"); op.value = o.label; list.appendChild(op); });
+            (j.items || []).forEach(function (o) { var op = document.createElement("option"); op.value = o.label; if (o.parent) { op.label = o.parent; } list.appendChild(op); });
           }).catch(function () {});
       }, 250);
     });

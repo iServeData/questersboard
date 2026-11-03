@@ -1,18 +1,20 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
-<div class="section-head"><span class="label">Chronicle · {{ e.state.replace('_', ' ') }}</span><h1>{{ ev.title }}</h1></div>
+<div class="section-head"><span class="label">Chronicle · {{ "Host's story" if host_story else names.get(e.author_id, "") ~ "'s story" }} · {{ e.state.replace('_', ' ') }}</span><h1>{{ ev.title }}</h1></div>
+<p class="note">Each person who took part can tell their own story. They all appear on one chronicle page for this event, host first, then co-hosts, then everyone else. Every story is reviewed before it's public.</p>
 {% if e.published_revision_id and e.working_revision_id != e.published_revision_id %}<p class="caveat">The published version stays public until this edit is approved.</p>{% endif %}
 {% if problems %}<div class="caveat"><strong>Before submitting:</strong><ul class="plain-list">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
 <div class="wq-grid">
 <form method="post" class="wq-form panel" action="{{ mp }}/chronicle/{{ e.id }}/save">{{ csrf_field() }}
   <label>Title <input name="title" value="{{ rev.title }}" maxlength="140" required></label>
-  <label>What did you set out to do? <textarea name="attempted" rows="3">{{ rev.attempted }}</textarea></label>
-  <label>What happened? <textarea name="happened" rows="5">{{ rev.happened }}</textarea></label>
-  <label>Outcome <span class="note">(you choose; WoWQuester never guesses)</span>
+  <p class="note">The answers below become the sections of your story, in this order: The plan, What happened, Best moments, then The story (if you write one).</p>
+  <label>The plan <span class="note">(what the group set out to do{% if not host_story %}; optional{% endif %})</span> <textarea name="attempted" rows="3">{{ rev.attempted }}</textarea></label>
+  <label>What happened <span class="note">(the short version; this is also the summary on the chronicle card)</span> <textarea name="happened" rows="5">{{ rev.happened }}</textarea></label>
+  <label>Outcome <span class="note">(you choose; WoWQuester never guesses{% if not host_story %}. Optional: the host's outcome is shown on the card{% endif %})</span>
     <select name="outcome">{% for o in outcomes %}<option value="{{ o }}"{% if rev.outcome == o %} selected{% endif %}>{{ {"completed":"Completed","partial":"Partly completed","not_completed":"Not completed","social":"Social / no goal","unknown":"Not chosen yet"}[o] }}</option>{% endfor %}</select></label>
   <label>Best moments <textarea name="moments" rows="3">{{ rev.moments }}</textarea></label>
-  <label>Story <span class="note">(optional; Markdown. Leave empty to build it from the answers above.)</span><textarea name="body" rows="8">{{ rev.body }}</textarea></label>
+  <label>The story <span class="note">(optional, longer, in your own words; Markdown works. Shown after the sections above.)</span><textarea name="body" rows="8">{{ rev.body }}</textarea></label>
   <p class="note">Only name characters whose players opted in. Opted-out players are described neutrally automatically.</p>
   <div class="btns"><button class="btn ghost" type="submit">Save</button></div>
 </form>
@@ -35,8 +37,15 @@
   </div>
   <div class="panel">
     <h2 class="sub">Co-authors</h2>
-    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/coauthors">{{ csrf_field() }}<label>Discord user IDs <input name="coauthors" inputmode="numeric"></label><button class="btn ghost" type="submit">Save</button></form>
-    <p class="note">Co-authors can write the story. They aren't event co-hosts.</p>
+    {% if choices %}
+    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/coauthors">{{ csrf_field() }}
+      <p class="note">Tick people to let them edit this story; untick to remove them.</p>
+      <fieldset class="wq-checks">
+      {% for mid, label in choices %}<label><input type="checkbox" name="coauthor" value="{{ mid }}"{% if mid in current %} checked{% endif %}> {{ label }}</label>{% endfor %}
+      </fieldset>
+      <button class="btn ghost" type="submit">Save co-authors</button></form>
+    {% else %}<p class="note">Nobody else from this event to add yet.</p>{% endif %}
+    <p class="note">Co-authors can edit this story with you. They aren't event co-hosts, and anyone who took part can also write their own story.</p>
   </div>
   {% if can('chronicle_reviewer') %}
   <div class="panel">
@@ -55,7 +64,8 @@
     <h2 class="sub">Remove me</h2>
     <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/remove_me">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Stop naming you in this story? Screenshots will need re-clearing.">Stop naming me in this story</button></form>
   </div>
-  <details class="panel"><summary>History</summary><ul class="plain-list">{% for h in hist %}<li>v{{ h.number }} · {{ h.decision or ("submitted" if h.submitted_at else "draft") }}{% if h.ai_assisted %} · AI-assisted{% endif %}{% if h.decision_note %} · “{{ h.decision_note }}”{% endif %}</li>{% endfor %}</ul></details>
+  {% if others %}<div class="panel"><h2 class="sub">Other stories from this event</h2><ul class="plain-list">{% for x, n in others %}<li>{% if can('chronicle_reviewer') or can('chronicle_editor') %}<a href="{{ mp }}/chronicle/{{ x.id }}">{{ n }}</a>{% else %}{{ n }}{% endif %} · {{ x.state.replace('_', ' ') }}</li>{% endfor %}</ul></div>{% endif %}
+  <details class="panel" open><summary>History ({{ hist|length }} version{{ "" if hist|length == 1 else "s" }})</summary><ul class="plain-list">{% for h in hist|reverse %}<li>v{{ h.number }} · {{ h.decision.replace('_', ' ') if h.decision else ("submitted" if h.submitted_at else "draft") }} · <time datetime="{{ h.updated_at.isoformat() }}" data-local>{{ h.updated_at.strftime("%Y-%m-%d %H:%M") }} UTC</time> · {{ names.get(h.created_by, "") }}{% if h.id == e.published_revision_id %} · <strong>public</strong>{% endif %}{% if h.ai_assisted %} · AI-assisted{% endif %}{% if h.decision_note %} · “{{ h.decision_note }}”{% endif %}</li>{% endfor %}</ul><p class="note">Every save that changes something is a new version.</p></details>
 </aside>
 </div>
 {% endblock %}

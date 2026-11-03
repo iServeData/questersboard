@@ -7,6 +7,8 @@
 # Skyborne requires the Heroic Pack or higher; class list depends on faction.
 
 source_url = "https://worldofwarcraft.blizzard.com/en-us/news/24304075"
+# "Where" suggestions: Forever returns to the original Azeroth; the list is a starter (unverified).
+locations = ["locations_vanilla"]
 
 classes = ["druid", "hunter", "mage", "paladin", "priest", "rogue", "shaman", "warlock", "warrior"]
 

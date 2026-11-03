@@ -7,7 +7,7 @@
 <section>
   {% for c in chars %}
   <div class="panel wq-card{% if editing and editing.id == c.id %} wq-editing{% endif %}">
-    <h3><a class="wq-char-link" href="{{ mp }}/characters?edit={{ c.id }}#character-form" title="Edit {{ c.name }}">{{ c.name }}</a> <span class="note">{{ editions[c.edition].name }}{% if c.ruleset %} · {{ c.ruleset|upper }}{% endif %}{% if c.realm_slug %} · {{ c.realm_name or c.realm_slug }}{% endif %}</span></h3>
+    <h3><a class="wq-char-link" href="{{ mp }}/characters?edit={{ c.id }}#character-form" title="Edit {{ c.name }}">{{ c.name }}</a> <span class="note">{{ editions[c.edition].name }}{% if c.ruleset %} · {{ editions[c.edition].ruleset_label(c.ruleset) }}{% endif %}{% if c.realm_slug %} · {{ c.realm_name or c.realm_slug }}{% endif %}</span></h3>
     <p>{{ c.faction|title }} {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} · level {{ c.level }}{% endif %}{% if c.spec %} · {{ c.spec }}{% endif %}</p>
     <p class="note">Roles: {{ c.eligible_roles|join(", ") or "—" }}{% if c.preferred_role %} (prefers {{ c.preferred_role }}){% endif %}{% if c.focus_tags %} · Interests: {{ c.focus_tags|join(", ") }}{% endif %}</p>
     <p class="note">API: {{ {"api_matched":"matched in Blizzard's API (existence only, not proof it's yours)","ownership_verified":"verified as yours via Battle.net login","self_reported":"self-reported, not checked","unverified":"not checked","not_found":"not found in Blizzard's API","unsupported":"no Blizzard API for this edition yet"}.get(c.verification, c.verification) }}</p>
@@ -38,7 +38,7 @@
     <label>Edition <select name="edition" data-edition-select>{% for k, ed in editions.items() %}<option value="{{ k }}" data-uses-realms="{{ 1 if ed.uses_realms else 0 }}"{% if e and e.edition == k %} selected{% endif %}>{{ ed.name }}</option>{% endfor %}</select></label>
     {% for k, ed in editions.items() %}{% if not ed.uses_realms %}
     <label data-for-edition="{{ k }}" data-realmless>Ruleset <span class="note">({{ ed.name }} has no realms)</span>
-      <select name="ruleset">{% for r in ed.rulesets %}<option value="{{ r }}"{% if (e and e.edition == k and e.ruleset == r) or ((not e or e.edition != k) and r == ed.default_ruleset) %} selected{% endif %}>{{ r|upper }}</option>{% endfor %}</select></label>
+      <select name="ruleset">{% for r in ed.rulesets %}<option value="{{ r }}"{% if (e and e.edition == k and e.ruleset == r) or ((not e or e.edition != k) and r == ed.default_ruleset) %} selected{% endif %}>{{ ed.ruleset_label(r) }}</option>{% endfor %}</select></label>
     {% endif %}{% endfor %}
     <label data-realm-field>Realm <span class="note">(Retail and other realm editions)</span><input name="realm_slug" placeholder="realm-slug" pattern="[a-z0-9-]{2,64}" value="{{ e.realm_slug or '' if e else '' }}"></label>
     <label>Name <input name="name" required maxlength="49" autocomplete="off" value="{{ e.name if e else '' }}"></label>

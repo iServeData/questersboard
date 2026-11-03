@@ -40,21 +40,34 @@ def plain(text: str, n: int) -> str:
     return t if len(t) <= n else t[: n - 1].rsplit(" ", 1)[0] + "…"
 
 
+SECTIONS = (("attempted", "The plan"), ("happened", "What happened"), ("moments", "Best moments"))
+
+
 def compose_template(rev) -> str:
-    """Fallback (and default) story body built only from what the author wrote."""
+    """The guided answers as Markdown sections (also the AI fallback)."""
     parts = []
-    if rev.attempted.strip():
-        parts.append("### What we set out to do\n\n" + rev.attempted.strip())
-    if rev.happened.strip():
-        parts.append("### What happened\n\n" + rev.happened.strip())
-    if rev.moments.strip():
-        parts.append("### Moments\n\n" + rev.moments.strip())
+    for field, heading in SECTIONS:
+        val = (getattr(rev, field) or "").strip()
+        if val:
+            parts.append(f"### {heading}\n\n{val}")
     return "\n\n".join(parts)
 
 
-def story_html(cfg: Config, rev, people: list[privacy.Participant]) -> tuple[str, str]:
-    body = rev.body.strip() or compose_template(rev)
-    body = privacy.redact(body, people, cfg)
+def story_markdown(rev) -> str:
+    """Everything the author wrote: the guided sections first, then the free-form story."""
+    parts = [compose_template(rev)]
+    if (rev.body or "").strip():
+        parts.append("### The story\n\n" + rev.body.strip())
+    return "\n\n".join(p for p in parts if p)
+
+
+def outcome_html(outcome: str) -> str:
+    if not outcome or outcome == "unknown":
+        return ""
+    return f'<p class="wq-outcome">Outcome: {bleach.clean(OUTCOMES.get(outcome, ""))}</p>'
+
+
+def story_html(cfg: Config, rev, people: list[privacy.Participant], with_outcome: bool = True) -> tuple[str, str]:
+    body = privacy.redact(story_markdown(rev), people, cfg)
     summary_src = privacy.redact(rev.happened or rev.attempted or rev.body, people, cfg)
-    html = f'<p class="wq-outcome">Outcome: {bleach.clean(OUTCOMES.get(rev.outcome, ""))}</p>' + markdown(body)
-    return html, plain(summary_src, 300)
+    return (outcome_html(rev.outcome) if with_outcome else "") + markdown(body), plain(summary_src, 300)

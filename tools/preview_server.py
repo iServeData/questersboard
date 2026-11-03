@@ -122,7 +122,7 @@ def seed(db: Database, cfg: Config) -> None:
         past = events.create_draft(s, cfg, org, dict(
             edition="forever", ruleset="pvp", faction="horde", title="Wailing Caverns first clear",
             activity_type="dungeon", start_at=t0, end_at=t0 + timedelta(hours=2), timezone=hz,
-            roles=[{"key": "tank", "label": "Tank", "quantity": 1}, {"key": "healer", "label": "Healer", "quantity": 2},
+            roles=[{"key": "tank", "label": "Tank", "quantity": 1}, {"key": "healer", "label": "Healer", "quantity": 1},
                    {"key": "damage", "label": "Damage", "quantity": 3}],
             description="FIXTURE: first guild dungeon after launch."))
         events.publish(s, cfg, org, past.id)
@@ -145,6 +145,13 @@ def seed(db: Database, cfg: Config) -> None:
             "moments": "Skarn found the hidden path above the waterfall. Mutanus went down on the first try."})
         if chronicle.submit(s, cfg, org, e).state == "pending_review":   # organizer is a trusted author here
             chronicle.review(s, cfg, rev, e, "approve")
+        mine = chronicle.start_story(s, cfg, members[0], past.id)       # an attendee's own story
+        chronicle.save(s, cfg, members[0], mine.id, {
+            "happened": "Tanking the serpent pulls was chaos in the best way. I lost aggro once and "
+                        "Moonwhisper saved me with a last-second heal.",
+            "moments": "Hearing the whole group cheer when Mutanus dropped."})
+        chronicle.submit(s, cfg, members[0], mine.id)
+        chronicle.review(s, cfg, rev, mine.id, "approve")
 
         # upcoming events
         set_now(real_now)
@@ -155,11 +162,12 @@ def seed(db: Database, cfg: Config) -> None:
             activity_type="quest", start_at=base, end_at=base + timedelta(hours=2), timezone=hz,
             activity_location={"label": "The Barrens", "zone": "The Barrens"},
             muster_location={"label": "Crossroads inn"},
-            roles=[{"key": "learner", "label": "Learner", "quantity": 4}, {"key": "guide", "label": "Guide", "quantity": 1}],
+            roles=[{"key": "tank", "label": "Tank", "quantity": 1}, {"key": "healer", "label": "Healer", "quantity": 1},
+                   {"key": "damage", "label": "Damage", "quantity": 3}],
             description="FIXTURE: relaxed levelling for new players. Bring hearthstones."))
         events.publish(s, cfg, org, up1.id)
-        signups.join(s, cfg, members[0], up1.id, cids[0], role_key="guide")
-        signups.join(s, cfg, members[3], up1.id, cids[3], role_key="learner")
+        signups.join(s, cfg, members[0], up1.id, cids[0], role_key="tank")
+        signups.join(s, cfg, members[3], up1.id, cids[3], role_key="damage")
         b2 = base + timedelta(days=2)
         up2 = events.create_draft(s, cfg, org, dict(
             edition="forever", ruleset="pvp", faction="horde", title="Shadowfang Keep",

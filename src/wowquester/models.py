@@ -26,10 +26,12 @@ class Member(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     discord_id: Mapped[str] = mapped_column(String(22), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    username: Mapped[str] = mapped_column(String(40), nullable=False, default="", server_default="")
     recognition_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     timezone: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = _now()
     erased_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (Index("ix_members_username", text("lower(username)"), postgresql_where=text("username <> ''")),)
 
 
 class Session(Base):
@@ -296,7 +298,7 @@ class ChronicleEntry(Base):
     __tablename__ = "chronicle_entries"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     public_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
-    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), unique=True, nullable=False)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), index=True, nullable=False)
     slug: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
     state: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     author_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=False)
@@ -308,7 +310,8 @@ class ChronicleEntry(Base):
     updated_at: Mapped[datetime] = _now()
     __table_args__ = (CheckConstraint(
         "state in ('draft','edited','pending_review','changes_requested','rejected','published','unpublished')",
-        name="ck_chron_state"),)
+        name="ck_chron_state"),
+        UniqueConstraint("event_id", "author_id", name="ux_chron_event_author"))
 
 
 class ChronicleCoauthor(Base):

@@ -248,13 +248,23 @@ def change(s: Session, cfg: Config, actor: Actor, event_id: int, character_id: i
     return su
 
 
-def reconfirm(s: Session, cfg: Config, actor: Actor, event_id: int) -> Signup:
-    """After a reschedule: confirmed people clear the flag; bumped/tentative people try to confirm again."""
+def reconfirm(s: Session, cfg: Config, actor: Actor, event_id: int, role_key: str | None = None) -> Signup:
+    """After a reschedule or role change: confirmed people clear the flag; bumped/tentative people try to
+    confirm again. If the event now has roles and this signup has none, a role must be picked."""
     require_member(cfg, actor)
     actor = ensure_member(s, actor)
     ev = get_event(s, event_id, lock=True)
     _open_for_signup(ev)
     su = _own_active(s, actor, event_id)
+    keys = {r.key for r in ev.roles}
+    if keys and su.role_key not in keys:
+        if not role_key:
+            raise Invalid("Pick a role first so the host can balance the group.")
+        role_key = _check_role(ev, role_key)
+        if su.state == "confirmed":
+            scheduling.guarded(s, lambda: setattr(su, "role_key", role_key))
+        else:
+            su.role_key = role_key
     if su.state == "confirmed":
         su.needs_reconfirm = False
     elif ev.signup_policy == "open" or su.state == "tentative" and su.needs_reconfirm:

@@ -48,7 +48,7 @@ def _line(names: list[str], others: int) -> str:
 
 def event_message(s: Session, cfg: Config, ev: Event) -> dict:
     ed = cfg.edition(ev.edition)
-    where = ed.name + (f" · {ev.ruleset.upper()}" if ev.ruleset else "") + \
+    where = ed.name + (f" · {ed.ruleset_label(ev.ruleset)}" if ev.ruleset else "") + \
         (f" · {ev.realm_slug}" if ev.realm_slug else "") + (f" · {ev.faction.title()}" if ev.faction else "")
     desc = [f"**{ACTIVITY.get(ev.activity_type, 'Activity')}** · {where}",
             f"{discord_ts(ev.start_at, 'F')} → {discord_ts(ev.end_at, 't')} ({discord_ts(ev.start_at, 'R')})"]

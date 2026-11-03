@@ -24,6 +24,12 @@ log = logging.getLogger(__name__)
 DEFAULT_PATH = "/etc/wowquester/config.toml"
 SNOWFLAKE = re.compile(r"^\d{15,22}$")
 KEY = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+# How ruleset keys are shown; an edition's ruleset_labels table overrides these.
+RULESET_LABELS = {"normal": "Normal", "pvp": "PvP", "rp": "RP", "rp_pvp": "RP-PvP", "hardcore": "Hardcore"}
+
+# Largest group per activity type (WoW group sizes). Override in [signups.party_size_max]; others cap at 80.
+DEFAULT_PARTY_SIZE = {"quest": 5, "dungeon": 5, "arena": 5, "raid": 40, "battleground": 40}
+
 LIVE_SECTIONS = ("roles", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status")
 API_STATUSES = ("verified", "unverified", "unsupported")
 API_CAPS = ("reference", "character", "quests", "locations", "ownership")
@@ -51,6 +57,12 @@ class Edition:
     profile_namespace: str
     ruleset_realm_slugs: dict[str, str]
     api_status: dict[str, str]
+    ruleset_labels: dict[str, str] = field(default_factory=dict)
+
+    def ruleset_label(self, ruleset: str | None) -> str:
+        if not ruleset:
+            return ""
+        return self.ruleset_labels.get(ruleset) or RULESET_LABELS.get(ruleset) or ruleset.replace("_", " ").title()
 
     def namespace(self, kind: str, region: str) -> str | None:
         tpl = {"static": self.static_namespace, "dynamic": self.dynamic_namespace,
@@ -218,6 +230,11 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
         raise ConfigError("[signups] default_policy must be open or approval")
     sg.setdefault("allow_tentative", True)
     _positive(sg.get("max_custom_roles", 10), "[signups] max_custom_roles")
+    ps = {**DEFAULT_PARTY_SIZE, **(sg.get("party_size_max") or {})}
+    for k, v in ps.items():
+        if isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= 80:
+            raise ConfigError(f"[signups.party_size_max] {k} must be a whole number from 1 to 80")
+    sg["party_size_max"] = ps
 
     offs = r["reminders"].get("offsets_minutes", [])
     if not isinstance(offs, list) or any(isinstance(x, bool) or not isinstance(x, int) or x <= 0 for x in offs):
@@ -328,6 +345,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             raise ConfigError(f"{where} key must be unique lowercase")
         uses_realms = _req(e, "uses_realms", bool, where)
         rulesets = tuple(e.get("rulesets", []))
+        if any(not KEY.match(str(x)) for x in rulesets):
+            raise ConfigError(f"{where} rulesets must be lowercase keys like rp_pvp")
         if not uses_realms and not rulesets:
             raise ConfigError(f"{where} realmless editions need rulesets")
         regions = tuple(e.get("regions", []))
@@ -354,7 +373,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             catalog=e.get("catalog", ""),
             static_namespace=e.get("static_namespace", ""), dynamic_namespace=e.get("dynamic_namespace", ""),
             profile_namespace=e.get("profile_namespace", ""),
-            ruleset_realm_slugs=dict(e.get("ruleset_realm_slugs", {})), api_status=status)
+            ruleset_realm_slugs=dict(e.get("ruleset_realm_slugs", {})), api_status=status,
+            ruleset_labels={str(k): str(v)[:40] for k, v in dict(e.get("ruleset_labels", {})).items()})
     r["_editions"] = parsed
 
     presets = []

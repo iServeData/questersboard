@@ -67,7 +67,7 @@ to run if one does).
 
 | Data | Kept | How removed |
 | --- | --- | --- |
-| Discord ID, display name | while the member uses WoWQuester | "Remove me" (`/me/remove`, typed confirmation) or `wowquester-admin erase-member <discord_id> --yes`: withdraws signups, cancels hosted upcoming events, deletes characters (used ones blanked to "(removed)"), rewrites their names out of every Chronicle revision, deletes calendar/Battle.net/reminder/session rows and replaces the Discord ID with `erased:<id>`. Audit rows age out with `audit_days` |
+| Discord ID, username, display name | while the member uses WoWQuester | "Remove me" (`/me/remove`, typed confirmation) or `wowquester-admin erase-member <discord_id> --yes`: withdraws signups, cancels hosted upcoming events, deletes characters (used ones blanked to "(removed)"), rewrites their names out of every Chronicle revision, deletes calendar/Battle.net/reminder/session rows and replaces the Discord ID with `erased:<id>`. Audit rows age out with `audit_days` |
 | Web sessions | until expiry + `session_days_after_expiry` | web housekeeping, `wowquester-admin prune` |
 | Finished outbox jobs | `outbox_done_days` (14) | worker housekeeping |
 | API cache | `api_cache_days` (30) | worker housekeeping |

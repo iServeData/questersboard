@@ -56,11 +56,13 @@ async def build_actor(inter: discord.Interaction, source: str) -> Actor:
         if str(inter.guild_id) != cfg.guild_id:
             return Actor(str(user.id), source, frozenset(), in_guild=False)
         roles = frozenset(str(r.id) for r in getattr(user, "roles", []) if r.id != inter.guild_id)
-        return Actor(str(user.id), source, roles, True, str(inter.channel_id), display_name=user.display_name)
+        return Actor(str(user.id), source, roles, True, str(inter.channel_id), display_name=user.display_name,
+                 username=getattr(user, "name", "") or "")
     if Ctx.rest is None:
         return Actor(str(user.id), "dm", frozenset(), in_guild=False)
     in_guild, roles, name = await asyncio.to_thread(Ctx.rest.member, cfg.guild_id, str(user.id))
-    return Actor(str(user.id), "dm", roles, in_guild, None, display_name=name or user.display_name)
+    return Actor(str(user.id), "dm", roles, in_guild, None, display_name=name or user.display_name,
+                 username=getattr(user, "name", "") or "")
 
 
 async def run_tx(fn, *a, **kw):
@@ -283,7 +285,7 @@ class CreateModal(discord.ui.Modal, title="Plan a WoW event"):
 class CharacterModal(discord.ui.Modal, title="Add a WoW character"):
     name = discord.ui.TextInput(label="Character name", max_length=24)
     race_class = discord.ui.TextInput(label="Race and class", placeholder="orc warrior", max_length=40)
-    place = discord.ui.TextInput(label="Ruleset (Forever) or realm (Retail)", placeholder="pvp", max_length=64)
+    place = discord.ui.TextInput(label="Ruleset (Forever) or realm (Retail, Classic)", placeholder="pvp", max_length=64)
     roles = discord.ui.TextInput(label="Roles you can fill", placeholder="tank, damage", required=False)
 
     def __init__(self, edition: str, draft: dict | None = None):
@@ -327,7 +329,9 @@ def _save_character(s, cfg: Config, actor: Actor, draft: dict, race: str, klass:
     if ed.uses_realms:
         data["realm_slug"] = place
     else:
-        data["ruleset"] = place or ed.default_ruleset
+        key = place.replace("-", "_").replace(" ", "_")
+        by_label = {ed.ruleset_label(r).lower(): r for r in ed.rulesets}
+        data["ruleset"] = (by_label.get(place) or key) if place else ed.default_ruleset   # "RP-PvP" -> rp_pvp
     return roster.add_character(s, cfg, actor, data).name
 
 

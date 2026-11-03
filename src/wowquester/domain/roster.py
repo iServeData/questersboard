@@ -33,6 +33,8 @@ def ensure_member(s: Session, actor: Actor) -> Actor:
         s.flush()
     elif actor.display_name and m.display_name != actor.display_name[:100]:
         m.display_name = actor.display_name[:100]
+    if actor.username and m.username != actor.username[:40]:
+        m.username = actor.username[:40]
     return actor.with_member(m.id)
 
 

@@ -49,6 +49,16 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   Blizzard namespaces with `{region}`, and `api_status` per capability. Forever ships realmless with
   empty namespaces and every capability `unsupported`. When Blizzard publishes Forever namespaces:
   `wowquester-admin blizzard probe forever --region us`, fill the namespaces, set statuses, restart.
+  Forever rulesets are `normal`, `pvp`, `rp`, `rp_pvp` (add `hardcore` when it opens). Ruleset labels
+  come from `ruleset_labels` (optional) or built-ins (`rp_pvp` shows as RP-PvP).
+  The example also has three Classic editions that use realms: `classic_era` (Era, Hardcore, Season of
+  Discovery; level 60, `classic1x` namespaces), `classic_anniversary` (Burning Crusade Anniversary; 70,
+  `classicann`) and `mists_classic` (90, `classic`). Their race/class and "Where" lists are packaged seeds
+  marked unverified: after adding an edition run `wowquester-admin seed-catalog`. Editions load at restart.
+- **Group sizes** (`[signups.party_size_max]`): the largest group per activity type (quest 5, dungeon 5,
+  arena 5, raid 40, battleground 40; others 80). The participant limit can't go above it, a blank limit
+  becomes it, and an event's role "How many" numbers can't add up to more than the limit. Live setting.
+- **Role presets** (`[[role_presets]]`): Tank, Healer, Damage. Hosts can still add custom roles.
 - **Branding**: site name, nav links, the site's stylesheet and body class, so member pages and the
   chronicle look like the rest of the site. Community-specific values live only on the host.
 - **AI** (`[ai]`): off by default. When on, only publication-safe text is sent (no Discord IDs,

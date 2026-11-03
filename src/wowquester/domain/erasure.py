@@ -193,6 +193,7 @@ def erase(s: Session, cfg: Config, member_id: int, source: str = "web") -> dict:
 
     # 6. unlink from Discord
     m.discord_id, m.display_name, m.timezone, m.recognition_default = pseudonym, "", None, False
+    m.username = ""
     s.flush()
     audit.record(s, act, "member.erase", "member", member_id, via=source,
                  **{k: (len(v) if isinstance(v, list) else v) for k, v in receipt.items()})

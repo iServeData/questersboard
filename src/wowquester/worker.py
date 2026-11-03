@@ -26,12 +26,14 @@ from sqlalchemy.orm import Session
 from .config import ConfigError, ConfigHolder, load
 from .db import Database, make_engine
 from .domain import outbox, scheduling, status
+from .domain.chronicle import coauthor_ids
 from .domain.timeutil import discord_ts, fmt_local, now
 from .integrations import discord_rest as dr
 from .models import ChronicleEntry, ConfigChange, Event, EventCohost, Member, Signup
 from .secrets import SecretError, setup_logging
 
 log = logging.getLogger("wowquester.worker")
+SUPPRESS_EMBEDS = 1 << 2      # Discord message flag: no link preview cards
 MAX_ATTEMPTS = 8
 BATCH = 20
 
@@ -157,7 +159,9 @@ class Worker:
         if m is None or m.erased_at:
             return
         try:
-            self._need_rest().dm(m.discord_id, {"content": p["content"]})
+            # flags=4 (SUPPRESS_EMBEDS): our links point at sign-in pages, which Discord would otherwise
+            # unfurl into a generic "Discord" preview card. The link itself still works.
+            self._need_rest().dm(m.discord_id, {"content": p["content"], "flags": SUPPRESS_EMBEDS})
         except dr.Forbidden:
             log.info("member %s has DMs closed; skipped", m.id)   # not retried: user choice
         except dr.Gone:
@@ -212,26 +216,73 @@ class Worker:
 
     def job_notify_chronicle_prompt(self, s: Session, p: dict) -> None:
         ev = s.get(Event, p["event_id"])
-        e = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == p["event_id"]))
+        e = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == p["event_id"])
+                     .order_by(ChronicleEntry.id).limit(1))
         if ev and e:
-            self._dm(s, self._managers(s, ev), f"chron:{e.id}", 1,
-                     f"**{ev.title}** is done. Mark attendance and tell the story (what you attempted, what "
+            managers = self._managers(s, ev)
+            self._dm(s, [ev.creator_id], f"chron:{e.id}", 1,
+                     f"**{ev.title}** is done. Mark attendance and tell the story (what you set out to do, what "
                      f"happened, the outcome, best moments, screenshots): {self._url('chronicle', str(e.id))}")
+            # co-hosts and everyone who took part can add their own story to the same chronicle page
+            link = self._url("events", str(ev.public_id))
+            self._dm(s, managers - {ev.creator_id}, f"chron-cohost:{ev.id}", 1,
+                     f"**{ev.title}** is done. Add your story as co-host from the event page: {link}")
+            people = set(s.scalars(select(Signup.member_id).where(
+                Signup.event_id == ev.id, Signup.state.in_(("confirmed", "tentative"))))) - managers
+            self._dm(s, people, f"chron-attendee:{ev.id}", 1,
+                     f"Thanks for joining **{ev.title}**. Want to tell your side of it? Write your story from the "
+                     f"event page; it's reviewed before it appears in the chronicle: {link}")
+
+    def job_notify_event_edited(self, s: Session, p: dict) -> None:
+        ev = s.get(Event, p["event_id"])
+        if ev is None:
+            return
+        who = s.get(Member, p.get("actor_id")) if p.get("actor_id") else None
+        name = f"<@{who.discord_id}>" if who and not who.erased_at else "A host"
+        changes = ", ".join(p.get("changes", [])) or "details"
+        self._dm(s, self._managers(s, ev) - {p.get("actor_id")}, f"edited:{ev.id}", ev.version,
+                 f"{name} changed **{ev.title}** ({changes}): {self._url('events', str(ev.public_id))}")
+
+    def job_notify_pick_role(self, s: Session, p: dict) -> None:
+        ev = s.get(Event, p["event_id"])
+        if ev is None:
+            return
+        ids = p.get("signup_ids", [])
+        people = set(s.scalars(select(Signup.member_id).where(Signup.id.in_(ids)))) if ids else set()
+        roles = ", ".join(r.label for r in sorted(ev.roles, key=lambda r: r.position))
+        self._dm(s, people, f"pickrole:{ev.id}", ev.version,
+                 f"**{ev.title}** now has group roles ({roles}). Pick yours so the host can balance the group: "
+                 f"{self._url('events', str(ev.public_id))}")
+
+    def job_notify_chronicle_coauthor(self, s: Session, p: dict) -> None:
+        e = s.get(ChronicleEntry, p["entry_id"])
+        if e is None:
+            return
+        ev = s.get(Event, e.event_id)
+        self._dm(s, p.get("member_ids", []), f"coauthor:{e.id}", int(time.time() // 60),
+                 f"You were added as a co-author of a **{ev.title}** story. You can edit it here: "
+                 f"{self._url('chronicle', str(e.id))}")
 
     def job_notify_chronicle_review(self, s: Session, p: dict) -> None:
         ch = self.cfg["discord"].get("review_channel_id")
         if not ch:
             return
         note = "privacy update: screenshots need re-clearing" if p.get("privacy") else "a story is waiting"
-        self._need_rest().post(ch, {"content": f"Chronicle review: {note}. {self._url('review')}"})
+        self._need_rest().post(ch, {"content": f"Chronicle review: {note}. {self._url('review')}",
+                                    "flags": SUPPRESS_EMBEDS})
 
     def job_notify_chronicle_decision(self, s: Session, p: dict) -> None:
         e = s.get(ChronicleEntry, p["entry_id"])
         if e:
+            ev = s.get(Event, e.event_id)
             words = {"published": "is published", "changes_requested": "needs changes",
-                     "rejected": "wasn't approved"}
-            self._dm(s, [e.author_id], f"chron-decision:{e.id}", p["decision"] + str(e.updated_at.timestamp()),
-                     f"Your chronicle entry {words.get(p['decision'], 'was updated')}: "
+                     "rejected": "wasn't approved", "unpublished": "was taken down"}
+            note = (p.get("note") or "").strip()
+            why = f" Reason: {note}" if note and p["decision"] == "unpublished" else (
+                f" Reviewer note: {note}" if note else "")
+            self._dm(s, [e.author_id, *coauthor_ids(s, e.id)], f"chron-decision:{e.id}",
+                     p["decision"] + str(e.updated_at.timestamp()),
+                     f"Your **{ev.title}** story {words.get(p['decision'], 'was updated')}.{why} "
                      f"{self._url('chronicle', str(e.id))}")
 
     # ------------------------------------------------------------------ scans

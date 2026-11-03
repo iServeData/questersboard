@@ -1,0 +1,9 @@
+# Starter "Where" suggestions added by Mists of Pandaria. source = "seed", verification = "unverified".
+# Northrend and Cataclysm content is not listed yet; type it in, or import from Blizzard.
+zone = ["The Jade Forest", "Valley of the Four Winds", "Krasarang Wilds", "Kun-Lai Summit", "Townlong Steppes",
+  "Dread Wastes", "Vale of Eternal Blossoms", "The Veiled Stair", "Isle of Thunder", "Timeless Isle",
+  "The Wandering Isle"]
+dungeon = ["Temple of the Jade Serpent", "Stormstout Brewery", "Shado-Pan Monastery", "Mogu'shan Palace",
+  "Gate of the Setting Sun", "Siege of Niuzao Temple", "Scarlet Halls"]
+raid = ["Mogu'shan Vaults", "Heart of Fear", "Terrace of Endless Spring", "Throne of Thunder",
+  "Siege of Orgrimmar"]

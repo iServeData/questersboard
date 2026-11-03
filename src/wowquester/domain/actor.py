@@ -16,6 +16,7 @@ class Actor:
     channel_id: str | None = None      # guild channel for slash/button; None for web/dm
     member_id: int | None = None       # filled by services.ensure_member
     display_name: str = ""
+    username: str = ""                 # unique Discord username, when the login/bot provides it
 
     def __post_init__(self):
         if self.source not in SOURCES:

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf_field, state_chip, naming_tip, naming_help with context %}
 {% block content %}
-<div class="section-head"><span class="label"><span class="num">{{ ev.activity_type|upper }}</span> // {{ ed.name }}{% if ev.ruleset %} · {{ ev.ruleset|upper }}{% endif %}{% if ev.realm_slug %} · {{ ev.realm_slug }}{% endif %}{% if ev.faction %} · {{ ev.faction|title }}{% endif %}</span>
+<div class="section-head"><span class="label"><span class="num">{{ ev.activity_type|upper }}</span> // {{ ed.name }}{% if ev.ruleset %} · {{ ed.ruleset_label(ev.ruleset) }}{% endif %}{% if ev.realm_slug %} · {{ ev.realm_slug }}{% endif %}{% if ev.faction %} · {{ ev.faction|title }}{% endif %}</span>
   <h1>{{ ev.title }}</h1></div>
 <p>{{ state_chip(ev.state) }}{% if ev.exclusive %} <span class="status-chip">Exclusive</span>{% endif %}</p>
 <div class="wq-grid">
@@ -19,6 +19,8 @@
 
   <h2 class="sub">Roster</h2>
   {% set groups = ev.roles if ev.roles else [none] %}
+  {% set role_keys = ev.roles|map(attribute="key")|list %}
+  {% set confirmed = rows|selectattr("state", "equalto", "confirmed")|list %}
   {% for r in groups %}
     {% set conf = rows|selectattr("state", "equalto", "confirmed")|selectattr("role_key", "equalto", r.key if r else none)|list %}
     <h3 class="wq-role">{{ r.label if r else "Players" }} <span class="note">{{ conf|length }}{% if r %}/{{ r.quantity }}{% elif ev.participant_limit %}/{{ ev.participant_limit }}{% endif %}</span></h3>
@@ -26,17 +28,29 @@
     {% for su in conf %}<li>{% if su.recognition or show_names %}{{ su.character.name }}{% else %}<span class="note">a {{ (r.label if r else "player")|lower }}</span>{% endif %}{% if show_names and not su.recognition %} <span class="note">(not named publicly)</span>{% endif %}</li>{% else %}<li class="note">Nobody yet</li>{% endfor %}
     </ul>
   {% endfor %}
+  {% if ev.roles %}{% set norole = confirmed|rejectattr("role_key", "in", role_keys)|list %}
+  {% if norole %}<h3 class="wq-role">No role picked yet <span class="note">{{ norole|length }}</span></h3>
+    <ul class="wq-roster">{% for su in norole %}<li>{% if su.recognition or show_names %}{{ su.character.name }}{% else %}<span class="note">a player</span>{% endif %}</li>{% endfor %}</ul>{% endif %}{% endif %}
   {% set others = rows|selectattr("state", "in", ["tentative","waitlisted","pending"])|list %}
   {% if others %}<p class="note">{{ rows|selectattr("state","equalto","tentative")|list|length }} tentative · {{ rows|selectattr("state","equalto","waitlisted")|list|length }} waitlisted · {{ rows|selectattr("state","equalto","pending")|list|length }} awaiting approval</p>{% endif %}
 </section>
 
+{% macro role_options(selected=none, mine_key=none) %}
+  {% if selected is none or selected not in role_keys %}<option value="" disabled selected>Pick a role</option>{% endif %}
+  {% for r in ev.roles %}{% set n = confirmed|selectattr("role_key", "equalto", r.key)|list|length %}{% set n_other = n - (1 if mine_key == r.key else 0) %}
+  <option value="{{ r.key }}"{% if r.key == selected %} selected{% endif %}>{{ r.label }} · {{ n }} of {{ r.quantity }} taken{% if n_other >= r.quantity %} (full, you'd be waitlisted){% endif %}</option>{% endfor %}
+{% endmacro %}
+{% macro role_hint() %}<span class="note">Open spots: {% for r in ev.roles %}{% set n = confirmed|selectattr("role_key", "equalto", r.key)|list|length %}{{ r.label }} {{ [r.quantity - n, 0]|max }}{% if not loop.last %} · {% endif %}{% endfor %}</span>{% endmacro %}
 <aside class="side">
   {% if actor and ev.state in ("scheduled", "in_progress") %}
   <div class="panel">
     {% if mine %}
-      <p>You're <strong>{{ mine.state }}</strong> as {{ mine.character.name }}{% if mine.role_key %} ({{ mine.role_key }}){% endif %}.</p>
+      <p>You're <strong>{{ mine.state }}</strong> as {{ mine.character.name }}{% if mine.role_key %} ({{ (ev.roles|selectattr("key", "equalto", mine.role_key)|map(attribute="label")|first) or mine.role_key }}){% elif ev.roles %} with no role picked yet{% endif %}.</p>
+      {% if ev.roles and mine.role_key not in role_keys %}<p class="caveat">Pick a role below so the host can balance the group.</p>{% endif %}
       {% if mine.needs_reconfirm %}<p class="caveat">This event changed. Please reconfirm or leave.</p>
-      <form method="post" action="{{ mp }}/events/{{ ev.public_id }}/reconfirm">{{ csrf_field() }}<button class="btn" type="submit">Reconfirm</button></form>{% endif %}
+      <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/reconfirm">{{ csrf_field() }}
+        {% if ev.roles and mine.role_key not in role_keys %}<label>Role <select name="role_key" required>{{ role_options() }}</select> {{ role_hint() }}</label>{% endif %}
+        <button class="btn" type="submit">Reconfirm</button></form>{% endif %}
       <div class="btns">
       {% if mine.state != "tentative" %}<form method="post" action="{{ mp }}/events/{{ ev.public_id }}/tentative">{{ csrf_field() }}<button class="btn ghost" type="submit">Switch to tentative</button></form>{% endif %}
       <form method="post" action="{{ mp }}/events/{{ ev.public_id }}/leave">{{ csrf_field() }}<button class="btn ghost" type="submit">Leave</button></form>
@@ -44,13 +58,13 @@
       <details><summary>Change character, role or privacy</summary>
       <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/change">{{ csrf_field() }}
         <label>Character <select name="character_id">{% for c in fit %}<option value="{{ c.id }}"{% if c.id == mine.character_id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
-        {% if ev.roles %}<label>Role <select name="role_key">{% for r in ev.roles %}<option value="{{ r.key }}"{% if r.key == mine.role_key %} selected{% endif %}>{{ r.label }}</option>{% endfor %}</select></label>{% endif %}
+        {% if ev.roles %}<label>Role <select name="role_key" required>{{ role_options(mine.role_key, mine.role_key if mine.state == "confirmed" else none) }}</select> {{ role_hint() }}</label>{% endif %}
         <label><input type="hidden" name="recognition" value="0"><input type="checkbox" name="recognition" value="1"{% if mine.recognition %} checked{% endif %}> Name my character in the public roster and chronicle {{ naming_tip("tip-naming-change") }}</label>{{ naming_help("tip-naming-change") }}
         <button class="btn ghost" type="submit">Save</button></form></details>
     {% elif fit %}
       <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/join">{{ csrf_field() }}
         <label>Character <select name="character_id">{% for c in fit %}<option value="{{ c.id }}">{{ c.name }} · {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} {{ c.level }}{% endif %}</option>{% endfor %}</select></label>
-        {% if ev.roles %}<label>Role <select name="role_key">{% for r in ev.roles %}<option value="{{ r.key }}">{{ r.label }}</option>{% endfor %}</select></label>{% endif %}
+        {% if ev.roles %}<label>Role <select name="role_key" required>{{ role_options() }}</select> {{ role_hint() }}</label>{% endif %}
         <label><input type="hidden" name="recognition" value="0"><input type="checkbox" name="recognition" value="1"{% if recognition_default %} checked{% endif %}> Name my character publicly <span class="note">(otherwise you're shown as "a healer" etc.)</span> {{ naming_tip("tip-naming-join") }}</label>{{ naming_help("tip-naming-join") }}
         <label><input type="checkbox" name="tentative" value="1"> Tentative <span class="note">(doesn't hold a spot)</span></label>
         <label>Note <input name="note" maxlength="300"></label>
@@ -107,10 +121,20 @@
     <h3 class="sub">Attendance</h3>
     <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/attendance">{{ csrf_field() }}
       {% for su in rows if su.state in ("confirmed", "tentative") %}
-      <label>{{ su.character.name }} <select name="att_{{ su.member_id }}"><option value="unknown">Unknown</option><option value="attended">Attended</option><option value="absent">Absent</option></select></label>
+      {% set cur = attendance.get(su.member_id, "unknown") %}
+      <label>{{ su.character.name }} <select name="att_{{ su.member_id }}">{% for v, lbl in (("unknown","Unknown"),("attended","Attended"),("absent","Absent")) %}<option value="{{ v }}"{% if v == cur %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select></label>
       {% endfor %}<button class="btn ghost" type="submit">Save attendance</button></form>
     {% endif %}
-    {% if entry %}<p><a class="btn ghost" href="{{ mp }}/chronicle/{{ entry.id }}">Chronicle story ({{ entry.state.replace('_',' ') }})</a></p>{% endif %}
+    {% if stories %}<h3 class="sub">Stories</h3><ul class="plain-list">{% for x, n in stories %}<li>{% if x.author_id == actor.member_id or can('chronicle_reviewer') or can('chronicle_editor') %}<a href="{{ mp }}/chronicle/{{ x.id }}">{{ n }}</a>{% else %}{{ n }}{% endif %}{% if x.author_id == ev.creator_id %} <span class="note">(host)</span>{% endif %} · {{ x.state.replace('_',' ') }}</li>{% endfor %}</ul>
+    {% elif entry and entry.author_id == actor.member_id %}<p><a class="btn ghost" href="{{ mp }}/chronicle/{{ entry.id }}">Chronicle story ({{ entry.state.replace('_',' ') }})</a></p>{% endif %}
+  </div>
+  {% endif %}
+  {% if actor and ev.state == "completed" and ev.chronicle_enabled and (my_story or can_story) %}
+  <div class="panel">
+    <h2 class="sub">Your story</h2>
+    {% if my_story %}<p><a class="btn" href="{{ mp }}/chronicle/{{ my_story.id }}">Open your story ({{ my_story.state.replace('_',' ') }})</a></p>
+    {% else %}<p class="note">Tell this event from your side. Your story joins the others on the event's chronicle page after review.</p>
+    <form method="post" action="{{ mp }}/events/{{ ev.public_id }}/story">{{ csrf_field() }}<button class="btn" type="submit">Write your story</button></form>{% endif %}
   </div>
   {% endif %}
 </aside>

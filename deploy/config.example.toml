@@ -51,6 +51,15 @@ default_policy = "open"                       # open | approval
 allow_tentative = true
 max_custom_roles = 10
 
+# Largest group per activity type. The participant limit can't go above it, and an event's
+# role "How many" numbers can't add up to more than the limit. Types not listed cap at 80.
+[signups.party_size_max]
+quest = 5
+dungeon = 5
+arena = 5
+raid = 40
+battleground = 40
+
 [reminders]                                   # [live]
 offsets_minutes = [60, 15]
 
@@ -155,7 +164,8 @@ battlenet_link_enabled = false                # optional ownership verification 
 key = "forever"
 name = "WoW: Forever"
 uses_realms = false                           # Forever is realmless; rulesets replace realms
-rulesets = ["normal", "pvp", "rp"]
+rulesets = ["normal", "pvp", "rp", "rp_pvp"]    # Hardcore opens later: add "hardcore" then
+ruleset_labels = { rp_pvp = "RP-PvP" }        # optional; normal/pvp/rp/rp_pvp/hardcore have built-in labels
 default_ruleset = "pvp"
 regions = ["us"]
 default_region = "us"
@@ -168,7 +178,7 @@ dynamic_namespace = ""
 profile_namespace = ""
 # Forever characters are addressed by ruleset, but the profile API still needs a
 # realm slug. Fill after launch once the slugs are observed (wowquester-admin blizzard probe).
-ruleset_realm_slugs = { normal = "", pvp = "", rp = "" }
+ruleset_realm_slugs = { normal = "", pvp = "", rp = "", rp_pvp = "" }
 api_status = { reference = "unsupported", character = "unsupported", quests = "unsupported", locations = "unsupported", ownership = "unsupported" }
 
 [[editions]]
@@ -189,7 +199,64 @@ profile_namespace = "profile-{region}"
 ruleset_realm_slugs = {}
 api_status = { reference = "unverified", character = "unverified", quests = "unverified", locations = "unverified", ownership = "unverified" }
 
-# Group-role presets offered to event creators (custom roles are also allowed).
+# Classic editions use realms. Namespaces from Blizzard's API forums / community docs (unverified here):
+# Era/Hardcore/Season of Discovery = classic1x, TBC Anniversary = classicann, progression (Mists) = classic.
+[[editions]]
+key = "classic_era"
+name = "WoW Classic (Era, Hardcore, Season of Discovery)"
+uses_realms = true
+rulesets = []
+default_ruleset = ""
+regions = ["us", "eu"]
+default_region = "us"
+factions = ["horde", "alliance"]
+default_faction = "horde"
+max_level = 60
+catalog = "classic_era"
+static_namespace = "static-classic1x-{region}"
+dynamic_namespace = "dynamic-classic1x-{region}"
+profile_namespace = "profile-classic1x-{region}"
+ruleset_realm_slugs = {}
+api_status = { reference = "unverified", character = "unverified", quests = "unsupported", locations = "unsupported", ownership = "unverified" }
+
+[[editions]]
+key = "classic_anniversary"
+name = "WoW Classic: Burning Crusade Anniversary"
+uses_realms = true
+rulesets = []
+default_ruleset = ""
+regions = ["us", "eu"]
+default_region = "us"
+factions = ["horde", "alliance"]
+default_faction = "horde"
+max_level = 70
+catalog = "classic_tbc"
+static_namespace = "static-classicann-{region}"
+dynamic_namespace = "dynamic-classicann-{region}"
+profile_namespace = "profile-classicann-{region}"
+ruleset_realm_slugs = {}
+api_status = { reference = "unverified", character = "unverified", quests = "unsupported", locations = "unsupported", ownership = "unverified" }
+
+[[editions]]
+key = "mists_classic"
+name = "WoW Classic: Mists of Pandaria"
+uses_realms = true
+rulesets = []
+default_ruleset = ""
+regions = ["us", "eu"]
+default_region = "us"
+factions = ["horde", "alliance"]
+default_faction = "horde"
+max_level = 90
+catalog = "classic_mists"
+static_namespace = "static-classic-{region}"
+dynamic_namespace = "dynamic-classic-{region}"
+profile_namespace = "profile-classic-{region}"
+ruleset_realm_slugs = {}
+api_status = { reference = "unverified", character = "unverified", quests = "unsupported", locations = "unsupported", ownership = "unverified" }
+
+# Group-role presets offered to event creators: the three in-game group roles.
+# Hosts can still add their own role (for example "Guide" for a levelling run) as a custom role.
 [[role_presets]]
 key = "tank"
 label = "Tank"
@@ -199,18 +266,6 @@ label = "Healer"
 [[role_presets]]
 key = "damage"
 label = "Damage"
-[[role_presets]]
-key = "support"
-label = "Support"
-[[role_presets]]
-key = "guide"
-label = "Guide"
-[[role_presets]]
-key = "learner"
-label = "Learner"
-[[role_presets]]
-key = "rp"
-label = "RP role"
 
 # Activity catalog used for recommendations. Durations and sizes are the
 # organizers' own guidance, not game mechanics.

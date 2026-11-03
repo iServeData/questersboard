@@ -67,6 +67,11 @@
 .wq-story{max-width:760px}
 .wq-body{font-size:1.06rem}
 .wq-body img{max-width:100%}
+.wq-tale+.wq-tale{margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--line)}
+.wq-tale>:last-child{margin-bottom:0}
+.wq-story-by{font-size:.95rem;letter-spacing:.08em;color:var(--sand);margin:0 0 .4rem}
+.wq-checks{display:grid;gap:.35rem;border:0;padding:0;margin:0 0 .75rem}
+.wq-checks label{display:flex;gap:.5rem;align-items:center}
 .shot img,.wq-story img{max-width:100%;height:auto;display:block}
 .wq-foot{padding:30px 24px 50px;border-top:1px solid var(--line)}
 .wq .nav{position:relative}

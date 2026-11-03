@@ -44,21 +44,65 @@ def _slugify(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", t).strip("-")[:80] or "adventure"
 
 
-def ensure_draft(s: Session, cfg: Config, ev: Event) -> ChronicleEntry:
-    e = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == ev.id))
+def ensure_draft(s: Session, cfg: Config, ev: Event, author_id: int | None = None) -> ChronicleEntry:
+    """One story per author per event. The host's story is created when the event ends."""
+    author_id = author_id or ev.creator_id
+    e = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == ev.id, ChronicleEntry.author_id == author_id))
     if e:
         return e
     base = f"{(ev.actual_start or ev.start_at):%Y-%m-%d}-{_slugify(ev.title)}"
     slug, n = base, 2
     while s.scalar(select(ChronicleEntry.id).where(ChronicleEntry.slug == slug)):
         slug, n = f"{base}-{n}", n + 1
-    e = ChronicleEntry(event_id=ev.id, slug=slug, author_id=ev.creator_id, state="draft")
+    e = ChronicleEntry(event_id=ev.id, slug=slug, author_id=author_id, state="draft")
     s.add(e)
     s.flush()
-    rev = ChronicleRevision(entry_id=e.id, number=1, title=ev.title, outcome="unknown", created_by=ev.creator_id)
+    rev = ChronicleRevision(entry_id=e.id, number=1, title=ev.title, outcome="unknown", created_by=author_id)
     s.add(rev)
     s.flush()
     e.working_revision_id = rev.id
+    return e
+
+
+def entries(s: Session, event_id: int) -> list[ChronicleEntry]:
+    """All stories for an event, oldest first. The first one (the host's) anchors the public page."""
+    return list(s.scalars(select(ChronicleEntry).where(ChronicleEntry.event_id == event_id)
+                          .order_by(ChronicleEntry.id)))
+
+
+def lead(s: Session, event_id: int) -> ChronicleEntry | None:
+    return s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == event_id)
+                    .order_by(ChronicleEntry.id).limit(1))
+
+
+def story_eligible(s: Session, cfg: Config, actor: Actor, ev: Event) -> bool:
+    """Hosts, co-hosts and anyone who took part (confirmed/tentative and not marked absent)."""
+    if actor is None or actor.member_id is None or not ev.chronicle_enabled or ev.state != "completed":
+        return False
+    from . import scheduling
+    from .permissions import is_event_manager
+    if is_event_manager(cfg, actor, ev.creator_id, scheduling.cohost_ids(s, ev.id)):
+        return True
+    from ..models import Attendance
+    att = s.get(Attendance, (ev.id, actor.member_id))
+    if att is not None:
+        return att.status != "absent"
+    return bool(s.scalar(select(Signup.id).where(Signup.event_id == ev.id, Signup.member_id == actor.member_id,
+                                                 Signup.state.in_(("confirmed", "tentative"))).limit(1)))
+
+
+def start_story(s: Session, cfg: Config, actor: Actor, event_id: int) -> ChronicleEntry:
+    require_member(cfg, actor)
+    actor = ensure_member(s, actor)
+    ev = s.get(Event, event_id)
+    if ev is None:
+        raise NotFound("Event not found.")
+    if not story_eligible(s, cfg, actor, ev):
+        raise PermissionDenied("Stories can be written by the hosts and by people who took part, once the event ends.")
+    if lead(s, ev.id) is None:
+        ensure_draft(s, cfg, ev)                       # the host's story always anchors the page
+    e = ensure_draft(s, cfg, ev, actor.member_id)
+    audit.record(s, actor, "chronicle.start", "chronicle", e.id)
     return e
 
 
@@ -104,7 +148,13 @@ def save(s: Session, cfg: Config, actor: Actor, entry_id: int, fields: dict) -> 
     e = get(s, entry_id, lock=True)
     _require_edit(s, cfg, actor, e)
     rev = working(s, e)
-    if rev.submitted_at is not None or rev.decision is not None or rev.id == e.published_revision_id:
+    changed = _changes(rev, fields)
+    if not changed:
+        return rev                                     # nothing new: history doesn't grow
+    ev = s.get(Event, e.event_id)
+    blank = (not any((rev.attempted, rev.happened, rev.moments, rev.body)) and rev.outcome == "unknown"
+             and rev.title == ev.title and rev.submitted_at is None)
+    if not blank:                                      # every real save is a new version (v2, v3, ...)
         n = (s.scalar(select(func.max(ChronicleRevision.number)).where(ChronicleRevision.entry_id == e.id)) or 0) + 1
         rev = ChronicleRevision(entry_id=e.id, number=n, title=rev.title, attempted=rev.attempted,
                                 happened=rev.happened, outcome=rev.outcome, moments=rev.moments, body=rev.body,
@@ -133,30 +183,62 @@ def save(s: Session, cfg: Config, actor: Actor, entry_id: int, fields: dict) -> 
     rev.updated_at = now()
     e.state = EDITABLE_FROM[e.state]
     e.updated_at = now()
-    audit.record(s, actor, "chronicle.save", "chronicle", e.id, revision=rev.number,
-                 fields=sorted(k for k in fields))
+    rev.created_by = rev.created_by if blank else actor.member_id
+    audit.record(s, actor, "chronicle.save", "chronicle", e.id, revision=rev.number, fields=changed)
     return rev
 
 
-def set_coauthors(s: Session, cfg: Config, actor: Actor, entry_id: int, discord_ids: list[str]) -> set[int]:
+def _changes(rev: ChronicleRevision, fields: dict) -> list[str]:
+    out = []
+    for k in ("title", "attempted", "happened", "moments", "body", "outcome"):
+        if k in fields and fields[k] is not None:
+            new = str(fields[k]).strip() if k == "title" else str(fields[k])
+            if new != (getattr(rev, k) or ""):
+                out.append(k)
+    if fields.get("ai_assisted") is not None and bool(fields["ai_assisted"]) != bool(rev.ai_assisted):
+        out.append("ai_assisted")
+    return out
+
+
+def coauthor_choices(s: Session, cfg: Config, e: ChronicleEntry) -> list[tuple[int, str]]:
+    """People who can be added: anyone connected to the event except the author. (member_id, character name)"""
+    out: dict[int, str] = {}
+    ev = s.get(Event, e.event_id)
+    for p in _people(s, cfg, e):
+        if p.member_id != e.author_id and p.member_id not in out:
+            out[p.member_id] = p.discord_name or p.character_name
+    from . import scheduling
+    for mid in scheduling.cohost_ids(s, ev.id) | {ev.creator_id}:
+        if mid != e.author_id and mid not in out:
+            m = s.get(Member, mid)
+            if m is not None and not m.erased_at:
+                out[mid] = m.display_name or (("@" + m.username) if m.username else "a host")
+    return sorted(out.items(), key=lambda x: x[1].lower())
+
+
+def set_coauthors(s: Session, cfg: Config, actor: Actor, entry_id: int, member_ids: list[int]) -> set[int]:
     require_member(cfg, actor)
     actor = ensure_member(s, actor)
     e = get(s, entry_id, lock=True)
     if not (actor.member_id == e.author_id or has(cfg, actor, "chronicle_editor")):
         raise PermissionDenied("Only the entry's author or a chronicle editor can choose co-authors.")
+    allowed = {mid for mid, _ in coauthor_choices(s, cfg, e)}
     ids = set()
-    for did in discord_ids:
-        m = s.scalar(select(Member).where(Member.discord_id == str(did)))
-        if m is None:
-            m = Member(discord_id=str(did))
-            s.add(m)
-            s.flush()
-        if m.id != e.author_id:
-            ids.add(m.id)
+    for mid in member_ids:
+        mid = int(mid)
+        if mid not in allowed:
+            raise Invalid("Co-authors are picked from the people who were part of this event.")
+        ids.add(mid)
+    before = coauthor_ids(s, e.id)
     s.query(ChronicleCoauthor).filter(ChronicleCoauthor.entry_id == e.id).delete()
     for mid in ids:
         s.add(ChronicleCoauthor(entry_id=e.id, member_id=mid))
-    audit.record(s, actor, "chronicle.coauthors", "chronicle", e.id, count=len(ids))
+    added = sorted(ids - before)
+    if added:
+        outbox.enqueue(s, "notify.chronicle_coauthor", f"{e.id}:{now().timestamp()}",
+                       {"entry_id": e.id, "member_ids": added})
+    audit.record(s, actor, "chronicle.coauthors", "chronicle", e.id, count=len(ids),
+                 added=len(added), removed=len(before - ids))
     return ids
 
 
@@ -164,12 +246,16 @@ def check(s: Session, cfg: Config, e: ChronicleEntry, rev: ChronicleRevision | N
     """Everything that blocks submission or publication, in plain language."""
     rev = rev or working(s, e)
     probs = []
-    if not rev.attempted.strip():
-        probs.append("Say what the group attempted.")
-    if not rev.happened.strip():
-        probs.append("Say what happened.")
-    if rev.outcome == "unknown":
-        probs.append("Choose the outcome. WoWQuester never guesses it.")
+    ev = s.get(Event, e.event_id)
+    if e.author_id == ev.creator_id:
+        if not rev.attempted.strip():
+            probs.append("Say what the group set out to do.")
+        if not rev.happened.strip():
+            probs.append("Say what happened.")
+        if rev.outcome == "unknown":
+            probs.append("Choose the outcome. WoWQuester never guesses it.")
+    elif not (rev.happened.strip() or rev.body.strip()):
+        probs.append("Say what happened from your side (or write your story).")
     people = _people(s, cfg, e)
     text = "\n".join([rev.title, rev.attempted, rev.happened, rev.moments, rev.body] +
                      [u.caption for u in s.scalars(select(ChronicleUpload).where(
@@ -227,7 +313,7 @@ def review(s: Session, cfg: Config, actor: Actor, entry_id: int, decision: str, 
         rev.decision = decision
         e.state = decision
         outbox.enqueue(s, "notify.chronicle_decision", f"{e.id}:{rev.number}",
-                       {"entry_id": e.id, "decision": decision})
+                       {"entry_id": e.id, "decision": decision, "note": note[:500]})
         audit.record(s, actor, f"chronicle.{decision}", "chronicle", e.id, revision=rev.number)
     e.updated_at = now()
     return e
@@ -257,6 +343,8 @@ def unpublish(s: Session, cfg: Config, actor: Actor, entry_id: int, reason: str)
         raise Invalid("Give a reason; it's kept in the audit log.")
     e.state, e.unpublished_reason, e.updated_at = "unpublished", reason[:500], now()
     projections.refresh_chronicle(s, cfg, e)
+    outbox.enqueue(s, "notify.chronicle_decision", f"{e.id}:unpublished:{now().timestamp()}",
+                   {"entry_id": e.id, "decision": "unpublished", "note": reason[:500]})
     audit.record(s, actor, "chronicle.unpublish", "chronicle", e.id, reason=reason[:500])
     return e
 
@@ -275,20 +363,22 @@ def remove_recognition(s: Session, cfg: Config, actor: Actor, event_id: int) -> 
     for su in s.scalars(select(Signup).where(Signup.event_id == event_id, Signup.member_id == actor.member_id)):
         su.recognition = False
     s.flush()
-    e = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == event_id))
-    if e:
+    for e in entries(s, event_id):
         # screenshots might show the name plate; hide them all until a reviewer re-clears them
         for u in s.scalars(select(ChronicleUpload).where(ChronicleUpload.entry_id == e.id,
                                                          ChronicleUpload.cleared_at.is_not(None))):
             u.cleared_at, u.cleared_by = None, None
-        projections.refresh_chronicle(s, cfg, e)
         outbox.enqueue(s, "notify.chronicle_review", f"{e.id}:recognition", {"entry_id": e.id, "privacy": True})
+    s.flush()
+    e = lead(s, event_id)
+    if e:
+        projections.refresh_chronicle(s, cfg, e)
     audit.record(s, actor, "chronicle.recognition_removed", "event", event_id)
 
 
 def refresh_if_published(s: Session, cfg: Config, event_id: int) -> None:
-    e = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == event_id))
-    if e and e.published_revision_id:
+    e = lead(s, event_id)
+    if e:
         projections.refresh_chronicle(s, cfg, e)
 
 
@@ -404,5 +494,5 @@ def history(s: Session, entry_id: int) -> list[ChronicleRevision]:
                           .order_by(ChronicleRevision.number)))
 
 
-__all__ = ["ensure_draft", "save", "submit", "review", "unpublish", "remove_recognition", "add_upload",
+__all__ = ["ensure_draft", "entries", "lead", "start_story", "story_eligible", "coauthor_choices", "save", "submit", "review", "unpublish", "remove_recognition", "add_upload",
            "clear_upload", "remove_upload", "ai_suggest", "history", "check", "render"]

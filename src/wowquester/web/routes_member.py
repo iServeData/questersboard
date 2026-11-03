@@ -14,13 +14,13 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 
 from ..config import Config
-from ..domain import (calendar, catalog, chronicle, erasure, events, permissions, recommendations, recurrence, roster,
+from ..domain import (calendar, catalog, chronicle, erasure, events, people, permissions, recommendations, recurrence, roster,
                       scheduling, signups)
 from ..domain.errors import EditionLocked, Invalid, NeedsLeave, NotFound, PermissionDenied
 from ..domain.events import ACTIVITY_TYPES
 from ..domain.timeutil import as_local, now, resolve_local
 from ..domain import audit
-from ..models import (Character, ChronicleEntry, ChronicleUpload, Event, EventCohost, Member, Signup)
+from ..models import (Attendance, Character, ChronicleEntry, ChronicleUpload, Event, EventCohost, Member, Signup)
 
 log = logging.getLogger("wowquester.web")
 FIELDS_TEXT = ("title", "description", "eligibility")
@@ -129,7 +129,7 @@ def event_data_from_form(cfg: Config, form, partial: bool = False) -> dict:
         d["exclusive"] = _bool(form, "exclusive")
     d["roles"] = _roles_from_form(form)
     if form.get("cohosts") is not None:    # field only rendered for the creator / moderators
-        d["cohosts"] = [x.strip() for x in re.split(r"[,\s]+", form.get("cohosts", "")) if x.strip()]
+        d["cohosts"] = people.split(form.get("cohosts", ""))   # Discord usernames or IDs, comma separated
     return d
 
 
@@ -215,15 +215,18 @@ def router(cfg: Config) -> APIRouter:
             return resp
         resp = _redirect(nxt)
         w.drop_session(request, resp)           # state is single-use
-        discord_id, name = w.oauth.identify(code, w.cfg["community"]["public_base_url"].rstrip("/") +
-                                            mp + "/oauth/callback")
+        ident = w.oauth.identify(code, w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/oauth/callback")
+        discord_id, name = ident[0], ident[1]
+        username = ident[2] if len(ident) > 2 else ""
         in_guild, roles, gname = (w.rest.member(w.cfg.guild_id, discord_id) if w.rest else (False, frozenset(), ""))
         from ..domain.actor import Actor
-        a = Actor(discord_id=discord_id, source="web", role_ids=roles, in_guild=in_guild, display_name=gname or name)
+        a = Actor(discord_id=discord_id, source="web", role_ids=roles, in_guild=in_guild, display_name=gname or name,
+                  username=username)
         permissions.require_member(w.cfg, a)
         with w.db.tx() as s:
             a = roster.ensure_member(s, a)
-        w.new_session(resp, a.member_id, {"discord_id": discord_id, "name": a.display_name, "roles": sorted(roles),
+        w.new_session(resp, a.member_id, {"discord_id": discord_id, "name": a.display_name, "username": username,
+                                          "roles": sorted(roles),
                                           "in_guild": in_guild, "roles_at": __import__("time").time()})
         w.cleanup_sessions()
         log.info("login member=%s", a.member_id)
@@ -265,7 +268,7 @@ def router(cfg: Config) -> APIRouter:
             chars = roster.list_characters(s, a.member_id)
         return {"editions": w.cfg.editions, "activity_types": ACTIVITY_TYPES, "presets": w.cfg.role_presets,
                 "ev": ev, "chars": chars, "tz": w.cfg["community"]["default_timezone"],
-                "max_roles": MAX_ROLE_ROWS}
+                "max_roles": MAX_ROLE_ROWS, "party_sizes": w.cfg["signups"]["party_size_max"]}
 
     @r.get(mp + "/events/new")
     def new_event(request: Request):
@@ -278,6 +281,8 @@ def router(cfg: Config) -> APIRouter:
         w = W(request)
         data = event_data_from_form(w.cfg, form)
         with w.db.tx() as s:
+            if data.get("cohosts"):
+                data["cohosts"] = people.resolve(s, data["cohosts"], w.member_search)
             if form.get("rrule"):
                 tz = data["timezone"]
                 local = as_local(data["start_at"], tz).replace(tzinfo=None)
@@ -311,7 +316,19 @@ def router(cfg: Config) -> APIRouter:
             # same rules as signups._check_character, so every listed character can actually join
             fit = [c for c in chars if not signups.fit_problems(w.cfg, ev, c)]
             misfits = [(c.name, signups.fit_problems(w.cfg, ev, c)) for c in chars if c not in fit]
-            entry = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == ev.id))
+            entry = chronicle.lead(s, ev.id)
+            my_story = can_story = None
+            stories = []
+            if a is not None and ev.state == "completed":
+                my_story = s.scalar(select(ChronicleEntry).where(ChronicleEntry.event_id == ev.id,
+                                                                 ChronicleEntry.author_id == a.member_id))
+                can_story = my_story is None and chronicle.story_eligible(s, w.cfg, a, ev)
+                if manager:
+                    stories = [(x, m.display_name or m.username or "a member") for x, m in s.execute(
+                        select(ChronicleEntry, Member).join(Member, Member.id == ChronicleEntry.author_id)
+                        .where(ChronicleEntry.event_id == ev.id).order_by(ChronicleEntry.id)).all()]
+            attendance = {x.member_id: x.status for x in s.scalars(
+                select(Attendance).where(Attendance.event_id == ev.id))} if manager else {}
             conflicts = []
             if manager and ev.state == "draft":
                 conflicts = scheduling.preview_conflicts(s, ev.start_at, ev.end_at, ev.exclusive, ev.id,
@@ -320,7 +337,8 @@ def router(cfg: Config) -> APIRouter:
             ctx = {"title": ev.title, "ev": ev, "rows": rows, "mine": mine, "fit": fit, "misfits": misfits,
                    "requirement": signups.event_requirement(w.cfg, ev), "manager": manager,
                    "recognition_default": bool(me and me.recognition_default),
-                   "entry": entry, "conflicts": conflicts,
+                   "entry": entry, "conflicts": conflicts, "attendance": attendance,
+                     "my_story": my_story, "can_story": can_story, "stories": stories,
                    "copy_date": copy_suggestion(ev)[0] if manager else "", "copy_time": copy_suggestion(ev)[1] if manager else "", "ed": w.cfg.edition(ev.edition),
                    "chars": chars, "editions": w.cfg.editions,
                    "show_names": manager or (a is not None and roster.staff_can_view_roster(w.cfg, a))}
@@ -333,10 +351,11 @@ def router(cfg: Config) -> APIRouter:
         with w.db.tx() as s:
             ev = ev_by_public(s, public_id)
             permissions.require_event_manager(w.cfg, a, ev.creator_id, scheduling.cohost_ids(s, ev.id))
-            co = list(s.scalars(select(Member.discord_id).join(EventCohost, EventCohost.member_id == Member.id)
-                                .where(EventCohost.event_id == ev.id)))
+            co = [people.label(m) for m in s.scalars(
+                select(Member).join(EventCohost, EventCohost.member_id == Member.id)
+                .where(EventCohost.event_id == ev.id).order_by(EventCohost.member_id))]
             ld, lt, _ = current_local(ev)
-            return render(request, "event_form.html", {"title": "Edit event", "cohost_ids": " ".join(co),
+            return render(request, "event_form.html", {"title": "Edit event", "cohost_ids": ", ".join(co),
                                                        "local_date": ld, "local_time": lt,
                                                        **_form_ctx(w, a, ev)})
 
@@ -347,6 +366,8 @@ def router(cfg: Config) -> APIRouter:
         data = event_data_from_form(w.cfg, form, partial=True)
         with w.db.tx() as s:
             ev = ev_by_public(s, public_id)
+            if data.get("cohosts"):
+                data["cohosts"] = people.resolve(s, data["cohosts"], w.member_search)
             # The form now shows the current date/time; sending them back unchanged is not a reschedule.
             cur_date, cur_time, cur_mins = current_local(ev)
             sent_mins = str(form.get("duration_minutes") or "").strip()
@@ -369,7 +390,7 @@ def router(cfg: Config) -> APIRouter:
         return _redirect(f"{mp}/events/{public_id}")
 
     ACTIONS = ("join", "tentative", "leave", "reconfirm", "change", "publish", "start", "end", "cancel",
-               "discard", "copy", "attendance", "extend")
+               "discard", "copy", "attendance", "extend", "story")
 
     @r.post(mp + "/events/{public_id}/{action}")
     async def event_action(request: Request, public_id: str, action: str):
@@ -390,7 +411,7 @@ def router(cfg: Config) -> APIRouter:
             elif action == "leave":
                 signups.leave(s, c, a, ev.id)
             elif action == "reconfirm":
-                signups.reconfirm(s, c, a, ev.id)
+                signups.reconfirm(s, c, a, ev.id, form.get("role_key") or None)
             elif action == "change":
                 rec = form.get("recognition")
                 signups.change(s, c, a, ev.id, character_id=int(form["character_id"]) if form.get("character_id") else None,
@@ -418,6 +439,8 @@ def router(cfg: Config) -> APIRouter:
             elif action == "attendance":
                 st = {int(k[4:]): v for k, v in form.items() if k.startswith("att_") and k[4:].isdigit()}
                 events.record_attendance(s, c, a, ev.id, st)
+            elif action == "story":
+                dest = f"{mp}/chronicle/{chronicle.start_story(s, c, a, ev.id).id}"
         return _redirect(dest)
 
     @r.post(mp + "/signups/{signup_id}/{decision}")
@@ -665,12 +688,23 @@ def router(cfg: Config) -> APIRouter:
                                                                ChronicleUpload.removed_at.is_(None))))
             problems = chronicle.check(s, w.cfg, e, rev)
             rows = signups.roster(s, ev.id)
-            from ..models import Attendance
             att = {x.member_id: x.status for x in s.scalars(select(Attendance).where(Attendance.event_id == ev.id))}
             hist = chronicle.history(s, e.id)
+            names = {m.id: (m.display_name or m.username or "a member") for m in s.scalars(
+                select(Member).where(Member.id.in_({h.created_by for h in hist} | {e.author_id})))}
+            choices = chronicle.coauthor_choices(s, w.cfg, e)
+            current = chronicle.coauthor_ids(s, e.id)
+            others = [(x, names.get(x.author_id) or "") for x in chronicle.entries(s, ev.id) if x.id != e.id]
+            if any(not n for _, n in others):
+                extra = {m.id: m.display_name or m.username or "a member" for m in s.scalars(
+                    select(Member).where(Member.id.in_([x.author_id for x, _ in others])))}
+                others = [(x, extra.get(x.author_id, "a member")) for x, _ in others]
             return render(request, "chronicle_edit.html", {"title": "Chronicle", "e": e, "ev": ev, "rev": rev,
                                                        "ups": ups, "problems": problems, "rows": rows, "att": att,
                                                        "hist": hist, "outcomes": chronicle.OUTCOMES,
+                                                       "names": names, "choices": choices, "current": current,
+                                                       "host_story": e.author_id == ev.creator_id,
+                                                       "others": others,
                                                        "ai": w.cfg["ai"].get("enabled", False)})
 
     @r.post(mp + "/chronicle/{entry_id}/{action}")
@@ -695,7 +729,7 @@ def router(cfg: Config) -> APIRouter:
                 chronicle.submit(s, w.cfg, a, entry_id)
             elif action == "coauthors":
                 chronicle.set_coauthors(s, w.cfg, a, entry_id,
-                                        [x for x in re.split(r"[,\s]+", form.get("coauthors", "")) if x])
+                                        [int(x) for x in form.getlist("coauthor") if str(x).isdigit()])
             elif action == "suggest":
                 chronicle.ai_suggest(s, w.cfg, a, entry_id)
             elif action == "clear":
@@ -740,7 +774,8 @@ def router(cfg: Config) -> APIRouter:
         w = W(request)
         permissions.require(w.cfg, a, "chronicle_reviewer", "The review queue needs the chronicle reviewer role.")
         with w.db.tx() as s:
-            rows = list(s.execute(select(ChronicleEntry, Event).join(Event, Event.id == ChronicleEntry.event_id)
+            rows = list(s.execute(select(ChronicleEntry, Event, Member).join(Event, Event.id == ChronicleEntry.event_id)
+                                  .join(Member, Member.id == ChronicleEntry.author_id)
                                   .where(ChronicleEntry.state == "pending_review")
                                   .order_by(ChronicleEntry.updated_at)).all())
             published = s.scalar(select(func.count()).select_from(ChronicleEntry)
