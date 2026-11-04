@@ -35,6 +35,8 @@ sudo -u wowquester wowquester-admin check-config    # after editing config.toml
 | Check WoW channel permissions and slash-command registration (read-only) | `wowquester-admin discord-permissions` (needs the `discord-bot-token` credential; `--category <id>` to pick another category) |
 | Remove a member who can't log in (same as "Remove me") | `wowquester-admin erase-member <discord id>` shows the plan; add `--yes` to carry it out |
 | Prune old audit rows / signups / sessions | `wowquester-admin prune` (admin role; monthly is plenty) |
+| Re-render current events' Discord posts (after a layout change) | `wowquester-admin refresh-posts` lists them (dry run); `--yes` queues in-place edits (app role credential, like `seed-catalog`) |
+| Install the default event cover art | `wowquester-admin default-cover /path/to/art.png` (re-encoded to `covers/default_cover.webp` under `[uploads] storage_dir`) |
 | Re-import Blizzard reference data | `wowquester-admin blizzard import-reference retail --region us` |
 | Check whether Forever's API exists yet | `wowquester-admin blizzard probe forever --region us` (reports, changes nothing) |
 | Backup now | `sudo systemctl start wowquester-backup.service` |

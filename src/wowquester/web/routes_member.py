@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 
 from ..config import Config
-from ..domain import (calendar, catalog, chronicle, erasure, events, people, permissions, recommendations, recurrence, roster,
+from ..domain import (calendar, catalog, chronicle, covers, eventtext, erasure, events, people, permissions, recommendations, recurrence, roster,
                       scheduling, signups)
 from ..domain.errors import EditionLocked, Invalid, NeedsLeave, NotFound, PermissionDenied
 from ..domain.events import ACTIVITY_TYPES
@@ -23,7 +23,7 @@ from ..domain import audit
 from ..models import (Attendance, Character, ChronicleEntry, ChronicleUpload, Event, EventCohost, Member, Signup)
 
 log = logging.getLogger("wowquester.web")
-FIELDS_TEXT = ("title", "description", "eligibility")
+FIELDS_TEXT = ("title", "description", "eligibility", "objective", "difficulty")
 
 
 def render(request: Request, name: str, ctx: dict, status: int = 200, public: bool = False) -> HTMLResponse:
@@ -121,6 +121,11 @@ def event_data_from_form(cfg: Config, form, partial: bool = False) -> dict:
     d["activity_location"] = {"label": form.get("location", ""), "zone": form.get("location_zone", ""),
                               "ref_key": form.get("location_ref", ""), "link": form.get("location_link", "")}
     d["muster_location"] = {"label": form.get("muster", "")}
+    for k in ("level_min", "level_max", "host_character_id"):
+        if form.get(k) is not None:
+            d[k] = form.get(k) or None
+    if form.get("remove_cover"):
+        d["cover_image"] = None
     if form.get("participant_limit") is not None:
         d["participant_limit"] = form.get("participant_limit") or None
     for k in ("late_join", "chronicle_enabled", "public_listing"):
@@ -131,6 +136,19 @@ def event_data_from_form(cfg: Config, form, partial: bool = False) -> dict:
     if form.get("cohosts") is not None:    # field only rendered for the creator / moderators
         d["cohosts"] = people.split(form.get("cohosts", ""))   # Discord usernames or IDs, comma separated
     return d
+
+
+async def _take_cover(cfg: Config, form, data: dict) -> None:
+    """A new cover upload (re-encoded and stored now), or one already stored on the "Before saving" page."""
+    f = form.get("cover")
+    if f is not None and not isinstance(f, str) and getattr(f, "filename", ""):
+        blob = await f.read()
+        if blob:
+            data["cover_image"] = covers.save(cfg, blob)
+            return
+    saved = form.get("cover_saved")
+    if isinstance(saved, str) and covers.file_for(cfg, saved):
+        data["cover_image"] = saved
 
 
 def router(cfg: Config) -> APIRouter:
@@ -269,7 +287,17 @@ def router(cfg: Config) -> APIRouter:
             my_tz = s.scalar(select(Member.timezone).where(Member.id == a.member_id)) if a.member_id else None
         # New events start in the host's saved zone (My settings); without one, the browser's zone
         # (filled in by the page script), then the community default.
+            host_chars = [c for c in chars if c.archived_at is None]
+            if ev is not None and ev.host_character_id and ev.host_character_id not in {c.id for c in host_chars}:
+                cur = s.get(Character, ev.host_character_id)
+                if cur is not None:
+                    host_chars.insert(0, cur)
+            for c in host_chars:
+                s.expunge(c)
         return {"editions": w.cfg.editions, "activity_types": ACTIVITY_TYPES, "presets": w.cfg.role_presets,
+                "host_chars": host_chars, "cover_url": covers.url(w.cfg, ev) if ev is not None else None,
+                "max_level": max(e.max_level for e in w.cfg.editions.values()),
+                "max_bytes": w.cfg["uploads"].get("max_bytes", 5_000_000),
                 "ev": ev, "chars": chars, "tz": my_tz or w.cfg["community"]["default_timezone"],
                 "tz_from_settings": bool(my_tz),
                 "max_roles": MAX_ROLE_ROWS, "party_sizes": w.cfg["signups"]["party_size_max"]}
@@ -284,6 +312,7 @@ def router(cfg: Config) -> APIRouter:
         form, a = await post_guard(request)
         w = W(request)
         data = event_data_from_form(w.cfg, form)
+        await _take_cover(w.cfg, form, data)
         with w.db.tx() as s:
             if data.get("cohosts"):
                 data["cohosts"] = people.resolve(s, data["cohosts"], w.member_search)
@@ -345,6 +374,11 @@ def router(cfg: Config) -> APIRouter:
                      "my_story": my_story, "can_story": can_story, "stories": stories,
                    "copy_date": copy_suggestion(ev)[0] if manager else "", "copy_time": copy_suggestion(ev)[1] if manager else "", "ed": w.cfg.edition(ev.edition),
                    "chars": chars, "editions": w.cfg.editions,
+                   "cover_url": covers.url(w.cfg, ev),
+                   "faction_color": w.cfg["event_posts"]["faction_colors"][ev.faction or "any"], "difficulty_line": eventtext.difficulty_line(ev),
+                   "host_name": (s.get(Character, ev.host_character_id).name if ev.host_character_id else ""),
+                   "thread_url": (f"https://discord.com/channels/{w.cfg.guild_id}/{ev.discord_thread_id}"
+                                  if ev.discord_thread_id else ""),
                    "show_names": manager or (a is not None and roster.staff_can_view_roster(w.cfg, a))}
             return render(request, "event.html", ctx)   # rendered inside the session (lazy loads)
 
@@ -370,6 +404,10 @@ def router(cfg: Config) -> APIRouter:
         data = event_data_from_form(w.cfg, form, partial=True)
         with w.db.tx() as s:
             ev = ev_by_public(s, public_id)
+            permissions.require_event_manager(w.cfg, a, ev.creator_id, scheduling.cohost_ids(s, ev.id))
+        await _take_cover(w.cfg, form, data)
+        with w.db.tx() as s:
+            ev = ev_by_public(s, public_id)
             if data.get("cohosts"):
                 data["cohosts"] = people.resolve(s, data["cohosts"], w.member_search)
             # The form now shows the current date/time; sending them back unchanged is not a reschedule.
@@ -386,7 +424,10 @@ def router(cfg: Config) -> APIRouter:
                 names = events.fit_impact(s, w.cfg, a, ev.id, data)
                 if names:
                     n = len(names)
-                    keep = [(k, v) for k, v in form.multi_items() if k not in ("csrf", "confirm_fit")]
+                    keep = [(k, v) for k, v in form.multi_items()
+                            if k not in ("csrf", "confirm_fit", "cover", "cover_saved") and isinstance(v, str)]
+                    if data.get("cover_image"):
+                        keep.append(("cover_saved", data["cover_image"]))
                     return render(request, "message.html", {
                         "title": "Before saving",
                         "message": (f"With this change, {n} signed-up character{'s' if n != 1 else ''} won't fit "
@@ -755,6 +796,8 @@ def router(cfg: Config) -> APIRouter:
                 chronicle.ai_suggest(s, w.cfg, a, entry_id)
             elif action == "clear":
                 chronicle.clear_upload(s, w.cfg, a, int(form["upload_id"]), _bool(form, "cleared"))
+            elif action == "banner":
+                chronicle.set_banner(s, w.cfg, a, entry_id, int(form["upload_id"]) if form.get("upload_id") else None)
             elif action == "remove_upload":
                 chronicle.remove_upload(s, w.cfg, a, int(form["upload_id"]))
             elif action == "review":
@@ -813,7 +856,9 @@ def router(cfg: Config) -> APIRouter:
         w.cfg.edition(edition)
         with w.db.tx() as s:
             rows = catalog.options(s, edition, kind, parent, q[:60] or None, limit=25)
-            items = [{"key": o.key, "label": o.label, "parent": o.parent_key} for o in rows]
+            items = [{"key": o.key, "label": o.label, "parent": o.parent_key,
+                      **{k: (o.data or {})[k] for k in ("modes", "minimum_level") if k in (o.data or {})}}
+                     for o in rows]
         status = w.cfg.edition(edition).capability("quests" if kind == "quest" else
                                                    "locations" if kind in ("zone", "location", "instance")
                                                    else "reference")

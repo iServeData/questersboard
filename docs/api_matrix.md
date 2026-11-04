@@ -12,7 +12,8 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | --- | --- | --- |
 | GET | `/wow/chronicle/` | archive of published stories |
 | GET | `/wow/chronicle/{slug}/` | story page |
-| GET | `/wow/chronicle/media/{name}` | approved images (WebP) |
+| GET | `/wow/chronicle/media/{name}` | approved images (WebP), including a story's chosen banner |
+| GET | `/wow/quester/covers/{name}` | event cover art (WebP; uuid or configured default names only); public so Discord can show it |
 | GET | `/wow/chronicle/feed.json` | JSON Feed 1.1 |
 | GET | `/wow/chronicle/feed.xml` | RSS 2.0 |
 | GET | `/wow/chronicle/feed.atom` | Atom |
@@ -46,7 +47,7 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | GET/POST | `/wow/quester/me` | preferences, consent default, time zone |
 | POST | `/wow/quester/me/calendar` | create (replacing any old one) or revoke the private calendar link |
 | GET | `/wow/quester/chronicle/{id}` | chronicle editor / review view |
-| POST | `/wow/quester/chronicle/{id}/{action}` | `save submit coauthors suggest clear upload remove_upload review unpublish remove_me` |
+| POST | `/wow/quester/chronicle/{id}/{action}` | `save submit coauthors suggest clear upload remove_upload banner review unpublish remove_me` |
 | GET | `/wow/quester/uploads/{id}.webp` | unpublished upload preview (authors/reviewers only) |
 | GET | `/wow/quester/review` | review queue (reviewers) |
 | GET | `/wow/quester/api/options?edition=&kind=&q=` | autocomplete (race, class, quest, location…); always allows free text |
@@ -60,6 +61,7 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | Slash commands | `/quest list · my · join · leave · create` (create saves a draft), `/character add · list · edit · remove`; edition autocomplete |
 | Components | persistent buttons on the canonical event post (`wq:ev:<action>:<event_id>`), re-registered at startup |
 | Messages | worker only, via REST: one canonical post per event (edited in place, recreated if deleted); DMs for reminders, approvals, review results; `allowed_mentions` empty |
+| Event threads (off by default) | `POST /channels/{ch}/messages/{msg}/threads` (public) or `POST /channels/{ch}/threads` type 12 (private); `PUT`/`DELETE /channels/{thread}/thread-members/{user}`; `PATCH /channels/{thread}` `archived`+`locked`. Needs Create Public/Private Threads, Send Messages in Threads, Manage Threads. FIXTURE-tested; live unverified |
 | Registration | `wowquester-admin sync-commands` is a dry run unless `--yes` and `WOWQUESTER_APPROVED_CHANGE=sync-commands` |
 
 ## Blizzard
@@ -68,6 +70,7 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | --- | --- | --- | --- | --- |
 | Retail | `profile-{region}`, `static-{region}` | `/profile/wow/character/{realm}/{name}` (realm required) | `/profile/user/wow` with `wow.profile` | `/data/wow/playable-race/index`, `/data/wow/playable-class/index`, … |
 | WoW: Forever | empty: no published namespace | **unsupported**: refused, zero requests | **unsupported** | packaged seed catalog, labelled `unverified` |
+| Instance details | `static-{region}` | | | `/data/wow/journal-instance/{id}`: `modes`, `minimum_level`, `category` (`[blizzard] instance_details`); FIXTURE-tested, live unverified |
 | any `*ptr*` | rejected by config validation | | | |
 
 OAuth: client credentials for game data (token cached until expiry); authorization code for the

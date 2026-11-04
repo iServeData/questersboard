@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+Needs database migration `0004` (adds columns only; reversible). Host config: add `[event_posts]` and,
+when threads are approved, `[event_threads]`; `difficulties` per edition is optional.
+
+- **Event posts redesigned** (the approved mock): the side accent is the event's faction colour (Horde
+  red, Alliance blue, gold for "any"; `[event_posts] faction_colors`); finished and cancelled posts keep
+  the state colour. Under the title: difficulty and level range ("Normal · Level 15–21"), the
+  description, then **Objective**. Time, Duration and Repeat ("Every week on Tuesday · 2 of 4") are
+  stacked; tentative players are listed by name when they agreed to be named; waitlist and pending
+  counts sit under "Also". The footer starts with "Hosted by <character>".
+- **New event fields**: Difficulty (per-edition list, `[[editions]] difficulties`, default Normal only),
+  lowest and highest level, Objective (up to 500 characters), Hosted by (one of the hosts' own
+  characters), and Cover art (PNG, JPEG or WebP, re-encoded to WebP). Without a cover the post uses the
+  activity's or the community's default art (`[event_posts] default_cover`, installed with
+  `wowquester-admin default-cover FILE`). Covers are served at `<member_path>/covers/<name>` so Discord
+  can show them.
+- **Chronicle**: a new story's "The plan" starts from the event's Objective. Authors can pick one of the
+  story's screenshots as the banner ("Use as banner"); otherwise the story shows the event's cover art.
+  The public story shows the difficulty and level line.
+- **Event chat threads** (off by default, `[event_threads] enabled`): one thread per event (public from
+  the post, or private). Signed-up players (confirmed, tentative, waitlisted) and hosts are added; people
+  who leave are removed; reminders (with open spots) are also posted there; the thread is locked and
+  archived `archive_after_hours` (24) after the event ends or is cancelled. `discord-permissions` checks
+  the thread permissions when enabled. FIXTURE-tested only: live Discord threads are unverified.
+- **Current events**: `wowquester-admin refresh-posts` lists the upcoming and running posts that would
+  be re-rendered in the new layout; `--yes` queues the edits (in place, nobody is pinged).
+- **Blizzard dungeon/raid details** (`[blizzard] instance_details`, default on): the reference import also
+  reads each instance's difficulties and minimum level; the form then marks difficulties the instance
+  doesn't offer and suggests its minimum level. FIXTURE-tested only: live responses are unverified, and
+  Classic coverage is unknown.
+- **Fix**: "Where" suggestions on the event form never appeared (the form asked for the wrong list).
+
+## 2026-11-04
+
 No database migration. Host config: set Retail's `catalog = "retail"`; `common_timezones` is optional.
 
 - **Reconfirm only when needed.** A date, time or length change still asks everyone to reconfirm

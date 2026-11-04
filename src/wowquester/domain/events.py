@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from ..config import Config
+from ..config import COVER_NAME, Config
 from ..models import Attendance, Character, Event, EventCohost, EventRole, Member, Signup
 from . import audit, outbox, projections, scheduling
 from .actor import Actor
@@ -132,9 +132,36 @@ def _apply_fields(s: Session, cfg: Config, actor: Actor, ev: Event, data: dict, 
         if at not in ACTIVITY_TYPES:
             raise Invalid(f"Activity type must be one of {', '.join(ACTIVITY_TYPES)}")
         ev.activity_type = at
-    for k, n in (("description", 2000), ("eligibility", 500)):
+    for k, n in (("description", 2000), ("eligibility", 500), ("objective", 500)):
         if k in data:
             setattr(ev, k, str(data[k] or "")[:n])
+    ed = cfg.edition(ev.edition)
+    if "difficulty" in data:
+        d = str(data["difficulty"] or "").strip()
+        if d and d not in ed.difficulties:
+            raise Invalid(f"Difficulty must be one of {', '.join(ed.difficulties)} for {ed.name}.")
+        ev.difficulty = d
+    lv = {"level_min": ev.level_min, "level_max": ev.level_max}
+    for k in lv:
+        if k in data:
+            v = data[k]
+            try:
+                v = int(v) if v not in (None, "") else None
+            except (TypeError, ValueError):
+                raise Invalid("Levels must be whole numbers.") from None
+            if v is not None and not 1 <= v <= ed.max_level:
+                raise Invalid(f"Levels for {ed.name} go from 1 to {ed.max_level}.")
+            lv[k] = v
+    if lv["level_min"] is not None and lv["level_max"] is not None and lv["level_min"] > lv["level_max"]:
+        raise Invalid("The lowest level can't be above the highest level.")
+    ev.level_min, ev.level_max = lv["level_min"], lv["level_max"]   # only after both are valid
+    if "cover_image" in data:
+        c = data["cover_image"] or None
+        if c is not None and not COVER_NAME.match(str(c)):
+            raise Invalid("Unknown cover image.")
+        ev.cover_image = c
+    if "host_character_id" in data:
+        ev.host_character_id = _host_character(s, ev, data["host_character_id"])
     if "activity_location" in data:
         ev.activity_location = _location(data["activity_location"])
     if "muster_location" in data:
@@ -162,6 +189,21 @@ def _apply_fields(s: Session, cfg: Config, actor: Actor, ev: Event, data: dict, 
             if not has(cfg, actor, "exclusive_designator"):
                 raise PermissionDenied("Only the exclusive-event role can mark an event exclusive.")
             ev.exclusive = want
+
+
+def _host_character(s: Session, ev: Event, value) -> int | None:
+    """The "Hosted by" character: one of the creator's or a co-host's own active characters."""
+    if value in (None, "", 0, "0"):
+        return None
+    try:
+        cid = int(value)
+    except (TypeError, ValueError):
+        raise Invalid("Pick one of your characters as host.") from None
+    ch = s.get(Character, cid)
+    hosts = {ev.creator_id} | set(s.scalars(select(EventCohost.member_id).where(EventCohost.event_id == ev.id)))
+    if ch is None or ch.archived_at is not None or ch.member_id not in hosts:
+        raise Invalid("The host character must be one of the hosts' own characters.")
+    return ch.id
 
 
 def party_max(cfg: Config, activity_type: str | None) -> int:

@@ -83,6 +83,22 @@ max_bytes = 5_000_000
 allowed_types = ["image/png", "image/jpeg", "image/webp"]
 max_per_entry = 6
 
+[event_posts]                                 # [live] the Discord event post
+# Accent bar colour by the event's faction ("any" = open to both).
+faction_colors = { horde = "#C41E3A", alliance = "#1F6FD8", any = "#C9A227" }
+# Cover art when an organizer doesn't upload one: a file in <[uploads] storage_dir>/covers.
+# Install it with: sudo -u wowquester wowquester-admin default-cover /path/to/art.png
+# A missing file is skipped (the post just has no image).
+default_cover = "default_cover.webp"
+activity_covers = {}                          # optional per type, e.g. { raid = "raid_cover.webp" }
+
+[event_threads]                               # restart. One Discord chat thread per event (off until approved)
+enabled = false                               # needs Create Public Threads, Send Messages in Threads, Manage Threads
+private = false                               # true = invite-only threads (Create Private Threads instead)
+archive_after_hours = 24                      # lock and archive this long after the event ends
+reminders_in_thread = true                    # also post the reminder (with open spots) in the thread
+name_suffix = " · chat"
+
 [ai]                                          # restart
 enabled = false                               # explicit opt-in
 provider = "openai_compatible"                # openai_compatible | none
@@ -177,6 +193,7 @@ default_region = "us"
 factions = ["horde", "alliance"]
 default_faction = "horde"
 max_level = 60
+difficulties = ["Normal"]      # optional; the event form's Difficulty list (default: Normal only)
 catalog = "forever"                           # packaged race/class seed (src/wowquester/catalog/forever.toml)
 static_namespace = ""                         # unpublished by Blizzard as of 2026-10-31
 dynamic_namespace = ""
@@ -197,6 +214,7 @@ default_region = "us"
 factions = ["horde", "alliance"]
 default_faction = "horde"
 max_level = 90
+difficulties = ["Normal", "Heroic", "Mythic", "Mythic+", "Raid Finder"]
 catalog = "retail"                            # packaged race/class seed; dungeons and raids come from a Blizzard import (wowquester-admin blizzard import-reference retail)
 static_namespace = "static-{region}"
 dynamic_namespace = "dynamic-{region}"
@@ -217,6 +235,7 @@ default_region = "us"
 factions = ["horde", "alliance"]
 default_faction = "horde"
 max_level = 60
+difficulties = ["Normal"]
 catalog = "classic_era"
 static_namespace = "static-classic1x-{region}"
 dynamic_namespace = "dynamic-classic1x-{region}"
@@ -235,6 +254,7 @@ default_region = "us"
 factions = ["horde", "alliance"]
 default_faction = "horde"
 max_level = 70
+difficulties = ["Normal", "Heroic"]
 catalog = "classic_tbc"
 static_namespace = "static-classicann-{region}"
 dynamic_namespace = "dynamic-classicann-{region}"
@@ -253,6 +273,7 @@ default_region = "us"
 factions = ["horde", "alliance"]
 default_faction = "horde"
 max_level = 90
+difficulties = ["Normal", "Heroic", "Challenge Mode", "Raid Finder"]
 catalog = "classic_mists"
 static_namespace = "static-classic-{region}"
 dynamic_namespace = "dynamic-classic-{region}"

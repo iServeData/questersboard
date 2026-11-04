@@ -102,6 +102,13 @@ Test file names refer to `tests/`.
 | Explainable recommendations | Done, tested | `test_recommendations_explain_fit_and_skip_mismatches` |
 | Opt-in AI wording: safe data only, drafts only, template fallback | Done, fixture-tested | `test_ai_payload_is_publication_safe`, `test_ai_reply_used_when_safe_and_template_otherwise`, `test_ai_disabled_or_failing_uses_template` |
 | Live AI provider | Externally unverified | off by default; needs a provider key and model |
+| Event post layout: faction colour, difficulty/level, objective, tentative names, repeat, hosted by, cover | Done, tested | `test_event_posts.py::test_post_layout_matches_the_mock`, `test_new_fields_saved_and_validated` |
+| Cover art upload, re-encode, public cover route | Done, tested | `test_web_form_saves_cover_and_details`, `test_cover_rejects_non_images` |
+| Chronicle plan prefilled from objective; banner choice | Done, tested | `test_chronicle_plan_prefilled_and_banner` |
+| Event chat threads (members follow signups, close after event, reminders) | Done, fixture-tested | `test_thread_follows_signups_and_closes_after_the_event`, `test_private_thread_and_threads_off_by_default`, `test_reminder_also_posted_in_thread_once` |
+| Live Discord threads | Externally unverified | off by default; needs bot thread permissions and approval |
+| Blizzard instance difficulties/minimum level | Done, fixture-tested; live unverified | `test_blizzard_instance_details_fixture` |
+| Re-render current events in the new layout | Done, tested | `test_refresh_posts_is_dry_run_unless_yes` |
 
 ## Reliability and security
 

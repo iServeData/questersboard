@@ -136,3 +136,11 @@ tr[hidden]{display:none}
 @media print{.to-top,.wq-toc{display:none}.wq-legal-layout{display:block}}
 .wq-form label[hidden]{display:none}
 .note.wq-warn{color:#e8a33d}
+/* Event cover art: a banner with the faction colour along the left, like the Discord post. */
+.wq-cover{margin:0 0 18px;border-left:4px solid #C9A227;border-radius:6px;overflow:hidden;max-height:320px}
+.wq-cover-horde{border-left-color:#C41E3A}.wq-cover-alliance{border-left-color:#1F6FD8}
+.wq-cover img{display:block;width:100%;height:auto;max-height:320px;object-fit:cover}
+.wq-cover-thumb{border-radius:4px;max-width:100%;height:auto}
+.wq-difficulty{margin-left:8px}
+.wq-banner{margin:0 0 20px;border-radius:6px;overflow:hidden;max-height:360px}
+.wq-banner img{display:block;width:100%;height:auto;max-height:360px;object-fit:cover}

@@ -88,3 +88,16 @@ def test_commands_shown_everywhere_until_limited_in_integrations():
     rep = da.build(_cfg(), G, roles, chans, bot, cmds, limited)
     assert "Discord only offers WoWQuester commands in: #bot-commands" in rep.text()
     assert rep.fixes == 0 and rep.notes == 0
+
+
+def test_event_threads_need_thread_permissions_only_when_enabled():
+    roles, chans, bot = _guild()
+    cmds = [{"id": "1", "name": "quest"}]
+    assert "event chat threads" not in da.build(_cfg(), G, roles, chans, bot, cmds, []).text()
+    on = make_cfg(discord={"application_id": fake_id(2), "event_channel_id": EVENTS, "review_channel_id": REVIEW,
+                           "allowed_command_channel_ids": [BOTCH]}, event_threads={"enabled": True})
+    t = da.build(on, G, roles, chans, bot, cmds, []).text()
+    assert "Bot needs Create Public Threads" in t and "Manage Threads" in t
+    chans[1]["permission_overwrites"].append({"id": BOTROLE, "type": 0, "deny": "0", "allow": str(
+        da.CREATE_PUBLIC_THREADS | da.SEND_IN_THREADS | da.MANAGE_THREADS)})
+    assert "Bot can open, fill and close event chat threads." in da.build(on, G, roles, chans, bot, cmds, []).text()

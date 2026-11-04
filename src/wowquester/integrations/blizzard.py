@@ -243,17 +243,48 @@ class Blizzard:
                 if not name:
                     continue
                 key = slug(name).replace("-", "_")
+                data = self._instance_details(s, region, ns, hours, item) if kind == "location" else {}
                 vals = dict(edition=edition, kind=kind, key=key, label=name[:160],
-                            parent_key="" if kind != "race" else "", source="blizzard",
+                            parent_key=data.get("category", "") if kind == "location" else "", source="blizzard",
                             source_ref=f"{ns}{path}", external_id=str(item.get("id", "")),
-                            verification="verified", data={}, updated_at=now())
+                            verification="verified", data=data, updated_at=now())
                 s.execute(insert(ReferenceOption).values(**vals).on_conflict_do_update(
                     constraint="ux_ref_key", set_={k: v for k, v in vals.items()
                                                    if k in ("label", "source", "source_ref", "external_id",
-                                                            "verification", "updated_at")}))
+                                                            "verification", "updated_at", "data",
+                                                            "parent_key")}))
                 n += 1
             counts[kind] = n
         return counts
+
+    def _instance_details(self, s: Session, region: str, ns: str, hours: float, item: dict) -> dict:
+        """Difficulties and minimum level for one dungeon/raid, from /data/wow/journal-instance/{id}.
+
+        Blizzard lists the modes (Normal, Heroic, Mythic, Mythic Keystone, LFR, legacy raid sizes) and an
+        optional minimum_level. Missing fields are simply left out; the event form then lets the organizer
+        pick from the edition's configured difficulties and type the level range.
+        """
+        if not item.get("id") or not self.bz.get("instance_details", True):
+            return {}
+        st, body = self.get(s, region, f"/data/wow/journal-instance/{int(item['id'])}", ns, hours)
+        if st != 200:
+            return {}
+        out: dict = {}
+        cat = (body.get("category") or {}).get("type")
+        if cat in ("DUNGEON", "RAID", "EVENT", "WORLD_BOSS"):
+            out["category"] = cat.lower()
+        modes = []
+        for m in body.get("modes") or []:
+            name = ((m.get("mode") or {}).get("name"))
+            if isinstance(name, dict):
+                name = name.get("en_US")
+            if name and name not in modes:
+                modes.append(str(name)[:32])
+        if modes:
+            out["modes"] = modes
+        if isinstance(body.get("minimum_level"), int):
+            out["minimum_level"] = body["minimum_level"]
+        return out
 
     # ------------------------------------------------------------------ optional ownership (Battle.net login)
     def authorize_url(self, region: str, redirect_uri: str) -> tuple[str, str]:

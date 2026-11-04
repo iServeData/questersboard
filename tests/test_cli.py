@@ -143,3 +143,39 @@ def test_deploy_scripts_use_the_deploy_health_mode():
     root = Path(__file__).resolve().parent.parent / "deploy"
     assert '"$REPO/deploy/health.sh" --quiet --deploy' in (root / "install.sh").read_text()
     assert 'health.sh" --deploy' in (root / "rollback.sh").read_text()
+
+
+@needs_db
+def test_refresh_posts_is_dry_run_unless_yes(cfg_file, db, capsys):
+    with db.tx() as s:
+        mid = s.execute(text("INSERT INTO members (discord_id, display_name) VALUES (:d,'x') RETURNING id"),
+                        {"d": fake_id(7790)}).scalar()
+        eid = s.execute(text(
+            "INSERT INTO events (creator_id, edition, region, title, activity_type, start_at, end_at, timezone, state, "
+            "discord_channel_id, discord_message_id) VALUES (:m, 'forever', 'us', 'Mine run', 'dungeon', "
+            "now() + interval '1 day', now() + interval '1 day 2 hours', 'UTC', 'scheduled', :c, :c) "
+            "RETURNING id"), {"m": mid, "c": fake_id(7791)}).scalar()
+    assert cli.main(["--config", cfg_file, "refresh-posts"]) == 0
+    out = capsys.readouterr().out
+    assert "dry run: 1 post(s)" in out and f"#{eid} Mine run" in out
+    with db.tx() as s:
+        q = "SELECT count(*) FROM outbox WHERE kind='discord.render_event' AND key=:k"
+        before = s.execute(text(q), {"k": str(eid)}).scalar()
+    assert cli.main(["--config", cfg_file, "refresh-posts", "--yes"]) == 0
+    assert "queued 1 post update(s)" in capsys.readouterr().out
+    with db.tx() as s:
+        assert s.execute(text(q), {"k": str(eid)}).scalar() >= max(before, 1)
+
+
+def test_default_cover_installs_webp(cfg_file, tmp_path, capsys):
+    import io
+
+    from PIL import Image
+    b = io.BytesIO()
+    Image.new("RGB", (200, 100), (10, 20, 30)).save(b, "PNG")
+    src = tmp_path / "art.png"
+    src.write_bytes(b.getvalue())
+    assert cli.main(["--config", cfg_file, "default-cover", str(src)]) == 0
+    assert (tmp_path / "covers" / "default_cover.webp").is_file()
+    src.write_bytes(b"nope")
+    assert cli.main(["--config", cfg_file, "default-cover", str(src)]) == 1

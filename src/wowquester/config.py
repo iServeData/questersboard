@@ -29,8 +29,11 @@ RULESET_LABELS = {"normal": "Normal", "pvp": "PvP", "rp": "RP", "rp_pvp": "RP-Pv
 
 # Largest group per activity type (WoW group sizes). Override in [signups.party_size_max]; others cap at 80.
 DEFAULT_PARTY_SIZE = {"quest": 5, "dungeon": 5, "arena": 5, "raid": 40, "battleground": 40}
+DEFAULT_FACTION_COLORS = {"horde": "#C41E3A", "alliance": "#1F6FD8", "any": "#C9A227"}
+COVER_NAME = re.compile(r"^[A-Za-z0-9_-]{1,60}\.(webp|png|jpg|jpeg)$")
 
-LIVE_SECTIONS = ("roles", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status")
+LIVE_SECTIONS = ("roles", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status",
+                 "event_posts")
 API_STATUSES = ("verified", "unverified", "unsupported")
 API_CAPS = ("reference", "character", "quests", "locations", "ownership")
 
@@ -58,6 +61,7 @@ class Edition:
     ruleset_realm_slugs: dict[str, str]
     api_status: dict[str, str]
     ruleset_labels: dict[str, str] = field(default_factory=dict)
+    difficulties: tuple[str, ...] = ("Normal",)
 
     def ruleset_label(self, ruleset: str | None) -> str:
         if not ruleset:
@@ -310,6 +314,30 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     if unknown:
         raise ConfigError(f"[status] unknown setting {sorted(unknown)[0]!r}")
 
+    ep = r.setdefault("event_posts", {})
+    colors = {**DEFAULT_FACTION_COLORS, **(ep.get("faction_colors") or {})}
+    for k, v in colors.items():
+        if k not in ("horde", "alliance", "any") or not re.match(r"^#[0-9A-Fa-f]{6}$", str(v)):
+            raise ConfigError("[event_posts] faction_colors must map horde, alliance, any to #RRGGBB colours")
+    ep["faction_colors"] = colors
+    ep.setdefault("default_cover", "")
+    ep.setdefault("activity_covers", {})
+    for k, v in [("default_cover", ep["default_cover"]), *ep["activity_covers"].items()]:
+        if v and not COVER_NAME.match(str(v)):
+            raise ConfigError(f"[event_posts] {k}: cover names are files in the covers folder, "
+                              "like default_cover.webp (letters, digits, - and _ ; png, jpg or webp)")
+    th = r.setdefault("event_threads", {})
+    th.setdefault("enabled", False)
+    th.setdefault("private", False)
+    th.setdefault("reminders_in_thread", True)
+    th.setdefault("name_suffix", " · chat")
+    _positive(th.setdefault("archive_after_hours", 24), "[event_threads] archive_after_hours", 0)
+    for k in ("enabled", "private", "reminders_in_thread"):
+        if not isinstance(th[k], bool):
+            raise ConfigError(f"[event_threads] {k} must be true or false")
+    if not isinstance(th["name_suffix"], str) or len(th["name_suffix"]) > 20:
+        raise ConfigError("[event_threads] name_suffix must be text of 20 characters or fewer")
+
     b = r.setdefault("branding", {})
     b.setdefault("site_name", c["name"])
     b.setdefault("home_url", "/")
@@ -384,7 +412,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             static_namespace=e.get("static_namespace", ""), dynamic_namespace=e.get("dynamic_namespace", ""),
             profile_namespace=e.get("profile_namespace", ""),
             ruleset_realm_slugs=dict(e.get("ruleset_realm_slugs", {})), api_status=status,
-            ruleset_labels={str(k): str(v)[:40] for k, v in dict(e.get("ruleset_labels", {})).items()})
+            ruleset_labels={str(k): str(v)[:40] for k, v in dict(e.get("ruleset_labels", {})).items()},
+            difficulties=_difficulties(e.get("difficulties", ["Normal"]), where))
     r["_editions"] = parsed
 
     presets = []
@@ -407,6 +436,12 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             tags=tuple(a.get("tags", []))))
     r["_activities"] = tuple(acts)
     return r
+
+
+def _difficulties(v: Any, where: str) -> tuple[str, ...]:
+    if not isinstance(v, list) or not v or any(not isinstance(x, str) or not 1 <= len(x) <= 32 for x in v):
+        raise ConfigError(f"{where} difficulties must be a list of names (1-32 characters each)")
+    return tuple(v)
 
 
 def _hashes(raw: dict[str, Any]) -> dict[str, str]:

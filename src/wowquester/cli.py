@@ -254,6 +254,48 @@ def cmd_outbox(args):
     return 0
 
 
+def cmd_refresh_posts(args):
+    """Re-render every upcoming or running event's Discord post (after an upgrade changes the layout).
+
+    Edits existing bot posts in place; nothing new is posted and nobody is pinged. With [event_threads]
+    on, each re-render also opens that event's chat thread. Dry run unless --yes.
+    """
+    from .domain import outbox
+    cfg = _cfg(args)
+    db = _db(cfg, "app")
+    with db.tx() as s:
+        rows = list(s.execute(text(
+            "SELECT id, title FROM events WHERE state IN ('scheduled','in_progress') "
+            "AND discord_message_id IS NOT NULL ORDER BY start_at")))
+        for r in rows:
+            print(f"  #{r.id} {r.title}")
+        if not args.yes:
+            print(f"dry run: {len(rows)} post(s) would be updated. Re-run with --yes to queue the updates.")
+            return 0
+        for r in rows:
+            outbox.enqueue(s, "discord.render_event", str(r.id), {"event_id": r.id})
+    print(f"queued {len(rows)} post update(s); the worker applies them within a minute.")
+    return 0
+
+
+def cmd_cover(args):
+    """Install the community's default cover art (re-encoded to WebP) as covers/default_cover.webp."""
+    from .domain import covers
+    from .domain.errors import Invalid
+    cfg = _cfg(args)
+    try:
+        name = covers.save(cfg, Path(args.file).read_bytes())
+    except (OSError, Invalid) as exc:
+        print(f"cover not installed: {exc}", file=sys.stderr)
+        return 1
+    d = covers.folder(cfg)
+    (d / name).replace(d / "default_cover.webp")
+    print(f"installed {d / 'default_cover.webp'}")
+    if cfg["event_posts"].get("default_cover") != "default_cover.webp":
+        print('set [event_posts] default_cover = "default_cover.webp" in the config to use it')
+    return 0
+
+
 def cmd_backup(args):
     script = Path(args.scripts) / ("backup.sh" if args.action == "backup" else "restore.sh")
     cmd = [str(script)] + ([args.file] if args.file else [])
@@ -300,6 +342,12 @@ def main(argv=None) -> int:
     ob = sub.add_parser("outbox")
     ob.add_argument("action", choices=("status", "retry-dead", "dismiss-dead"))
     ob.set_defaults(fn=cmd_outbox)
+    rp = sub.add_parser("refresh-posts", help="re-render upcoming events' Discord posts (dry run unless --yes)")
+    rp.add_argument("--yes", action="store_true")
+    rp.set_defaults(fn=cmd_refresh_posts)
+    cv = sub.add_parser("default-cover", help="install the default event cover art from an image file")
+    cv.add_argument("file")
+    cv.set_defaults(fn=cmd_cover)
     bk = sub.add_parser("backup")
     bk.add_argument("action", choices=("backup", "restore"))
     bk.add_argument("file", nargs="?")

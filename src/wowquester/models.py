@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer,
-                        LargeBinary, String, Text, UniqueConstraint, func, text)
+                        LargeBinary, SmallInteger, String, Text, UniqueConstraint, func, text)
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSTZRANGE, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -159,6 +159,14 @@ class Event(Base):
     activity_type: Mapped[str] = mapped_column(String(24), nullable=False)
     description: Mapped[str] = mapped_column(String(2000), nullable=False, default="")
     eligibility: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    objective: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    difficulty: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    level_min: Mapped[int | None] = mapped_column(SmallInteger)
+    level_max: Mapped[int | None] = mapped_column(SmallInteger)
+    cover_image: Mapped[str | None] = mapped_column(String(80))
+    host_character_id: Mapped[int | None] = mapped_column(ForeignKey("characters.id", ondelete="SET NULL"))
+    discord_thread_id: Mapped[str | None] = mapped_column(String(22))
+    discord_thread_members: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     creator_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=False)
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -192,6 +200,7 @@ class Event(Base):
         CheckConstraint("state in ('draft','scheduled','in_progress','completed','cancelled')", name="ck_event_state"),
         CheckConstraint("signup_policy in ('open','approval')", name="ck_event_policy"),
         CheckConstraint("participant_limit is null or participant_limit > 0", name="ck_event_limit"),
+        CheckConstraint("level_min is null or level_max is null or level_min <= level_max", name="ck_event_levels"),
         Index("ix_events_state_start", "state", "start_at"),
     )
 
@@ -306,6 +315,7 @@ class ChronicleEntry(Base):
     published_revision_id: Mapped[int | None] = mapped_column(BigInteger)
     first_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     unpublished_reason: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    banner_upload_id: Mapped[int | None] = mapped_column(ForeignKey("chronicle_uploads.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = _now()
     __table_args__ = (CheckConstraint(
@@ -389,6 +399,8 @@ class PublicChronicle(Base):
     outcome: Mapped[str] = mapped_column(String(24), nullable=False)
     participants: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     images: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    banner: Mapped[dict | None] = mapped_column(JSONB)
+    details: Mapped[str] = mapped_column(String(120), nullable=False, default="")
     ai_assisted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -29,9 +29,15 @@ EMBED = 1 << 14
 ATTACH = 1 << 15
 HISTORY = 1 << 16
 USE_COMMANDS = 1 << 31
+MANAGE_THREADS = 1 << 34
+CREATE_PUBLIC_THREADS = 1 << 35
+CREATE_PRIVATE_THREADS = 1 << 36
+SEND_IN_THREADS = 1 << 38
 ALL = (1 << 53) - 1
 
-NAMES = {VIEW: "View Channel", SEND: "Send Messages", EMBED: "Embed Links", HISTORY: "Read Message History",
+NAMES = {MANAGE_THREADS: "Manage Threads", CREATE_PUBLIC_THREADS: "Create Public Threads",
+         CREATE_PRIVATE_THREADS: "Create Private Threads", SEND_IN_THREADS: "Send Messages in Threads",
+         VIEW: "View Channel", SEND: "Send Messages", EMBED: "Embed Links", HISTORY: "Read Message History",
          USE_COMMANDS: "Use Application Commands", ATTACH: "Attach Files", MANAGE_MESSAGES: "Manage Messages",
          ADD_REACTIONS: "Add Reactions"}
 SHOWN = (VIEW, SEND, HISTORY, EMBED, USE_COMMANDS)
@@ -234,6 +240,13 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
             miss = _missing(p(bot), (VIEW, SEND, EMBED, HISTORY))
             rep.fix(f"Bot needs {', '.join(miss)} here to post and update event cards.") if miss else \
                 rep.ok("Bot can post and update event cards.")
+            th = cfg.raw.get("event_threads") or {}
+            if th.get("enabled"):
+                need = (CREATE_PRIVATE_THREADS if th.get("private") else CREATE_PUBLIC_THREADS, SEND_IN_THREADS,
+                        MANAGE_THREADS)
+                miss = _missing(p(bot), need)
+                rep.fix(f"Bot needs {', '.join(miss)} here for event chat threads.") if miss else \
+                    rep.ok("Bot can open, fill and close event chat threads.")
             for m in members:
                 miss = _missing(p(m), (VIEW, HISTORY))
                 rep.fix(f"{m.label} needs {', '.join(miss)} to see event cards.") if miss else \

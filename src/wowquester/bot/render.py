@@ -9,12 +9,14 @@ others are counted ("+2 others"). Discord IDs and display names are never render
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import Config
-from ..models import Character, Event, Signup
-from ..domain.timeutil import discord_ts
+from ..domain import covers
+from ..domain.eventtext import difficulty_line, level_text  # noqa: F401  (re-exported)
+from ..domain.timeutil import discord_ts, zone
+from ..models import Character, Event, Series, Signup
 
 STATE_LABEL = {"scheduled": "Scheduled", "in_progress": "In progress", "completed": "Completed",
                "cancelled": "Cancelled", "draft": "Draft"}
@@ -38,6 +40,13 @@ def _who(s: Session, ev: Event, state: str, role_key: str | None) -> tuple[list[
     return named, len(rows) - len(named)
 
 
+def _all(s: Session, ev: Event, state: str) -> tuple[list[str], int]:
+    rows = s.execute(select(Signup, Character).join(Character, Character.id == Signup.character_id).where(
+        Signup.event_id == ev.id, Signup.state == state).order_by(Signup.created_at)).all()
+    named = [c.name for su, c in rows if su.recognition]
+    return named, len(rows) - len(named)
+
+
 def _line(names: list[str], others: int) -> str:
     parts = names[:12]
     extra = others + max(0, len(names) - 12)
@@ -46,20 +55,64 @@ def _line(names: list[str], others: int) -> str:
     return ", ".join(parts) or "—"
 
 
+def duration_text(ev: Event) -> str:
+    mins = int((ev.end_at - ev.start_at).total_seconds() // 60)
+    h, m = divmod(mins, 60)
+    parts = ([f"{h} hour{'s' if h != 1 else ''}"] if h else []) + ([f"{m} minutes"] if m else [])
+    return " ".join(parts) or "0 minutes"
+
+
+def repeat_text(s: Session, ev: Event) -> str:
+    if not ev.series_id or ev.series_detached:
+        return ""
+    ser = s.get(Series, ev.series_id)
+    if ser is None:
+        return ""
+    rule = dict(p.split("=", 1) for p in ser.rrule.upper().split(";") if "=" in p)
+    n = int(rule.get("INTERVAL", "1") or 1)
+    day = ev.start_at.astimezone(zone(ev.timezone)).strftime("%A")
+    freq = rule.get("FREQ")
+    if freq == "WEEKLY":
+        text = f"Every week on {day}" if n == 1 else f"Every {n} weeks on {day}"
+    elif freq == "DAILY":
+        text = "Every day" if n == 1 else f"Every {n} days"
+    elif freq == "MONTHLY":
+        text = "Every month" if n == 1 else f"Every {n} months"
+    else:
+        return ""
+    if rule.get("COUNT") and ev.series_index is not None:
+        text += f" · {ev.series_index + 1} of {rule['COUNT']}"
+    return text
+
+
+def color(cfg: Config, ev: Event) -> int:
+    if ev.state in ("scheduled", "in_progress"):
+        c = cfg["event_posts"]["faction_colors"].get(ev.faction or "any")
+        return int(c.lstrip("#"), 16)
+    return COLOR.get(ev.state, 0)
+
+
 def event_message(s: Session, cfg: Config, ev: Event) -> dict:
     ed = cfg.edition(ev.edition)
     where = ed.name + (f" · {ed.ruleset_label(ev.ruleset)}" if ev.ruleset else "") + \
         (f" · {ev.realm_slug}" if ev.realm_slug else "") + (f" · {ev.faction.title()}" if ev.faction else "")
-    desc = [f"**{ACTIVITY.get(ev.activity_type, 'Activity')}** · {where}",
-            f"{discord_ts(ev.start_at, 'F')} → {discord_ts(ev.end_at, 't')} ({discord_ts(ev.start_at, 'R')})"]
+    desc = []
     if ev.state == "cancelled":
-        desc.insert(0, "~~This event was cancelled.~~" + (f" {ev.cancelled_reason}" if ev.cancelled_reason else ""))
+        desc.append("~~This event was cancelled.~~" + (f" {ev.cancelled_reason}" if ev.cancelled_reason else ""))
+    if difficulty_line(ev):
+        desc.append(f"**{difficulty_line(ev)}**")
     if ev.exclusive:
         desc.append("Exclusive: no other WoW events run at the same time.")
     if ev.description:
-        desc.append("")
         desc.append(ev.description[:1500])
-    fields = []
+    if ev.objective:
+        desc.append(f"**Objective**\n{ev.objective[:500]}")
+    fields = [{"name": "Time", "value": f"{discord_ts(ev.start_at, 'F')} ({discord_ts(ev.start_at, 'R')})",
+               "inline": False},
+              {"name": "Duration", "value": duration_text(ev), "inline": False}]
+    rep = repeat_text(s, ev)
+    if rep:
+        fields.append({"name": "Repeat", "value": rep, "inline": False})
     loc = (ev.activity_location or {}).get("label")
     mus = (ev.muster_location or {}).get("label")
     if loc:
@@ -78,19 +131,27 @@ def event_message(s: Session, cfg: Config, ev: Event) -> dict:
         cap = f"/{ev.participant_limit}" if ev.participant_limit else ""
         fields.append({"name": f"Going ({len(names) + others}{cap})", "value": _line(names, others)[:1024],
                        "inline": False})
-    counts = {st: s.scalar(select(Signup.id).where(Signup.event_id == ev.id, Signup.state == st).limit(1))
-              for st in ("tentative", "waitlisted", "pending")}
+    tent = _all(s, ev, "tentative")
+    if tent[0] or tent[1]:
+        fields.append({"name": f"Tentative ({len(tent[0]) + tent[1]})", "value": _line(*tent)[:1024],
+                       "inline": False})
     extra = []
-    for st, label in (("tentative", "Tentative"), ("waitlisted", "Waitlist"), ("pending", "Awaiting approval")):
-        if counts[st]:
-            n = len(list(s.scalars(select(Signup.id).where(Signup.event_id == ev.id, Signup.state == st))))
+    for st, label in (("waitlisted", "Waitlist"), ("pending", "Awaiting approval")):
+        n = s.scalar(select(func.count()).select_from(Signup).where(Signup.event_id == ev.id, Signup.state == st))
+        if n:
             extra.append(f"{label}: {n}")
     if extra:
         fields.append({"name": "Also", "value": " · ".join(extra), "inline": False})
     policy = "Open signup" if ev.signup_policy == "open" else "Organizer approves signups"
-    embed = {"title": ev.title[:256], "description": "\n".join(desc)[:4000], "color": COLOR.get(ev.state, 0),
-             "fields": fields[:25],
-             "footer": {"text": f"{STATE_LABEL.get(ev.state, ev.state)} · {policy} · WoWQuester #{ev.id}"}}
+    host = s.get(Character, ev.host_character_id) if ev.host_character_id else None
+    foot = ([f"Hosted by {host.name}"] if host else []) + [STATE_LABEL.get(ev.state, ev.state), policy,
+                                                           f"WoWQuester #{ev.id}"]
+    embed = {"author": {"name": f"{ACTIVITY.get(ev.activity_type, 'Activity')} · {where}"[:256]},
+             "title": ev.title[:256], "description": "\n\n".join(desc)[:4000], "color": color(cfg, ev),
+             "fields": fields[:25], "footer": {"text": " · ".join(foot)[:2048]}}
+    img = covers.url(cfg, ev, absolute=True)
+    if img:
+        embed["image"] = {"url": img}
     base = cfg["community"]["public_base_url"].rstrip("/") + cfg["web"]["member_path"].rstrip("/")
     link = {"type": 2, "style": 5, "label": "Details", "url": f"{base}/events/{ev.public_id}"}
     if ev.state in ("scheduled", "in_progress"):

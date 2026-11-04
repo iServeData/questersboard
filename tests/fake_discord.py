@@ -17,6 +17,7 @@ class FakeDiscord:
         self.fail_next: list[int] = []
         self.forbid_channels: set[str] = set()
         self.ids = itertools.count(5000)
+        self.threads: dict[str, dict] = {}       # FIXTURE thread id -> {name, type, parent, members, closed}
 
     def handler(self, req: httpx.Request) -> httpx.Response:
         path = req.url.path.replace("/api/v10", "")
@@ -32,6 +33,25 @@ class FakeDiscord:
             ch = parts[1]
             if ch in self.forbid_channels:
                 return httpx.Response(403, json={"code": 50013})
+            if req.method == "POST" and (parts[2:3] == ["threads"] or parts[4:5] == ["threads"]):
+                tid = "t" + str(next(self.ids))
+                self.threads[tid] = {"name": body["name"], "type": body.get("type", 11), "parent": ch,
+                                     "from_message": parts[3] if len(parts) > 4 else None,
+                                     "members": set(), "closed": False, "posts": []}
+                return httpx.Response(200, json={"id": tid})
+            if parts[2:3] == ["thread-members"] and ch in self.threads:
+                (self.threads[ch]["members"].add if req.method == "PUT"
+                 else self.threads[ch]["members"].discard)(parts[3])
+                return httpx.Response(204)
+            if req.method == "PATCH" and len(parts) == 2:
+                if ch not in self.threads:
+                    return httpx.Response(404, json={"code": 10003})
+                self.threads[ch]["closed"] = bool(body.get("archived") and body.get("locked"))
+                return httpx.Response(200, json={"id": ch})
+            if req.method == "POST" and ch in self.threads:
+                assert body.get("allowed_mentions") == {"parse": []}
+                self.threads[ch]["posts"].append(body["content"])
+                return httpx.Response(200, json={"id": str(next(self.ids))})
             if req.method == "POST":
                 assert body.get("allowed_mentions") == {"parse": []}
                 if ch.startswith("dm-"):

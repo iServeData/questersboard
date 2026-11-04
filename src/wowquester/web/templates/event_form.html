@@ -5,7 +5,7 @@
 <div class="section-head"><h1>{{ "Edit event" if editing else "Plan an event" }}</h1></div>
 {% if editing and ev.state == "draft" %}<p class="caveat"><strong>This is a draft.</strong> Only hosts can see it, and nothing is posted to Discord until you publish it. Use <strong>Save and publish</strong> below, or <strong>Publish</strong> on the event page.</p>{% endif %}
 {% if not editing %}<p class="note">New events start as a <strong>draft</strong>: drafts reserve nothing and nobody else can see them. Publishing checks the WoW schedule (at most {{ cfg.max_simultaneous }} WoW event{{ "s" if cfg.max_simultaneous != 1 }} at once) and posts to Discord.</p>{% endif %}
-<form method="post" class="wq-form panel" action="{{ mp }}/events/{{ ev.public_id ~ '/edit' if editing else 'new' }}">
+<form method="post" enctype="multipart/form-data" class="wq-form panel" action="{{ mp }}/events/{{ ev.public_id ~ '/edit' if editing else 'new' }}">
   {{ csrf_field() }}
   <fieldset><legend>Game</legend>
     <label>Edition
@@ -30,9 +30,28 @@
       <input name="location" list="wq-locations" data-autocomplete="location" maxlength="200" value="{{ ev.activity_location.label if editing and ev.activity_location else '' }}" autocomplete="off">
       <datalist id="wq-locations"></datalist>
       <span class="note" data-autocomplete-status>Free text always works. Suggestions appear only where Blizzard data is available for this edition.</span></label>
+    {% for k, ed in editions.items() %}
+    <label data-for-edition="{{ k }}">Difficulty <span class="note">(optional)</span>
+      <select name="difficulty"><option value="">Not set</option>{% for d in ed.difficulties %}<option value="{{ d }}"{% if editing and ev.difficulty == d %} selected{% endif %}>{{ d }}</option>{% endfor %}</select></label>
+    {% endfor %}
+    <div class="wq-row">
+      <label>Lowest level <input type="number" name="level_min" min="1" max="{{ max_level }}" value="{{ ev.level_min or '' if editing else '' }}"></label>
+      <label>Highest level <input type="number" name="level_max" min="1" max="{{ max_level }}" value="{{ ev.level_max or '' if editing else '' }}"></label>
+    </div>
+    <p class="note" data-level-hint></p>
     <label>Meet at <input name="muster" maxlength="200" value="{{ ev.muster_location.label if editing and ev.muster_location else '' }}"></label>
     <label>Description <textarea name="description" maxlength="2000" rows="4">{{ ev.description if editing else '' }}</textarea></label>
+    <label>Objective <span class="note">(what the group sets out to do; shown on the post and used as the plan in the chronicle story)</span>
+      <textarea name="objective" maxlength="500" rows="2">{{ ev.objective if editing else '' }}</textarea></label>
     <label>Who can join <input name="eligibility" maxlength="500" value="{{ ev.eligibility if editing else '' }}" placeholder="e.g. level 18+, voice for raids"></label>
+    {% if host_chars %}
+    <label>Hosted by <span class="note">(the character shown on the post)</span>
+      <select name="host_character_id"><option value="">Don't show a host</option>{% for c in host_chars %}<option value="{{ c.id }}"{% if (editing and ev.host_character_id == c.id) or (not editing and loop.first) %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+    {% endif %}
+    <label>Cover art <span class="note">(optional PNG, JPEG or WebP, up to {{ (max_bytes / 1000000)|round(1) }} MB. Without one, the community's default art is used.)</span>
+      <input type="file" name="cover" accept="image/png,image/jpeg,image/webp"></label>
+    {% if editing and ev.cover_image %}<p><img class="wq-cover-thumb" src="{{ cover_url }}" alt="Current cover art" width="240"></p>
+    <label><input type="checkbox" name="remove_cover" value="1"> Remove this cover (use the default art)</label>{% endif %}
   </fieldset>
 
   <fieldset><legend>When</legend>

@@ -3,7 +3,8 @@
 {% block content %}
 <div class="section-head"><span class="label"><span class="num">{{ ev.activity_type|upper }}</span> // {{ ed.name }}{% if ev.ruleset %} · {{ ed.ruleset_label(ev.ruleset) }}{% endif %}{% if ev.realm_slug %} · {{ ev.realm_slug }}{% endif %}{% if ev.faction %} · {{ ev.faction|title }}{% endif %}</span>
   <h1>{{ ev.title }}</h1></div>
-<p>{{ state_chip(ev.state) }}{% if ev.exclusive %} <span class="status-chip">Exclusive</span>{% endif %}</p>
+{% if cover_url %}<div class="wq-cover wq-cover-{{ ev.faction or 'any' }}"><img src="{{ cover_url }}" alt="" loading="lazy"></div>{% endif %}
+<p>{{ state_chip(ev.state) }}{% if ev.exclusive %} <span class="status-chip">Exclusive</span>{% endif %}{% if difficulty_line %} <strong class="wq-difficulty">{{ difficulty_line }}</strong>{% endif %}</p>
 <div class="wq-grid">
 <section>
   <ul class="facts">
@@ -13,8 +14,11 @@
     {% if ev.muster_location.label %}<li><span>Meet at</span>{{ ev.muster_location.label }}</li>{% endif %}
     <li><span>Signups</span>{{ "Hosts approve each signup" if ev.signup_policy == "approval" else "Open" }}{% if ev.participant_limit %} · max {{ ev.participant_limit }}{% endif %}</li>
     {% if ev.eligibility %}<li><span>Who can join</span>{{ ev.eligibility }}</li>{% endif %}
+    {% if host_name %}<li><span>Hosted by</span>{{ host_name }}</li>{% endif %}
+    {% if thread_url and (mine or show_names) %}<li><span>Event chat</span><a href="{{ thread_url }}" rel="noopener">Open the thread in Discord</a></li>{% endif %}
   </ul>
   {% if ev.description %}<p class="wq-desc">{{ ev.description }}</p>{% endif %}
+  {% if ev.objective %}<h2 class="sub">Objective</h2><p class="wq-desc">{{ ev.objective }}</p>{% endif %}
   {% if ev.state == "cancelled" and ev.cancelled_reason %}<p class="caveat">Cancelled: {{ ev.cancelled_reason }}</p>{% endif %}
 
   <h2 class="sub">Roster</h2>

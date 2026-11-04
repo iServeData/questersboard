@@ -176,7 +176,25 @@
   });
   // Location autocomplete from the reference catalog (free text always allowed).
   document.querySelectorAll("input[data-autocomplete]").forEach(function (input) {
-    var list = document.getElementById(input.getAttribute("list")), timer;
+    var list = document.getElementById(input.getAttribute("list")), timer, found = [];
+    // When the typed place matches a Blizzard dungeon/raid, mark difficulties it doesn't offer and
+    // suggest its minimum level. Nothing is forced: organizers can still pick and type anything valid.
+    function hint() {
+      var o = found.filter(function (x) { return x.label.toLowerCase() === input.value.trim().toLowerCase(); })[0];
+      input.form.querySelectorAll("select[name=difficulty]").forEach(function (sel) {
+        Array.prototype.forEach.call(sel.options, function (op) {
+          if (!op.value) return;
+          var base = op.getAttribute("data-name") || op.textContent;
+          op.setAttribute("data-name", base);
+          var off = o && o.modes && o.modes.indexOf(base) < 0;
+          op.textContent = off ? base + " · not offered here" : base;
+        });
+      });
+      var lv = input.form.querySelector("[data-level-hint]"), min = input.form.querySelector("input[name=level_min]");
+      if (lv) lv.textContent = o && o.minimum_level ? "Blizzard's dungeon journal suggests level " + o.minimum_level + "+." : "";
+      if (o && o.minimum_level && min && !min.value) min.value = o.minimum_level;
+    }
+    input.addEventListener("change", hint);
     var base = (document.querySelector('link[href$="/static/wowquester.css"]') || {}).href || "";
     var api = base.replace(/\/static\/wowquester\.css.*$/, "/api/options");
     input.addEventListener("input", function () {
@@ -184,12 +202,14 @@
       timer = setTimeout(function () {
         var ed = input.form.querySelector("[data-edition-select]");
         if (!ed || input.value.length < 2) return;
-        fetch(api + "?kind=zone&edition=" + encodeURIComponent(ed.value) + "&q=" + encodeURIComponent(input.value),
+        fetch(api + "?kind=location&edition=" + encodeURIComponent(ed.value) + "&q=" + encodeURIComponent(input.value),
               { headers: { Accept: "application/json" }, credentials: "same-origin" })
           .then(function (r) { return r.ok ? r.json() : { items: [] }; })
           .then(function (j) {
             list.textContent = "";
-            (j.items || []).forEach(function (o) { var op = document.createElement("option"); op.value = o.label; if (o.parent) { op.label = o.parent; } list.appendChild(op); });
+            found = j.items || [];
+            found.forEach(function (o) { var op = document.createElement("option"); op.value = o.label; if (o.parent) { op.label = o.parent; } list.appendChild(op); });
+            hint();
           }).catch(function () {});
       }, 250);
     });

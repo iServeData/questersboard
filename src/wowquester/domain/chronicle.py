@@ -57,7 +57,9 @@ def ensure_draft(s: Session, cfg: Config, ev: Event, author_id: int | None = Non
     e = ChronicleEntry(event_id=ev.id, slug=slug, author_id=author_id, state="draft")
     s.add(e)
     s.flush()
-    rev = ChronicleRevision(entry_id=e.id, number=1, title=ev.title, outcome="unknown", created_by=author_id)
+    # The event's objective becomes "The plan"; the author edits it like any other answer.
+    rev = ChronicleRevision(entry_id=e.id, number=1, title=ev.title, attempted=(ev.objective or "")[:2000],
+                            outcome="unknown", created_by=author_id)
     s.add(rev)
     s.flush()
     e.working_revision_id = rev.id
@@ -467,6 +469,25 @@ def remove_upload(s: Session, cfg: Config, actor: Actor, upload_id: int) -> None
     if e.published_revision_id:
         projections.refresh_chronicle(s, cfg, e)
     audit.record(s, actor, "chronicle.remove_upload", "chronicle", e.id, upload=str(u.public_id))
+
+
+def set_banner(s: Session, cfg: Config, actor: Actor, entry_id: int, upload_id: int | None) -> None:
+    """Use one of this story's screenshots as the page banner (None = back to the event's cover art).
+
+    Only cleared screenshots appear publicly, so an uncleared banner shows the event art until it's cleared.
+    """
+    require_member(cfg, actor)
+    actor = ensure_member(s, actor)
+    e = get(s, entry_id, lock=True)
+    _require_edit(s, cfg, actor, e)
+    if upload_id is not None:
+        u = s.get(ChronicleUpload, upload_id)
+        if u is None or u.removed_at or u.entry_id != e.id:
+            raise NotFound("Screenshot not found.")
+    e.banner_upload_id = upload_id
+    if e.published_revision_id:
+        projections.refresh_chronicle(s, cfg, e)
+    audit.record(s, actor, "chronicle.banner", "chronicle", e.id, upload=upload_id)
 
 
 # --------------------------------------------------------------------------- AI wording

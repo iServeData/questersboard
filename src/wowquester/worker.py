@@ -20,7 +20,7 @@ import threading
 import time
 from datetime import timedelta
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from .config import ConfigError, ConfigHolder, load
@@ -46,6 +46,16 @@ def backoff(attempts: int) -> timedelta:
 def log_config(s: Session, service: str, cfg, sections) -> None:
     s.add(ConfigChange(service=service, sections=list(sections),
                        hashes={k: cfg.section_hashes.get(k, "") for k in sections}, actor="file"))
+
+
+def _open_spots(s: Session, ev: Event) -> str:
+    """" Healer spot still open." style note for thread reminders (roles only; counts, no names)."""
+    if not ev.roles:
+        return ""
+    taken = dict(s.execute(select(Signup.role_key, func.count()).where(
+        Signup.event_id == ev.id, Signup.state == "confirmed").group_by(Signup.role_key)).all())
+    open_ = [f"{r.quantity - taken.get(r.key, 0)} {r.label}" for r in ev.roles if r.quantity > taken.get(r.key, 0)]
+    return f" Still open: {', '.join(open_)}." if open_ else " Every role is filled."
 
 
 class Worker:
@@ -143,6 +153,8 @@ class Worker:
             return
         rest = self._need_rest()
         payload = event_message(s, self.cfg, ev)
+        if self.cfg["event_threads"]["enabled"]:
+            outbox.enqueue(s, "discord.sync_thread", str(ev.id), {"event_id": ev.id})
         if ev.discord_message_id:
             try:
                 rest.edit(channel, ev.discord_message_id, payload)
@@ -152,6 +164,66 @@ class Worker:
         mid = rest.post(channel, payload)
         s.execute(text("UPDATE events SET discord_message_id = :m, discord_channel_id = :c WHERE id = :id"),
                   {"m": mid, "c": channel, "id": ev.id})
+
+    # ------------------------------------------------------------------ event chat threads
+    def job_discord_sync_thread(self, s: Session, p: dict) -> None:
+        """One chat thread per event ([event_threads] enabled = true).
+
+        Opened once the post exists; signed-up players (confirmed, tentative, waitlisted) and hosts are
+        added, people who leave are removed. When the event ends or is cancelled, the thread is locked
+        and archived archive_after_hours later. Runs after every post render, so it self-heals.
+        """
+        th = self.cfg["event_threads"]
+        ev = s.get(Event, p["event_id"], with_for_update=True)
+        if not th["enabled"] or ev is None or not ev.discord_channel_id:
+            return
+        rest = self._need_rest()
+        if ev.state in ("completed", "cancelled"):
+            if ev.discord_thread_id:
+                ended = (ev.actual_end or ev.end_at) if ev.state == "completed" else now()
+                outbox.enqueue(s, "discord.close_thread", str(ev.id), {"event_id": ev.id},
+                               run_after=max(now(), ended + timedelta(hours=th["archive_after_hours"])))
+            return
+        if ev.state not in ("scheduled", "in_progress"):
+            return
+        if not ev.discord_thread_id:
+            name = ev.title[:100 - len(th["name_suffix"])] + th["name_suffix"]
+            ev.discord_thread_id = rest.start_thread(ev.discord_channel_id, ev.discord_message_id, name,
+                                                     th["private"])
+            ev.discord_thread_members = []
+            s.flush()
+            rest.post(ev.discord_thread_id, {"content": (
+                f"Chat for people signed up to **{ev.title}**. Plan here so the main channels stay quiet. "
+                f"Joining the event adds you; leaving removes you. This thread closes "
+                f"{th['archive_after_hours']} hours after the event.")})
+        want = set(s.scalars(select(Signup.member_id).where(
+            Signup.event_id == ev.id, Signup.state.in_(("confirmed", "tentative", "waitlisted"))))) | \
+            self._managers(s, ev)
+        ids = dict(s.execute(select(Member.id, Member.discord_id).where(
+            Member.id.in_(want | set(ev.discord_thread_members or [])), Member.erased_at.is_(None))).all())
+        have = set(ev.discord_thread_members or [])
+        for mid in sorted(want - have):
+            if mid in ids:
+                try:
+                    rest.add_thread_member(ev.discord_thread_id, ids[mid])
+                except dr.Gone:
+                    log.info("member %s not reachable for the thread; skipped", mid)
+        for mid in sorted(have - want):
+            if mid in ids:
+                rest.remove_thread_member(ev.discord_thread_id, ids[mid])
+        ev.discord_thread_members = sorted(m for m in want if m in ids)
+
+    def job_discord_close_thread(self, s: Session, p: dict) -> None:
+        ev = s.get(Event, p["event_id"])
+        if ev is None or not ev.discord_thread_id or ev.state not in ("completed", "cancelled"):
+            return
+        self._need_rest().close_thread(ev.discord_thread_id)
+
+    def job_discord_thread_message(self, s: Session, p: dict) -> None:
+        ev = s.get(Event, p["event_id"])
+        if ev is None or not ev.discord_thread_id or ev.state not in ("scheduled", "in_progress"):
+            return
+        self._need_rest().post(ev.discord_thread_id, {"content": p["content"][:1900]})
 
     def job_dm(self, s: Session, p: dict) -> None:
         if not self.cfg["discord"].get("dm_enabled", True):
@@ -311,6 +383,14 @@ class Worker:
                     due = ev.start_at - timedelta(minutes=off)
                     if not (due <= now() < due + timedelta(minutes=15)):
                         continue
+                    th = self.cfg["event_threads"]
+                    tkey = f"remind:{ev.id}:{off}:{int(ev.start_at.timestamp())}"
+                    if th["enabled"] and th["reminders_in_thread"] and ev.discord_thread_id and not s.scalar(
+                            text("SELECT 1 FROM outbox WHERE kind = 'discord.thread_message' AND key = :k"),
+                            {"k": tkey}):
+                        outbox.enqueue(s, "discord.thread_message", tkey,
+                                       {"event_id": ev.id, "content": f"**{ev.title}** starts "
+                                        f"{discord_ts(ev.start_at, 'R')}." + _open_spots(s, ev)})
                     people = set(s.scalars(select(Signup.member_id).where(
                         Signup.event_id == ev.id, Signup.state.in_(("confirmed", "tentative"))))) | \
                         self._managers(s, ev)

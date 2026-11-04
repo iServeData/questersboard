@@ -27,8 +27,10 @@
     <h2 class="sub">Screenshots</h2>
     {% for u in ups %}<figure class="shot"><img src="{{ mp }}/uploads/{{ u.public_id }}.webp" alt="{{ u.caption }}" width="{{ u.width }}" height="{{ u.height }}" loading="lazy"><figcaption class="note">{{ u.caption }} · {{ "cleared" if u.cleared_at else "not cleared" }}</figcaption>
       {% if can('chronicle_reviewer') or can('trusted_author') %}<form method="post" action="{{ mp }}/chronicle/{{ e.id }}/clear" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ u.id }}"><input type="hidden" name="cleared" value="{{ 0 if u.cleared_at else 1 }}"><button class="linkish" type="submit">{{ "Un-clear" if u.cleared_at else "Shows no opted-out player: clear" }}</button></form>{% endif %}
+      <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/banner" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ '' if e.banner_upload_id == u.id else u.id }}"><button class="linkish" type="submit">{{ "Stop using as banner" if e.banner_upload_id == u.id else "Use as banner" }}</button></form>
       <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/remove_upload" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ u.id }}"><button class="linkish" type="submit">Remove</button></form></figure>
     {% endfor %}
+    <p class="note">Banner: {{ "your chosen screenshot (shown once it's cleared)" if e.banner_upload_id else "the event's cover art" }}.</p>
     <form method="post" enctype="multipart/form-data" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/upload">{{ csrf_field() }}
       <label>Image (PNG, JPEG or WebP) <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required></label>
       <label>Caption <input name="caption" maxlength="200"></label>

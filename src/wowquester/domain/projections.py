@@ -16,7 +16,8 @@ from sqlalchemy.orm import Session
 from ..config import Config
 from ..models import (ChronicleEntry, ChronicleRevision, ChronicleUpload, Event, EventCohost, PublicChronicle, PublicEvent,
                       Signup)
-from . import privacy, render
+from . import covers, privacy, render
+from .eventtext import difficulty_line
 from .timeutil import now
 
 
@@ -87,12 +88,23 @@ def refresh_chronicle(s: Session, cfg: Config, entry: ChronicleEntry) -> None:
                                                              ChronicleUpload.cleared_at.is_not(None),
                                                              ChronicleUpload.removed_at.is_(None))
                                .order_by(ChronicleUpload.id))]
+    banner = None
+    for e, _ in revs:                              # the host's chosen screenshot first, then others'
+        u = s.get(ChronicleUpload, e.banner_upload_id) if e.banner_upload_id else None
+        if u is not None and u.cleared_at is not None and u.removed_at is None:
+            banner = {"url": f"{cfg['chronicle']['public_path'].rstrip('/')}/media/{u.public_id}.{_ext(u.mime)}",
+                      "width": u.width, "height": u.height}
+            break
+    if banner is None:
+        cover = covers.url(cfg, ev)
+        banner = {"url": cover} if cover else None
     plist = [{"label": p.public_label(cfg), "named": p.consent,
               "role": p.role_label or "", "class": p.class_key if p.consent else ""} for p in people]
     vals = dict(public_id=anchor.public_id, slug=anchor.slug, title=privacy.redact(title_rev.title, everyone, cfg),
                 summary=summary, body_html="".join(parts), activity_type=ev.activity_type,
                 edition_name=cfg.edition(ev.edition).name, event_date=ev.actual_start or ev.start_at,
-                outcome=outcome, participants=plist, images=imgs,
+                outcome=outcome, participants=plist, images=imgs, banner=banner,
+                details=difficulty_line(ev)[:120],
                 ai_assisted=any(r.ai_assisted for _, r in revs),
                 published_at=min((e.first_published_at or now()) for e in live), updated_at=now())
     s.execute(insert(PublicChronicle).values(**vals).on_conflict_do_update(

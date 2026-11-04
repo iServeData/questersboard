@@ -17,10 +17,10 @@ from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from ..config import Config
-from ..domain import calendar, status
+from ..domain import calendar, covers, status
 from ..domain.errors import NotFound
 from ..domain.timeutil import now
 from ..models import PublicChronicle, PublicEvent
@@ -101,14 +101,23 @@ def router(cfg: Config) -> APIRouter:
         w = web(request)
         with w.db.tx() as s:
             # only images that are part of a published projection are served
-            hit = s.scalar(select(PublicChronicle.public_id).where(
-                PublicChronicle.images.contains([{"url": url}])).limit(1))
+            hit = s.scalar(select(PublicChronicle.public_id).where(or_(
+                PublicChronicle.images.contains([{"url": url}]),
+                PublicChronicle.banner["url"].astext == url)).limit(1))
         if hit is None:
             raise NotFound("No such image.")
         f = Path(w.cfg["uploads"]["storage_dir"]) / f"{uuid.UUID(m.group(1))}.webp"
         if not f.is_file():
             raise NotFound("No such image.")
         return FileResponse(f, media_type="image/webp", headers=_cache(w.cfg))
+
+    @r.get(mp + "/covers/{name}")
+    def cover(request: Request, name: str):
+        """Event cover art. Public so Discord can show it on the event post; covers aren't personal data."""
+        hit = covers.file_for(web(request).cfg, name)
+        if hit is None:
+            raise NotFound("No such image.")
+        return FileResponse(hit[0], media_type=hit[1], headers=_cache(web(request).cfg))
 
     def _stories(request, limit=None):
         w = web(request)

@@ -88,6 +88,33 @@ class DiscordRest:
         except Gone:
             pass
 
+    # Event chat threads. UNVERIFIED live: needs Create Public Threads (or Create Private Threads),
+    # Send Messages in Threads and Manage Threads on the events channel.
+    def start_thread(self, channel_id: str, message_id: str | None, name: str, private: bool) -> str:
+        """A public thread attached to the event post, or a private one (invite-only) in the same channel."""
+        if private or not message_id:
+            body = {"name": name[:100], "type": 12 if private else 11, "invitable": False,
+                    "auto_archive_duration": 10080}
+            return self._call("POST", f"/channels/{channel_id}/threads", body)["id"]
+        return self._call("POST", f"/channels/{channel_id}/messages/{message_id}/threads",
+                          {"name": name[:100], "auto_archive_duration": 10080})["id"]
+
+    def add_thread_member(self, thread_id: str, user_id: str) -> None:
+        self._call("PUT", f"/channels/{thread_id}/thread-members/{user_id}")
+
+    def remove_thread_member(self, thread_id: str, user_id: str) -> None:
+        try:
+            self._call("DELETE", f"/channels/{thread_id}/thread-members/{user_id}")
+        except Gone:
+            pass
+
+    def close_thread(self, thread_id: str) -> None:
+        """Lock and archive: people can still read it, nobody can post."""
+        try:
+            self._call("PATCH", f"/channels/{thread_id}", {"archived": True, "locked": True})
+        except Gone:
+            pass
+
     def dm(self, user_id: str, payload: dict) -> str:
         ch = self._call("POST", "/users/@me/channels", {"recipient_id": user_id})
         return self.post(ch["id"], payload)

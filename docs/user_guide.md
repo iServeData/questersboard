@@ -75,14 +75,18 @@ community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
 
 1. **Plan an event**: title, WoW edition, ruleset (Forever) or realm (Retail), faction, activity, start/end in
    your time zone, optional roles (Tank / Healer / Damage or custom, with counts), open or approval signup,
-   optional repeat. It is saved as a draft: drafts hold no time slot. Group sizes are enforced: a quest,
+   optional repeat. Optional extras: difficulty and level range, an **Objective** (it also starts the
+   chronicle's "The plan"), **Hosted by** (which of your characters is shown on the post) and **Cover art**
+   (otherwise the community's default art is used). It is saved as a draft: drafts hold no time slot. Group sizes are enforced: a quest,
    dungeon or arena holds 5, a raid or battleground 40, and the role counts can't add up to more than the
    participant limit. **Co-hosts** are typed as Discord usernames separated by commas
    (`@questgiver, @healbot`); a numeric Discord ID also works. A name is found if that person has signed in
    to WoWQuester once (or, when the bot can search the server, from Discord).
 2. **Publish**: WoWQuester checks the community limit (by default only one WoW event at a time) and that
    you aren't already in another event then. If it clashes, it says with what. On publish, one post appears
-   in the event channel with Join / Tentative / Leave buttons; it updates itself.
+   in the event channel with Join / Tentative / Leave buttons; it updates itself. Its side colour is
+   the event's faction. When the community turns on event chat, a thread opens for the people signed up;
+   joining adds you and leaving removes you, and it closes a day after the event.
 3. **Before the event**: approve, waitlist or reject pending signups; change someone's role; add co-hosts.
    Editing the time re-checks everything and asks players to reconfirm. Changing the edition, ruleset,
    faction or realm first shows which signed-up characters would no longer fit; saving asks only those
