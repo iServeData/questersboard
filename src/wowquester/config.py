@@ -326,6 +326,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
         if v and not COVER_NAME.match(str(v)):
             raise ConfigError(f"[event_posts] {k}: cover names are files in the covers folder, "
                               "like default_cover.webp (letters, digits, - and _ ; png, jpg or webp)")
+    if not isinstance(ep.setdefault("field_spacing", True), bool):
+        raise ConfigError("[event_posts] field_spacing must be true or false")
     th = r.setdefault("event_threads", {})
     th.setdefault("enabled", False)
     th.setdefault("private", False)

@@ -95,6 +95,11 @@ def test_post_layout_matches_the_mock(seeded, cfg):
         tent = next(f for f in e["fields"] if f["name"].startswith("Tentative"))
         assert "Vashka" in tent["value"]
         assert e["footer"]["text"].startswith("Hosted by Grimtusk · ")
+        assert all(f["value"].endswith("\n\u200b") for f in e["fields"][:-1])      # blank line between headings
+        assert not e["fields"][-1]["value"].endswith("\u200b")
+        tight = make_cfg(event_posts={"field_spacing": False, "default_cover": "default_cover.webp"})
+        assert not any(f["value"].endswith("\u200b")
+                       for f in render.event_message(s, tight, ev)["embeds"][0]["fields"])
         assert e["image"]["url"] == "https://community.example.org/wow/quester/covers/default_cover.webp"
         assert e["author"]["name"].endswith("· Horde")
         ev.faction = "alliance"

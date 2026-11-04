@@ -1,4 +1,4 @@
-WoWQuester test run 2026-11-04T18:44Z
+WoWQuester test run 2026-11-04T19:29Z
 Python 3.12.15, PostgreSQL 18.6 (disposable local cluster); Discord/Blizzard/AI replaced by FIXTURE fakes
 
 tests/test_bot.py::test_command_payload_shape PASSED                     [  0%]
@@ -245,4 +245,4 @@ tests/test_worker.py::test_reminders_once_and_rescheduled_again PASSED   [ 99%]
 tests/test_worker.py::test_overrun_nudged_once_and_not_auto_extended PASSED [ 99%]
 tests/test_worker.py::test_coalescing_keeps_one_pending_job PASSED       [100%]
 
-======================= 243 passed, 2 warnings in 46.86s =======================
+======================= 243 passed, 2 warnings in 46.81s =======================

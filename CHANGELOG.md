@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+No database migration.
+
+- **Event posts**: a blank line between headings (Time, Duration, Meet at, Going, ...).
+  `[event_posts] field_spacing = false` keeps the tight layout. Applies to new edits; run
+  `wowquester-admin refresh-posts --yes` to re-space current posts.
+
+## 2026-11-04 (event posts)
+
 Needs database migration `0004` (adds columns only; reversible). Host config: add `[event_posts]` and,
 when threads are approved, `[event_threads]`; `difficulties` per edition is optional.
 

@@ -65,6 +65,7 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   Retail `["Normal", "Heroic", "Mythic", "Mythic+", "Raid Finder"]`. Optional; default Normal only. When a
   Blizzard import has read an instance's modes, the form marks the ones that instance doesn't offer.
 - **Event posts** (`[event_posts]`, live): `faction_colors` (hex per `horde`, `alliance`, `any`),
+  `field_spacing` (default true: a blank line between the post's headings),
   `default_cover` (a file in `<[uploads] storage_dir>/covers`, installed with
   `wowquester-admin default-cover FILE`) and optional `activity_covers` per activity type. A missing file
   just means no image.

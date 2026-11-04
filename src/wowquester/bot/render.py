@@ -142,6 +142,10 @@ def event_message(s: Session, cfg: Config, ev: Event) -> dict:
             extra.append(f"{label}: {n}")
     if extra:
         fields.append({"name": "Also", "value": " · ".join(extra), "inline": False})
+    if cfg["event_posts"].get("field_spacing", True):
+        # Discord stacks fields tightly; a trailing invisible line gives each heading room to breathe.
+        for f in fields[:-1]:
+            f["value"] = f["value"][:1022] + "\n\u200b"
     policy = "Open signup" if ev.signup_policy == "open" else "Organizer approves signups"
     host = s.get(Character, ev.host_character_id) if ev.host_character_id else None
     foot = ([f"Hosted by {host.name}"] if host else []) + [STATE_LABEL.get(ev.state, ev.state), policy,

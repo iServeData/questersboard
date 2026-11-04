@@ -91,6 +91,7 @@ faction_colors = { horde = "#C41E3A", alliance = "#1F6FD8", any = "#C9A227" }
 # A missing file is skipped (the post just has no image).
 default_cover = "default_cover.webp"
 activity_covers = {}                          # optional per type, e.g. { raid = "raid_cover.webp" }
+field_spacing = true                          # a blank line between the post's headings (Time, Duration, ...)
 
 [event_threads]                               # restart. One Discord chat thread per event (off until approved)
 enabled = false                               # needs Create Public Threads, Send Messages in Threads, Manage Threads
