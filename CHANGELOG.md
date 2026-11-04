@@ -4,6 +4,7 @@
 
 No database migration. Host config: set Retail's `catalog = "retail"`; `common_timezones` is optional.
 
+- python-dateutil allowed up to 4.x (was <3), replacing Dependabot PR #1. WoWQuester only uses its recurrence rules; the full suite passes on 2.9, 3.0 and 4.0. requirements.lock still pins 2.9.0.post0, so installs are unchanged until the lock is refreshed. Dependabot PRs now target prototype.
 - **Race and class are real dropdowns** (iPad/iPhone): Safari's typed-suggestion lists only showed
   entries matching what was already in the field, so after the first pick no list appeared. Changing
   the race now clears a class that race can't be, and says so. "Other (type it)" keeps free text.
