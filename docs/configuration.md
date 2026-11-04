@@ -44,7 +44,9 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   `trusted_author`, `admin`. Removing a role in Discord takes effect at the member's next action;
   web sessions re-check roles (see `docs/permissions_data_model.md`).
 - **Scheduling**: `max_simultaneous_wow_events` (default 1), duration limits, how far ahead,
-  overrun grace, `reschedule_requires_reconfirm`, maximum recurrence count.
+  overrun grace, `reschedule_requires_reconfirm`, `end_change_notice_only_minutes` (default 0; e.g. 30
+  means moving only the end time by up to 30 minutes sends a notice without asking for reconfirmation),
+  maximum recurrence count.
 - **Time zones** (`[community]`): `default_timezone` (IANA name) and optional `common_timezones`, the
   zones listed first in the time zone pickers. The full list is the server's IANA tzdata (no API calls).
 - **Editions** (`[[editions]]`): name, `uses_realms`, rulesets, regions, factions, max level, catalog,

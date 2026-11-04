@@ -47,10 +47,13 @@
     {% if mine %}
       <p>You're <strong>{{ mine.state }}</strong> as {{ mine.character.name }}{% if mine.role_key %} ({{ (ev.roles|selectattr("key", "equalto", mine.role_key)|map(attribute="label")|first) or mine.role_key }}){% elif ev.roles %} with no role picked yet{% endif %}.</p>
       {% if ev.roles and mine.role_key not in role_keys %}<p class="caveat">Pick a role below so the host can balance the group.</p>{% endif %}
-      {% if mine.needs_reconfirm %}<p class="caveat">This event changed. Please reconfirm or leave.</p>
-      <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/reconfirm">{{ csrf_field() }}
+      {% set mine_fits = mine.character_id in fit|map(attribute="id")|list %}
+      {% if mine.needs_reconfirm %}{% if mine_fits %}<p class="caveat">This event changed. Please reconfirm or leave.</p>
+      {% else %}<p class="caveat">This event is now for {{ requirement }}, so {{ mine.character.name }} no longer fits. {% if fit %}Pick another character to stay signed up, or leave.{% else %}None of your characters fit; add one on the Characters page, or leave.{% endif %}</p>{% endif %}
+      {% if mine_fits or fit %}<form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/reconfirm">{{ csrf_field() }}
+        {% if not mine_fits %}<label>Character <select name="character_id" required>{% for c in fit %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>{% endif %}
         {% if ev.roles and mine.role_key not in role_keys %}<label>Role <select name="role_key" required>{{ role_options() }}</select> {{ role_hint() }}</label>{% endif %}
-        <button class="btn" type="submit">Reconfirm</button></form>{% endif %}
+        <button class="btn" type="submit">Reconfirm</button></form>{% endif %}{% endif %}
       <div class="btns">
       {% if mine.state != "tentative" %}<form method="post" action="{{ mp }}/events/{{ ev.public_id }}/tentative">{{ csrf_field() }}<button class="btn ghost" type="submit">Switch to tentative</button></form>{% endif %}
       <form method="post" action="{{ mp }}/events/{{ ev.public_id }}/leave">{{ csrf_field() }}<button class="btn ghost" type="submit">Leave</button></form>

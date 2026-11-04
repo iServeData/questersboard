@@ -27,6 +27,7 @@ from .config import ConfigError, ConfigHolder, load
 from .db import Database, make_engine
 from .domain import outbox, scheduling, status
 from .domain.chronicle import coauthor_ids
+from .domain.signups import event_requirement
 from .domain.timeutil import discord_ts, fmt_local, now
 from .integrations import discord_rest as dr
 from .models import ChronicleEntry, ConfigChange, Event, EventCohost, Member, Signup
@@ -179,15 +180,26 @@ class Worker:
         if "cancelled" in p.get("changes", []):
             msg = f"**{ev.title}** on {fmt_local(ev.start_at, ev.timezone)} was cancelled."
         else:
-            msg = (f"**{ev.title}** changed ({', '.join(p.get('changes', []))}). It now starts "
-                   f"{discord_ts(ev.start_at, 'F')}.")
+            words = {"time": "time", "location": "location", "requirements": "who can join"}
+            msg = (f"**{ev.title}** changed ({', '.join(words.get(c, c) for c in p.get('changes', []))}). "
+                   f"It now starts {discord_ts(ev.start_at, 'F')}.")
+            if "requirements" in p.get("changes", []):
+                msg += f" It's now for {event_requirement(self.cfg, ev)}."
+            repick = set(p.get("repick", []))
+            for mid in repick:
+                self._dm(s, [mid], f"repick:{ev.id}", ev.version,
+                         msg + " Your signed-up character no longer fits, so you're now tentative. "
+                         f"Pick another character to stay signed up, or leave: "
+                         f"{self._url('events', str(ev.public_id))}")
+            people -= repick
             bumped = set(p.get("bumped", []))
             for mid in bumped:
                 self._dm(s, [mid], f"bumped:{ev.id}", ev.version,
                          msg + " You have another WoW event at the new time, so you're now tentative. "
                          f"Reconfirm or leave: {self._url('events', str(ev.public_id))}")
             people -= bumped
-            if self.cfg["scheduling"].get("reschedule_requires_reconfirm", True) and "time" in p.get("changes", []):
+            if p.get("reconfirm", self.cfg["scheduling"].get("reschedule_requires_reconfirm", True)
+                     and "time" in p.get("changes", [])):
                 msg += f" Please reconfirm: {self._url('events', str(ev.public_id))}"
         self._dm(s, people, f"change:{ev.id}", ev.version, msg)
 

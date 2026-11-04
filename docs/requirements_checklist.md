@@ -48,6 +48,7 @@ Test file names refer to `tests/`.
 | Completion/cancel release reservations | Done, tested | `test_completion_and_cancel_release` |
 | Transactional enforcement under concurrency | Done, tested | `test_concurrent_publish_only_one_wins`, `test_concurrent_join_last_slot` |
 | Reschedule revalidates and requires reconfirmation | Done, tested | `test_reschedule_requires_reconfirm_and_bumps_conflicts` |
+| Requirement changes re-check characters; only misfits repick | Done, tested | `test_reconfirm_rules.py` |
 | Overruns never auto-extended; one nudge | Done, tested | `test_worker.py::test_overrun_nudged_once_and_not_auto_extended` |
 
 ## Signups and lifecycle

@@ -4,6 +4,12 @@
 
 No database migration. Host config: set Retail's `catalog = "retail"`; `common_timezones` is optional.
 
+- **Reconfirm only when needed.** A date, time or length change still asks everyone to reconfirm
+  (optional `[scheduling] end_change_notice_only_minutes`, default 0 = off, makes small end-only changes a
+  notice). An edition, ruleset, faction, realm or region change re-checks each signup's character: ones
+  that still fit are left alone and get a notice; ones that don't become tentative (their spot goes to the
+  next fitting waitlisted player) and are DMed to pick another character. The organizer sees who is
+  affected before saving. Changing only the faction now applies without resending the edition.
 - python-dateutil allowed up to 4.x (was <3), replacing Dependabot PR #1. WoWQuester only uses its recurrence rules; the full suite passes on 2.9, 3.0 and 4.0. requirements.lock still pins 2.9.0.post0, so installs are unchanged until the lock is refreshed. Dependabot PRs now target prototype.
 - **Race and class are real dropdowns** (iPad/iPhone): Safari's typed-suggestion lists only showed
   entries matching what was already in the field, so after the first pick no list appeared. Changing

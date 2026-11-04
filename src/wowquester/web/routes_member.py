@@ -381,6 +381,22 @@ def router(cfg: Config) -> APIRouter:
                 data.pop("start_at", None)
                 data.pop("end_at", None)
             shift = None if time_untouched else (form.get("start_time") or None)
+            if not form.get("confirm_fit"):
+                # Edition/ruleset/faction/realm changed: say whose character stops fitting before saving.
+                names = events.fit_impact(s, w.cfg, a, ev.id, data)
+                if names:
+                    n = len(names)
+                    keep = [(k, v) for k, v in form.multi_items() if k not in ("csrf", "confirm_fit")]
+                    return render(request, "message.html", {
+                        "title": "Before saving",
+                        "message": (f"With this change, {n} signed-up character{'s' if n != 1 else ''} won't fit "
+                                    f"the event any more. They'll be moved to tentative and asked by DM to pick "
+                                    f"another character. Everyone else stays signed up and gets a notice."),
+                        "confirm_list": names, "confirm_fields": keep,
+                        "confirm_action": f"{mp}/events/{public_id}/edit",
+                        "confirm_label": "Save and ask them",
+                        "back_url": f"{mp}/events/{public_id}/edit",
+                        "restore_action": f"{mp}/events/{public_id}/edit"}, status=409)
             if form.get("scope") == "future" and ev.series_id:
                 recurrence.edit_future(s, w.cfg, a, ev.id, {k: v for k, v in data.items()
                                                             if k not in ("start_at", "end_at")},
@@ -415,7 +431,8 @@ def router(cfg: Config) -> APIRouter:
             elif action == "leave":
                 signups.leave(s, c, a, ev.id)
             elif action == "reconfirm":
-                signups.reconfirm(s, c, a, ev.id, form.get("role_key") or None)
+                signups.reconfirm(s, c, a, ev.id, form.get("role_key") or None,
+                                  int(form["character_id"]) if form.get("character_id") else None)
             elif action == "change":
                 rec = form.get("recognition")
                 signups.change(s, c, a, ev.id, character_id=int(form["character_id"]) if form.get("character_id") else None,

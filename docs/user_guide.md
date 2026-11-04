@@ -43,6 +43,9 @@ Log in with Discord. WoWQuester only learns your Discord ID, username and displa
 - You can't be confirmed in two WoW events at the same time, whichever character you use.
 - If an event moves, you're asked to reconfirm. If the new time clashes with another event you're in,
   you're switched to tentative and told why.
+- If the organizer changes the edition, ruleset, faction or realm, characters that still fit stay
+  signed up and you just get a note. If yours no longer fits, you're moved to tentative and asked to
+  pick another character on the event page.
 - Reminders arrive by Discord DM at the times your community set.
 
 **Calendars.** "My events" → Personal calendar → "New private link" gives a calendar address for your
@@ -81,7 +84,9 @@ community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
    you aren't already in another event then. If it clashes, it says with what. On publish, one post appears
    in the event channel with Join / Tentative / Leave buttons; it updates itself.
 3. **Before the event**: approve, waitlist or reject pending signups; change someone's role; add co-hosts.
-   Editing the time re-checks everything and asks players to reconfirm. When a co-host (or the host) edits
+   Editing the time re-checks everything and asks players to reconfirm. Changing the edition, ruleset,
+   faction or realm first shows which signed-up characters would no longer fit; saving asks only those
+   players to pick another character. When a co-host (or the host) edits
    the event, the other hosts get a DM listing what changed. Adding roles to an event that people already
    joined asks them (by DM and on the event page) to pick one.
    Players see how many spots each role has left ("Tank · 1 of 1 taken") so they can pick another role to

@@ -98,6 +98,14 @@ def _active(s: Session, event_id: int, member_id: int) -> Signup | None:
                                          Signup.state.in_(ACTIVE)).with_for_update())
 
 
+def _require_fit(s: Session, cfg: Config, ev: Event, su: Signup) -> None:
+    """Confirming needs a character that fits the event as it is now (it may have changed since joining)."""
+    ch = s.get(Character, su.character_id)
+    if ch is not None and fit_problems(cfg, ev, ch):
+        raise Invalid(f"{ch.name} doesn't fit this event any more ({'; '.join(fit_problems(cfg, ev, ch))}). "
+                      "Pick another character first.")
+
+
 def _try_confirm(s: Session, ev: Event, su: Signup) -> None:
     """Atomic confirm: capacity trigger + member exclusion constraint, all or nothing."""
     def _do():
@@ -248,7 +256,8 @@ def change(s: Session, cfg: Config, actor: Actor, event_id: int, character_id: i
     return su
 
 
-def reconfirm(s: Session, cfg: Config, actor: Actor, event_id: int, role_key: str | None = None) -> Signup:
+def reconfirm(s: Session, cfg: Config, actor: Actor, event_id: int, role_key: str | None = None,
+              character_id: int | None = None) -> Signup:
     """After a reschedule or role change: confirmed people clear the flag; bumped/tentative people try to
     confirm again. If the event now has roles and this signup has none, a role must be picked."""
     require_member(cfg, actor)
@@ -256,6 +265,12 @@ def reconfirm(s: Session, cfg: Config, actor: Actor, event_id: int, role_key: st
     ev = get_event(s, event_id, lock=True)
     _open_for_signup(ev)
     su = _own_active(s, actor, event_id)
+    if character_id and character_id != su.character_id:
+        ch = s.get(Character, character_id)       # the event changed and the old character no longer fits
+        if ch is None:
+            raise NotFound("Character not found.")
+        _check_character(cfg, ev, ch, actor.member_id)
+        su.character_id = ch.id
     keys = {r.key for r in ev.roles}
     if keys and su.role_key not in keys:
         if not role_key:
@@ -265,6 +280,7 @@ def reconfirm(s: Session, cfg: Config, actor: Actor, event_id: int, role_key: st
             scheduling.guarded(s, lambda: setattr(su, "role_key", role_key))
         else:
             su.role_key = role_key
+    _require_fit(s, cfg, ev, su)
     if su.state == "confirmed":
         su.needs_reconfirm = False
     elif ev.signup_policy == "open" or su.state == "tentative" and su.needs_reconfirm:
@@ -303,6 +319,7 @@ def approve(s: Session, cfg: Config, actor: Actor, signup_id: int) -> Signup:
         raise InvalidTransition(f"A {su.state} signup can't be approved.")
     if ev.state not in ("scheduled", "in_progress"):
         raise InvalidTransition("This event isn't taking signups.")
+    _require_fit(s, cfg, ev, su)
     _try_confirm(s, ev, su)          # rechecks role/event capacity and the member's own time atomically
     su.decided_by = actor.member_id
     outbox.enqueue(s, "notify.signup_decision", f"{su.id}", {"signup_id": su.id, "decision": "confirmed"})
@@ -370,6 +387,9 @@ def promote_waitlist(s: Session, cfg: Config, ev: Event, role_key: str | None) -
         return None
     candidates.sort(key=lambda c: (c.role_key != role_key, c.created_at))
     for c in candidates:
+        ch = s.get(Character, c.character_id)
+        if ch is not None and fit_problems(cfg, ev, ch):
+            continue          # their character no longer fits; they were asked to pick another
         try:
             _try_confirm(s, ev, c)
         except Conflict:

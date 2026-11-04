@@ -232,6 +232,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     _positive(s.get("max_recurrence_occurrences", 26), "[scheduling] max_recurrence_occurrences")
     s.setdefault("late_join_default", False)
     s.setdefault("reschedule_requires_reconfirm", True)
+    _positive(s.setdefault("end_change_notice_only_minutes", 0),
+              "[scheduling] end_change_notice_only_minutes", 0)
 
     sg = r["signups"]
     if sg.get("default_policy") not in ("open", "approval"):

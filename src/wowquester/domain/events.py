@@ -9,7 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..config import Config
-from ..models import Attendance, Event, EventCohost, EventRole, Member, Signup
+from ..models import Attendance, Character, Event, EventCohost, EventRole, Member, Signup
 from . import audit, outbox, projections, scheduling
 from .actor import Actor
 from .errors import Invalid, InvalidTransition, NotFound, PermissionDenied
@@ -27,6 +27,8 @@ TRANSITIONS = {
 }
 KEY = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 ACTIVE_SIGNUP = ("pending", "confirmed", "tentative", "waitlisted")
+# Fields that decide which characters can join. Changing one re-checks every signup's character.
+ELIGIBILITY = ("edition", "region", "ruleset", "realm_slug", "faction")
 
 
 def get(s: Session, event_id: int, lock: bool = False) -> Event:
@@ -114,11 +116,12 @@ def _apply_fields(s: Session, cfg: Config, actor: Actor, ev: Event, data: dict, 
             ev.ruleset = data.get("ruleset") or ev.ruleset or ed.default_ruleset
             if ev.ruleset not in ed.rulesets:
                 raise Invalid(f"Ruleset must be one of {', '.join(ed.rulesets)}")
-        if data.get("faction") or creating:
-            f = data.get("faction") or ev.faction or ed.default_faction
-            if f and f not in ed.factions + ("any",):
-                raise Invalid("Unknown faction")
-            ev.faction = None if f == "any" else f
+    if data.get("faction") or creating:
+        ed = cfg.edition(ev.edition)
+        f = data.get("faction") or ev.faction or ed.default_faction
+        if f and f not in ed.factions + ("any",):
+            raise Invalid("Unknown faction")
+        ev.faction = None if f == "any" else f
     if "title" in data or creating:
         t = str(data.get("title") or "").strip()
         if not 3 <= len(t) <= 120:
@@ -272,8 +275,56 @@ def create_draft(s: Session, cfg: Config, actor: Actor, data: dict) -> Event:
     return ev
 
 
+def _misfits(s: Session, cfg: Config, ev: Event) -> list[tuple[Signup, Character]]:
+    from .signups import fit_problems
+    rows = s.execute(select(Signup, Character).join(Character, Character.id == Signup.character_id).where(
+        Signup.event_id == ev.id, Signup.state.in_(ACTIVE_SIGNUP)).order_by(Signup.created_at)).all()
+    return [(su, ch) for su, ch in rows if fit_problems(cfg, ev, ch)]
+
+
+def fit_impact(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> list[str]:
+    """Character names whose signup would stop fitting if `data` were saved. Changes nothing:
+    the edit is tried inside a savepoint and rolled back. Used to warn the organizer first."""
+    ev = get(s, event_id)
+    if not any(k in data for k in ELIGIBILITY) or ev.state not in scheduling.HOLDING:
+        return []
+    sp = s.begin_nested()
+    try:
+        _apply_fields(s, cfg, actor, ev, {k: v for k, v in data.items() if k in ELIGIBILITY}, creating=False)
+        names = [ch.name for _, ch in _misfits(s, cfg, ev)]
+    except (Invalid, PermissionDenied):
+        names = []            # the real save reports the problem
+    finally:
+        sp.rollback()
+    s.expire(ev)
+    return names
+
+
+def _refit(s: Session, cfg: Config, ev: Event) -> list[int]:
+    """After edition/ruleset/faction/realm/region change: signups whose character no longer fits become
+    tentative and are asked to pick another character. Signups that still fit are left alone."""
+    from .signups import promote_waitlist
+    out, freed = [], []
+    for su, _ in _misfits(s, cfg, ev):
+        if su.state == "confirmed":
+            su.state = "tentative"
+            s.flush()
+            scheduling.unreserve_participant(s, ev, su.member_id)
+            freed.append(su.role_key)
+        elif su.state == "waitlisted":
+            su.state = "tentative"
+        su.needs_reconfirm = True
+        su.updated_at = now()
+        out.append(su.member_id)
+    for role_key in freed:
+        promote_waitlist(s, cfg, ev, role_key)   # skips anyone whose character doesn't fit either
+    return out
+
+
 def update(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> dict:
-    """Edit fields. Time changes are a reschedule (checked, and participants asked to reconfirm)."""
+    """Edit fields. Time changes are a reschedule (checked, and participants asked to reconfirm).
+    Edition/ruleset/faction/realm changes re-check characters: only people whose character no longer
+    fits are asked to pick another one; everyone else gets a notice."""
     require_member(cfg, actor)
     actor = ensure_member(s, actor)
     ev = get(s, event_id, lock=True)
@@ -281,9 +332,10 @@ def update(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> 
     require_event_manager(cfg, actor, ev.creator_id, cohosts)
     if ev.state in ("completed", "cancelled"):
         raise InvalidTransition("Finished events can't be edited.")
-    result = {"reconfirm": [], "bumped": []}
+    result = {"reconfirm": [], "bumped": [], "repick": []}
     material = []
     before = _snapshot(s, ev)
+    old_elig = tuple(getattr(ev, k) for k in ELIGIBILITY)
     old_loc = (ev.activity_location, ev.muster_location)
     _apply_fields(s, cfg, actor, ev, {k: v for k, v in data.items() if k not in ("start_at", "end_at", "timezone")},
                   creating=False)
@@ -297,9 +349,18 @@ def update(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> 
         _set_cohosts(s, ev, data["cohosts"])
     if (ev.activity_location, ev.muster_location) != old_loc:
         material.append("location")
+    if tuple(getattr(ev, k) for k in ELIGIBILITY) != old_elig:
+        material.append("requirements")
+        if ev.state in scheduling.HOLDING:
+            result["repick"] = _refit(s, cfg, ev)
     new_start, new_end = data.get("start_at", ev.start_at), data.get("end_at", ev.end_at)
     new_tz = data.get("timezone", ev.timezone)
     time_changed = (new_start, new_end) != (ev.start_at, ev.end_at)
+    # A small change to the end only (start unchanged) is a notice, not a reconfirm, if configured.
+    small = cfg["scheduling"].get("end_change_notice_only_minutes", 0)
+    end_only_small = (time_changed and new_start == ev.start_at and small > 0
+                      and abs((new_end - ev.end_at).total_seconds()) <= small * 60)
+    ask_reconfirm = cfg["scheduling"].get("reschedule_requires_reconfirm", True) and not end_only_small
     if time_changed:
         if ev.state == "in_progress":
             # only extending/shortening the end is allowed while running (overrun handling)
@@ -321,17 +382,19 @@ def update(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> 
                 if su.member_id in bumped:
                     su.state, su.needs_reconfirm = "tentative", True
                     result["bumped"].append(su.member_id)
-                elif cfg["scheduling"].get("reschedule_requires_reconfirm", True):
+                elif ask_reconfirm:
                     su.needs_reconfirm = True
                     result["reconfirm"].append(su.member_id)
                 su.updated_at = now()
-            for su in s.scalars(select(Signup).where(Signup.event_id == ev.id,
-                                                     Signup.state.in_(("pending", "tentative", "waitlisted")))):
-                su.needs_reconfirm = su.needs_reconfirm or su.member_id not in result["bumped"]
+            if ask_reconfirm:
+                for su in s.scalars(select(Signup).where(Signup.event_id == ev.id,
+                                                         Signup.state.in_(("pending", "tentative", "waitlisted")))):
+                    su.needs_reconfirm = su.needs_reconfirm or su.member_id not in result["bumped"]
     _changed(ev)
     if material and ev.state in scheduling.HOLDING:
         outbox.enqueue(s, "notify.material_change", f"{ev.id}:{ev.version}",
-                       {"event_id": ev.id, "changes": material, "bumped": result["bumped"]})
+                       {"event_id": ev.id, "changes": material, "bumped": result["bumped"],
+                        "repick": result["repick"], "reconfirm": bool(time_changed and ask_reconfirm)})
     changed = _diff(before, _snapshot(s, ev))
     if pick_role and ev.state in scheduling.HOLDING:
         outbox.enqueue(s, "notify.pick_role", f"{ev.id}:{ev.version}", {"event_id": ev.id, "signup_ids": pick_role})

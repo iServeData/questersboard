@@ -48,6 +48,7 @@ max_days_ahead = 180
 late_join_default = false
 overrun_grace_minutes = 30                    # how long "in progress" may run past the planned end before a reminder
 reschedule_requires_reconfirm = true
+end_change_notice_only_minutes = 0            # 0 = any time change asks for reconfirm; e.g. 30 = moving only the end by up to 30 min just sends a notice
 max_recurrence_occurrences = 26
 
 [signups]                                     # [live]
