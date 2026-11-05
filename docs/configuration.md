@@ -33,7 +33,7 @@ sudo -u wowquester /opt/wowquester/current/venv/bin/wowquester-admin check-confi
 | Section | Applies |
 | --- | --- |
 | `[roles]`, `[scheduling]`, `[signups]`, `[reminders]`, `[chronicle]`, `[rate_limits]`, `[event_posts]` | **Live**: re-read about every 30 s when the file changes, only if the whole file validates. A bad edit is logged and the old settings stay in force. |
-| everything else (`[community]`, `[discord]`, `[web]`, `[database]`, `[blizzard]`, `[ai]`, `[uploads]`, `[feeds]`, `[calendar]`, `[branding]`, `[retention]`, `[event_threads]`, `[[editions]]`, presets, activities) | **Restart**: `sudo systemctl restart wowquester-web wowquester-bot wowquester-worker`. The services log which changed sections still need a restart. |
+| everything else (`[community]`, `[discord]`, `[web]`, `[database]`, `[blizzard]`, `[ai]`, `[uploads]`, `[feeds]`, `[calendar]`, `[branding]`, `[retention]`, `[event_threads]`, `[voice]`, `[[editions]]`, presets, activities) | **Restart**: `sudo systemctl restart wowquester-web wowquester-bot wowquester-worker`. The services log which changed sections still need a restart. |
 
 Each applied change is recorded in `config_changes` (section hashes, not values).
 
@@ -73,6 +73,12 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   threads), `archive_after_hours` (24), `reminders_in_thread` (true), `name_suffix`. The bot needs Create
   Public (or Private) Threads, Send Messages in Threads and Manage Threads in the event channel; run
   `wowquester-admin discord-permissions` to check.
+- **Event voice channels** (`[voice]`, restart): `enabled` (default false), `category_id`, `name_template`
+  (`{title}`, `{id}`), `user_limit` (0 = no cap), `empty_teardown_minutes` (5), `member_states`
+  (confirmed, tentative), `moderators_can_join` (true), `staff_role_ids` (more server roles, such as admins,
+  that can join every event voice channel), `remove_on_leave` (true). The bot needs, on that category only:
+  Manage Channels, Manage Permissions, Move Members, View Channel, Connect, Speak, Video, Use Voice Activity,
+  Send Messages and Read Message History. `wowquester-admin discord-permissions` checks them.
 - **Group sizes** (`[signups.party_size_max]`): the largest group per activity type (quest 5, dungeon 5,
   arena 5, raid 40, battleground 40; others 80). The participant limit can't go above it, a blank limit
   becomes it, and an event's role "How many" numbers can't add up to more than the limit. Live setting.

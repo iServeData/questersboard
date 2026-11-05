@@ -2,7 +2,18 @@
 
 ## Unreleased
 
-No database migration.
+**Database migration 0005** (adds the voice columns to events; run `migrate up` before restarting).
+
+- **Event voice channels (FU-1)**, off until `[voice] enabled = true` and `category_id` are set. Start
+  opens one private voice channel per event; signed-up players, the creator and co-hosts get access, and
+  `event_moderator` roles plus `[voice] staff_role_ids` can join without signing up. Joining later grants
+  access; leaving removes it and disconnects the person (`remove_on_leave`). End or Cancel deletes the
+  channel; an empty channel is deleted `empty_teardown_minutes` after the scheduled end (the event keeps
+  running; hosts can reopen). The post gets a **Join voice** button; the event page shows a voice link.
+  The bot counts people in these channels (numbers only) for the status card.
+- **Organizer in Discord**: hosts now get Start event / End event (with a confirm) / Reopen voice buttons
+  in the private Organizer reply. Others still get the web link.
+- `wowquester-admin discord-permissions` checks the voice category when voice is on.
 
 - **Extend on a started event**: extending (or shortening) an event that has already started now only
   changes the end time and updates the post. Nobody is asked to reconfirm, nobody is moved to

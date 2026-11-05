@@ -858,3 +858,31 @@ def test_real_authorize_url_prompts():
     o = DiscordOAuth("1", "FIXTURE-secret")
     assert "prompt=none" in o.authorize_url("https://community.example.org/cb", "s")
     assert "prompt=consent" in o.authorize_url("https://community.example.org/cb", "s", prompt="consent")
+
+
+def test_event_page_voice_link_and_reopen(seeded, tmp_path):
+    cfg = make_cfg(tmp_path, web={"cookie_secure": False}, voice={"enabled": True, "category_id": fake_id(92)})
+    rest = FakeRest()
+    a = create_app(ConfigHolder(cfg), seeded, FakeOAuth(), rest)
+    a.state.fake_rest = rest
+    with seeded.tx() as s:
+        org = actor(1, "event_creator")
+        ev = event(s, cfg, org, 0, 2, title="Mine run")
+        p = actor(80)
+        signups.join(s, cfg, p, ev.id, char(s, cfg, p, "Grimtusk").id)
+        s.execute(text("UPDATE events SET state = 'in_progress', discord_voice_channel_id = :v WHERE id = :e"),
+                  {"v": fake_id(70), "e": ev.id})
+        pid = ev.public_id
+    url = f"/wow/quester/events/{pid}"
+    assert f"/channels/{cfg.guild_id}/{fake_id(70)}" in login(a, 80, "member").get(url).text
+    assert "Join the voice channel" not in login(a, 81, "member").get(url).text        # not signed up
+    with seeded.tx() as s:
+        s.execute(text("UPDATE events SET discord_voice_channel_id = NULL, voice_closed_at = now() "
+                       "WHERE public_id = :p"), {"p": pid})
+    host = login(a, 1, "event_creator")
+    assert "Reopen voice" in host.get(url).text
+    r = host.post(f"{url}/reopen_voice", data={"csrf": csrf(host, url)})
+    assert r.status_code == 303, r.text
+    with seeded.tx() as s:
+        assert s.scalar(text("SELECT voice_closed_at FROM events WHERE public_id = :p"), {"p": pid}) is None
+        assert s.scalar(text("SELECT count(*) FROM outbox WHERE kind = 'discord.sync_voice'")) >= 1

@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from .config import ConfigError, ConfigHolder, load
 from .db import Database, make_engine
-from .domain import outbox, scheduling, status
+from .domain import outbox, scheduling, status, voice
 from .domain.chronicle import coauthor_ids
 from .domain.signups import event_requirement
 from .domain.timeutil import discord_ts, fmt_local, now
@@ -147,6 +147,7 @@ class Worker:
         ev = s.get(Event, p["event_id"])
         if ev is None or ev.state == "draft":
             return
+        voice.request_sync(s, self.cfg, ev)
         channel = ev.discord_channel_id or self.cfg["discord"].get("event_channel_id")
         if not channel:
             log.info("event %s: no event channel configured; post skipped", ev.id)
@@ -224,6 +225,95 @@ class Worker:
         if ev is None or not ev.discord_thread_id or ev.state not in ("scheduled", "in_progress"):
             return
         self._need_rest().post(ev.discord_thread_id, {"content": p["content"][:1900]})
+
+    # ------------------------------------------------------------------ event voice channels (FU-1)
+    def _voice_gone(self, s: Session, ev: Event) -> None:
+        ev.discord_voice_channel_id = None
+        ev.discord_voice_members = []
+        ev.voice_empty_since = None
+
+    def job_discord_sync_voice(self, s: Session, p: dict) -> None:
+        """Open, fill and remove the event's voice channel ([voice] enabled). Runs after every post render
+        and every signup change, so it self-heals after a restart."""
+        vc = self.cfg["voice"]
+        ev = s.get(Event, p["event_id"], with_for_update=True)
+        if ev is None:
+            return
+        if ev.state in ("completed", "cancelled"):
+            if ev.discord_voice_channel_id:
+                self._need_rest().delete_channel(ev.discord_voice_channel_id)
+                self._voice_gone(s, ev)
+            return
+        if not vc["enabled"] or ev.state != "in_progress":
+            return
+        rest, guild = self._need_rest(), self.cfg.guild_id
+        if not ev.discord_voice_channel_id:
+            if ev.voice_closed_at is not None:          # removed for being empty; a host can reopen it
+                return
+            ev.discord_voice_channel_id = rest.create_voice_channel(
+                guild, vc["category_id"], voice.channel_name(self.cfg, ev), vc["user_limit"],
+                voice.creation_overwrites(self.cfg, rest.me()))
+            ev.discord_voice_members = []
+            ev.voice_empty_since = now()
+            s.flush()
+            outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})   # adds Join voice
+        ch = ev.discord_voice_channel_id
+        tkey = f"voice-open:{ev.id}:{ch}"
+        if self.cfg["event_threads"]["enabled"] and ev.discord_thread_id and not s.scalar(
+                text("SELECT 1 FROM outbox WHERE kind = 'discord.thread_message' AND key = :k"), {"k": tkey}):
+            # once per channel, as soon as both the thread and the channel exist
+            outbox.enqueue(s, "discord.thread_message", tkey, {"event_id": ev.id, "content": (
+                f"Voice is open: <#{ch}>. Everyone signed up can join; use **Join voice** on the event post.")})
+        want = voice.wanted_members(s, self.cfg, ev)
+        have = set(ev.discord_voice_members or [])
+        ids = voice.discord_ids(s, want | have)
+        staff = self.cfg.voice_staff_roles()
+        try:
+            for mid in sorted(want - have):
+                if mid in ids:
+                    rest.set_overwrite(ch, ids[mid], 1, voice.PARTICIPANT)
+            for mid in sorted(have - want):
+                if mid not in ids:
+                    continue
+                rest.delete_overwrite(ch, ids[mid])
+                if vc["remove_on_leave"] and rest.voice_channel_of(guild, ids[mid]) == ch:
+                    _, roles, _ = rest.member(guild, ids[mid])
+                    if not roles & staff:               # staff may stay to help
+                        rest.disconnect_voice(guild, ids[mid])
+        except dr.Gone:
+            # someone deleted the channel in Discord: treat it as closed (a host can reopen it)
+            log.warning("event %s: voice channel was deleted in Discord", ev.id)
+            self._voice_gone(s, ev)
+            ev.voice_closed_at = now()
+            outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})
+            return
+        ev.discord_voice_members = sorted(m for m in want if m in ids)
+
+    def job_discord_close_voice(self, s: Session, p: dict) -> None:
+        """Empty for empty_teardown_minutes after the scheduled end: remove the channel, keep the event."""
+        ev = s.get(Event, p["event_id"], with_for_update=True)
+        if ev is None or not ev.discord_voice_channel_id or ev.id not in voice.due_for_teardown(s, self.cfg) \
+                or not voice.bot_watching(s, self.cfg):
+            return
+        self._need_rest().delete_channel(ev.discord_voice_channel_id)
+        self._voice_gone(s, ev)
+        ev.voice_closed_at = now()
+        outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})
+        if self.cfg["event_threads"]["enabled"] and ev.discord_thread_id:
+            outbox.enqueue(s, "discord.thread_message", f"voice-closed:{ev.id}:{int(now().timestamp())}",
+                           {"event_id": ev.id, "content": "The voice channel was empty, so it was removed. "
+                            "The event is still running; a host can reopen voice from **Organizer**."})
+
+    def scan_voice(self) -> int:
+        if not self.cfg["voice"]["enabled"]:
+            return 0
+        with self.db.tx() as s:
+            if not voice.bot_watching(s, self.cfg):    # no fresh head counts: never guess a channel is empty
+                return 0
+            due = voice.due_for_teardown(s, self.cfg)
+            for eid in due:
+                outbox.enqueue(s, "discord.close_voice", str(eid), {"event_id": eid})
+        return len(due)
 
     def job_dm(self, s: Session, p: dict) -> None:
         if not self.cfg["discord"].get("dm_enabled", True):
@@ -470,6 +560,7 @@ class Worker:
                 if t - last_scan > 30:
                     self.scan_reminders()
                     self.scan_overruns()
+                    self.scan_voice()
                     last_scan = t
                 if t - last_house > 3600:
                     self.housekeeping()

@@ -98,6 +98,11 @@ community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
 4. **Run it**: Start when you begin. End when you're done. If it runs long you get one reminder; use
    "Extend 30 min" if needed. Nothing is extended automatically. Extending a started event only moves
    the end time: nobody is asked to reconfirm and no DMs go out.
+   In Discord, **Organizer** on the post gives hosts Start event and End event buttons (End asks first).
+   When voice is on, Start opens a private voice channel for the event: everyone signed up gets
+   **Join voice** on the post, plus event moderators and staff roles. Leaving the event removes your access
+   (and takes you out of the channel). End or Cancel removes the channel; if it sits empty for a few
+   minutes after the scheduled end it is removed too, and a host can reopen it from Organizer.
 5. **Afterwards**: record attendance (attended / absent / unknown) and write the chronicle. The menus show
    what you saved last time, so saving again only changes what you change.
 6. **Copy** makes a fresh draft of the same event, without signups. **Repeating events**: when editing one

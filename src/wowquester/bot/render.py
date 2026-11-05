@@ -167,6 +167,10 @@ def event_message(s: Session, cfg: Config, ev: Event) -> dict:
                {"type": 2, "style": 1, "label": "Organizer", "custom_id": cid("manage", ev.id)},
                link]
         components = [{"type": 1, "components": row}]
+        if ev.state == "in_progress" and ev.discord_voice_channel_id and cfg["voice"]["enabled"]:
+            # Everyone sees the button; only people signed up (and staff) get the channel link.
+            components.append({"type": 1, "components": [
+                {"type": 2, "style": 1, "label": "Join voice", "custom_id": cid("voice", ev.id)}]})
     else:
         components = [{"type": 1, "components": [link]}]
     return {"content": "", "embeds": [embed], "components": components}

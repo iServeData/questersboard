@@ -122,6 +122,13 @@ class Config:
     def role_ids(self, capability: str) -> frozenset[str]:
         return frozenset(self.raw["roles"].get(capability, []))
 
+    def voice_staff_roles(self) -> frozenset[str]:
+        """Server roles that may join every event voice channel without signing up: [voice] staff_role_ids,
+        plus the [roles] event_moderator roles when [voice] moderators_can_join is on."""
+        v = self.raw["voice"]
+        return frozenset(v["staff_role_ids"]) | (self.role_ids("event_moderator") if v["moderators_can_join"]
+                                                 else frozenset())
+
     @property
     def editions(self) -> dict[str, Edition]:
         return self.raw["_editions"]
@@ -339,6 +346,36 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             raise ConfigError(f"[event_threads] {k} must be true or false")
     if not isinstance(th["name_suffix"], str) or len(th["name_suffix"]) > 20:
         raise ConfigError("[event_threads] name_suffix must be text of 20 characters or fewer")
+
+    vc = r.setdefault("voice", {})
+    for k, dflt in (("enabled", False), ("moderators_can_join", True), ("remove_on_leave", True)):
+        if not isinstance(vc.setdefault(k, dflt), bool):
+            raise ConfigError(f"[voice] {k} must be true or false")
+    vc["category_id"] = _snowflake(vc.get("category_id", ""), "[voice] category_id")
+    if vc["enabled"] and not vc["category_id"]:
+        raise ConfigError("[voice] category_id is required when voice channels are enabled")
+    vc.setdefault("name_template", "{title}")
+    if not isinstance(vc["name_template"], str) or not vc["name_template"].strip() or \
+            len(vc["name_template"]) > 100:
+        raise ConfigError("[voice] name_template must be text of 100 characters or fewer, e.g. \"{title}\"")
+    try:
+        vc["name_template"].format(title="t", id=1)
+    except (KeyError, IndexError, ValueError):
+        raise ConfigError("[voice] name_template can only use {title} and {id}") from None
+    _positive(vc.setdefault("user_limit", 0), "[voice] user_limit", 0)
+    if vc["user_limit"] > 99:
+        raise ConfigError("[voice] user_limit must be 0 (no cap) to 99")
+    _positive(vc.setdefault("empty_teardown_minutes", 5), "[voice] empty_teardown_minutes", 1)
+    vc["staff_role_ids"] = _snowflakes(vc.setdefault("staff_role_ids", []), "[voice] staff_role_ids")
+    vc.setdefault("member_states", ["confirmed", "tentative"])
+    if not isinstance(vc["member_states"], list) or not vc["member_states"] or \
+            set(vc["member_states"]) - {"confirmed", "tentative", "waitlisted", "pending"}:
+        raise ConfigError("[voice] member_states must list signup states from: confirmed, tentative, "
+                          "waitlisted, pending")
+    unknown = set(vc) - {"enabled", "category_id", "name_template", "user_limit", "empty_teardown_minutes",
+                         "staff_role_ids", "moderators_can_join", "remove_on_leave", "member_states"}
+    if unknown:
+        raise ConfigError(f"[voice] unknown setting {sorted(unknown)[0]!r}")
 
     b = r.setdefault("branding", {})
     b.setdefault("site_name", c["name"])

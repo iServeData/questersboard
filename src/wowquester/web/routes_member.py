@@ -19,7 +19,7 @@ from ..domain import (calendar, catalog, chronicle, covers, eventtext, erasure, 
 from ..domain.errors import EditionLocked, Invalid, NeedsLeave, NotFound, PermissionDenied
 from ..domain.events import ACTIVITY_TYPES
 from ..domain.timeutil import as_local, now, resolve_local
-from ..domain import audit
+from ..domain import audit, voice
 from ..models import (Attendance, Character, ChronicleEntry, ChronicleUpload, Event, EventCohost, Member, Signup)
 
 log = logging.getLogger("wowquester.web")
@@ -379,7 +379,12 @@ def router(cfg: Config) -> APIRouter:
                    "host_name": (s.get(Character, ev.host_character_id).name if ev.host_character_id else ""),
                    "thread_url": (f"https://discord.com/channels/{w.cfg.guild_id}/{ev.discord_thread_id}"
                                   if ev.discord_thread_id else ""),
-                   "show_names": manager or (a is not None and roster.staff_can_view_roster(w.cfg, a))}
+                   "show_names": manager or (a is not None and roster.staff_can_view_roster(w.cfg, a)),
+                   "voice_url": (voice.link(w.cfg, ev.discord_voice_channel_id)
+                                 if ev.state == "in_progress" and ev.discord_voice_channel_id and a is not None
+                                 and voice.can_join(s, w.cfg, a, ev) else ""),
+                   "voice_reopen": (manager and w.cfg["voice"]["enabled"] and ev.state == "in_progress"
+                                    and not ev.discord_voice_channel_id and ev.voice_closed_at is not None)}
             return render(request, "event.html", ctx)   # rendered inside the session (lazy loads)
 
     @r.get(mp + "/events/{public_id}/edit")
@@ -451,7 +456,7 @@ def router(cfg: Config) -> APIRouter:
         return _redirect(f"{mp}/events/{public_id}")
 
     ACTIONS = ("join", "tentative", "leave", "reconfirm", "change", "publish", "start", "end", "cancel",
-               "discard", "copy", "attendance", "extend", "story")
+               "discard", "copy", "attendance", "extend", "story", "reopen_voice")
 
     @r.post(mp + "/events/{public_id}/{action}")
     async def event_action(request: Request, public_id: str, action: str):
@@ -501,6 +506,8 @@ def router(cfg: Config) -> APIRouter:
             elif action == "attendance":
                 st = {int(k[4:]): v for k, v in form.items() if k.startswith("att_") and k[4:].isdigit()}
                 events.record_attendance(s, c, a, ev.id, st)
+            elif action == "reopen_voice":
+                voice.reopen(s, c, a, ev.id)
             elif action == "story":
                 dest = f"{mp}/chronicle/{chronicle.start_story(s, c, a, ev.id).id}"
         return _redirect(dest)

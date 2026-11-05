@@ -115,6 +115,51 @@ class DiscordRest:
         except Gone:
             pass
 
+    # Event voice channels ([voice], FU-1). UNVERIFIED live: needs Manage Channels, Manage Permissions,
+    # Move Members, View Channel, Connect, Speak, Video, Use Voice Activity, Send Messages and Read Message
+    # History for the bot on the voice category (category only; no server-wide Manage Roles).
+    def me(self) -> str:
+        if not getattr(self, "_me", None):
+            self._me = str(self._call("GET", "/users/@me")["id"])
+        return self._me
+
+    def create_voice_channel(self, guild_id: str, category_id: str, name: str, user_limit: int,
+                             overwrites: list[dict]) -> str:
+        body = {"name": name[:100], "type": 2, "parent_id": category_id, "user_limit": user_limit,
+                "permission_overwrites": overwrites}
+        return str(self._call("POST", f"/guilds/{guild_id}/channels", body)["id"])
+
+    def set_overwrite(self, channel_id: str, target_id: str, kind: int, allow: int, deny: int = 0) -> None:
+        """kind 0 = role, 1 = member."""
+        self._call("PUT", f"/channels/{channel_id}/permissions/{target_id}",
+                   {"type": kind, "allow": str(allow), "deny": str(deny)})
+
+    def delete_overwrite(self, channel_id: str, target_id: str) -> None:
+        try:
+            self._call("DELETE", f"/channels/{channel_id}/permissions/{target_id}")
+        except Gone:
+            pass
+
+    def delete_channel(self, channel_id: str) -> None:
+        try:
+            self._call("DELETE", f"/channels/{channel_id}")
+        except Gone:
+            pass
+
+    def voice_channel_of(self, guild_id: str, user_id: str) -> str | None:
+        """The voice channel a member is in right now, or None."""
+        try:
+            v = self._call("GET", f"/guilds/{guild_id}/voice-states/{user_id}")
+        except Gone:
+            return None
+        return str(v["channel_id"]) if v and v.get("channel_id") else None
+
+    def disconnect_voice(self, guild_id: str, user_id: str) -> None:
+        try:
+            self._call("PATCH", f"/guilds/{guild_id}/members/{user_id}", {"channel_id": None})
+        except Gone:
+            pass
+
     def dm(self, user_id: str, payload: dict) -> str:
         ch = self._call("POST", "/users/@me/channels", {"recipient_id": user_id})
         return self.post(ch["id"], payload)

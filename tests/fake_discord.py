@@ -18,6 +18,11 @@ class FakeDiscord:
         self.forbid_channels: set[str] = set()
         self.ids = itertools.count(5000)
         self.threads: dict[str, dict] = {}       # FIXTURE thread id -> {name, type, parent, members, closed}
+        self.voice: dict[str, dict] = {}         # FIXTURE voice channel id -> {name, parent, limit, overwrites}
+        self.voice_states: dict[str, str] = {}   # FIXTURE user id -> voice channel they are in
+        self.member_roles: dict[str, list] = {}  # FIXTURE user id -> role ids
+        self.disconnects: list[str] = []
+        self.bot_id = "b" + "1" * 17               # FIXTURE bot user id (not a real snowflake)
 
     def handler(self, req: httpx.Request) -> httpx.Response:
         path = req.url.path.replace("/api/v10", "")
@@ -27,6 +32,36 @@ class FakeDiscord:
             return httpx.Response(code, json={"retry_after": 0.01, "message": "fixture"})
         parts = path.strip("/").split("/")
         body = json.loads(req.content or b"{}")
+        if req.method == "GET" and parts == ["users", "@me"]:
+            return httpx.Response(200, json={"id": self.bot_id})
+        if parts[0] == "guilds" and parts[2:] == ["channels"] and req.method == "POST":
+            vid = "v" + str(next(self.ids))
+            self.voice[vid] = {"name": body["name"], "type": body["type"], "parent": body["parent_id"],
+                               "limit": body["user_limit"],
+                               "overwrites": {o["id"]: (o["type"], int(o["allow"]), int(o["deny"]))
+                                              for o in body["permission_overwrites"]}}
+            return httpx.Response(201, json={"id": vid})
+        if parts[0] == "guilds" and parts[2:3] == ["voice-states"]:
+            ch = self.voice_states.get(parts[3])
+            return httpx.Response(200, json={"channel_id": ch}) if ch else httpx.Response(404, json={"code": 10065})
+        if parts[0] == "guilds" and parts[2:3] == ["members"] and req.method == "PATCH":
+            if body.get("channel_id", "x") is None:
+                self.voice_states.pop(parts[3], None)
+                self.disconnects.append(parts[3])
+            return httpx.Response(200, json={})
+        if parts[0] == "channels" and parts[1] in self.voice:
+            v = self.voice[parts[1]]
+            if parts[2:3] == ["permissions"]:
+                if req.method == "PUT":
+                    v["overwrites"][parts[3]] = (body["type"], int(body["allow"]), int(body["deny"]))
+                else:
+                    v["overwrites"].pop(parts[3], None)
+                return httpx.Response(204)
+            if req.method == "DELETE" and len(parts) == 2:
+                del self.voice[parts[1]]
+                return httpx.Response(200, json={"id": parts[1]})
+        if parts[0] == "channels" and parts[1].startswith("v") and parts[1][1:].isdigit():
+            return httpx.Response(404, json={"code": 10003})     # a voice channel that was deleted
         if req.method == "POST" and parts == ["users", "@me", "channels"]:
             return httpx.Response(200, json={"id": "dm-" + body["recipient_id"]})
         if parts[0] == "channels":
@@ -72,7 +107,8 @@ class FakeDiscord:
             return httpx.Response(200, json=[{"user": u} for u in self.directory
                                              if u["username"].lower().startswith(q)])
         if parts[0] == "guilds" and parts[2] == "members":
-            return httpx.Response(200, json={"roles": [], "nick": "Nick", "user": {"username": "u"}})
+            return httpx.Response(200, json={"roles": self.member_roles.get(parts[3], []), "nick": "Nick",
+                                             "user": {"username": "u"}})
         return httpx.Response(404, json={})
 
     def client(self):

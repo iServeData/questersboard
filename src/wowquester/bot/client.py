@@ -21,7 +21,7 @@ from sqlalchemy import func, select
 
 from ..config import Config, ConfigError, ConfigHolder, load
 from ..db import Database, make_engine
-from ..domain import catalog, events, permissions, roster, signups, status
+from ..domain import catalog, events, permissions, roster, signups, status, voice
 from ..domain.actor import Actor
 from ..domain.errors import DomainError
 from ..domain.timeutil import discord_ts, find_zone, now, resolve_local
@@ -29,7 +29,7 @@ from ..models import Event, Member, Signup
 from ..secrets import SecretError, get_secret, setup_logging
 
 log = logging.getLogger("wowquester.bot")
-CID = r"wq:ev:(?P<action>join|tentative|leave|manage):(?P<event_id>\d+)"
+CID = r"wq:ev:(?P<action>join|tentative|leave|manage|start|end|endyes|voice|reopen):(?P<event_id>\d+)"
 
 
 class Ctx:
@@ -162,6 +162,99 @@ def _search(s, cfg, text: str):
     return [(ev.id, f"{ev.title} · {ev.start_at:%b %d %H:%M} UTC") for ev in s.scalars(q)]
 
 
+def _organizer(s, cfg: Config, actor: Actor, event_id: int):
+    """What the Organizer button offers this person: (public_id, manager?, actions)."""
+    actor = roster.ensure_member(s, actor)
+    ev = events.get(s, event_id)
+    if not voice.is_manager(s, cfg, actor, ev):
+        return str(ev.public_id), False, []
+    acts = []
+    if ev.state == "scheduled":
+        acts.append("start")
+    if ev.state == "in_progress":
+        acts.append("end")
+        if cfg["voice"]["enabled"] and not ev.discord_voice_channel_id and ev.voice_closed_at is not None:
+            acts.append("reopen")
+    return str(ev.public_id), True, acts
+
+
+def _voice_for(s, cfg: Config, actor: Actor, event_id: int):
+    """(state, channel id or None, may join?) for the Join voice button."""
+    actor = roster.ensure_member(s, actor)
+    ev = events.get(s, event_id)
+    return ev.state, ev.discord_voice_channel_id, voice.can_join(s, cfg, actor, ev), ev.title
+
+
+ORGANIZER_LABELS = {"start": ("Start event", 3), "end": ("End event", 4), "reopen": ("Reopen voice", 1),
+                    "endyes": ("Yes, end it", 4)}
+
+
+class OrganizerView(discord.ui.View):
+    """Host-only buttons in the private Organizer reply. They use the persistent custom ids, so they
+    keep working after a bot restart, and every click re-checks who is pressing it."""
+
+    def __init__(self, event_id: int, actions: list[str], url: str | None = None):
+        super().__init__(timeout=None)
+        for a in actions:
+            label, style = ORGANIZER_LABELS[a]
+            self.add_item(discord.ui.Button(label=label, style=discord.ButtonStyle(style),
+                                            custom_id=f"wq:ev:{a}:{event_id}"))
+        if url:
+            self.add_item(discord.ui.Button(label="Manage on the web", url=url))
+
+
+class LinkView(discord.ui.View):
+    def __init__(self, label: str, url: str):
+        super().__init__(timeout=None)
+        self.add_item(discord.ui.Button(label=label, url=url))
+
+
+async def organizer(inter: discord.Interaction, event_id: int) -> None:
+    cfg = Ctx.cfg()
+    actor = await build_actor(inter, "button")
+    permissions.require_member(cfg, actor)
+    pid, manager, acts = await run_tx(_organizer, cfg, actor, event_id)
+    url = member_url(cfg, "events", pid)
+    if not manager:
+        await reply(inter, f"Manage this event on the web: {url}")
+        return
+    await reply(inter, "Organizer tools. Start opens the event (and its voice channel, when voice is on); "
+                       "End closes it." if acts else "Organizer tools.", OrganizerView(event_id, acts, url))
+
+
+async def organizer_action(inter: discord.Interaction, action: str, event_id: int) -> None:
+    cfg = Ctx.cfg()
+    actor = await build_actor(inter, "button")
+    if action == "end":
+        await reply(inter, "End the event now? This closes signups, removes the voice channel and asks "
+                           "for the chronicle.", OrganizerView(event_id, ["endyes"]))
+        return
+    if action == "start":
+        await run_tx(lambda s: events.start(s, cfg, actor, event_id))
+        extra = " The voice channel opens in a moment; use **Join voice** on the post." if cfg["voice"]["enabled"] else ""
+        await reply(inter, "Started." + extra)
+    elif action == "endyes":
+        await run_tx(lambda s: events.end(s, cfg, actor, event_id))
+        await reply(inter, "Ended. You'll get a DM to record attendance and write the chronicle.")
+    elif action == "reopen":
+        await run_tx(lambda s: voice.reopen(s, cfg, actor, event_id))
+        await reply(inter, "Reopening voice. The Join voice button comes back in a moment.")
+
+
+async def join_voice(inter: discord.Interaction, event_id: int) -> None:
+    cfg = Ctx.cfg()
+    actor = await build_actor(inter, "button")
+    permissions.require_member(cfg, actor)
+    state, ch, ok, title = await run_tx(_voice_for, cfg, actor, event_id)
+    if state != "in_progress" or not ch:
+        await reply(inter, "Voice isn't open for this event right now.")
+    elif not ok:
+        await reply(inter, f"Voice for **{_md(title)}** is for people signed up. Press **Join** on the post "
+                           "and you'll get access straight away.")
+    else:
+        await reply(inter, f"Voice for **{_md(title)}**: <#{ch}>", LinkView("Open voice channel", voice.link(cfg, ch)))
+
+
 # --------------------------------------------------------------------------- views
 
 class CharacterSelect(discord.ui.Select):
@@ -255,11 +348,12 @@ class EventButton(discord.ui.DynamicItem[discord.ui.Button], template=CID):
                 await run_tx(lambda s: signups.leave(s, cfg, actor, self.event_id))
                 await reply(inter, "You've left the event.")
             await guarded(inter, go())
+        elif self.action == "manage":
+            await guarded(inter, organizer(inter, self.event_id))
+        elif self.action == "voice":
+            await guarded(inter, join_voice(inter, self.event_id))
         else:
-            async def link():
-                pid = await run_tx(lambda s: str(events.get(s, self.event_id).public_id))
-                await reply(inter, f"Manage this event on the web: {member_url(cfg, 'events', pid)}")
-            await guarded(inter, link())
+            await guarded(inter, organizer_action(inter, self.action, self.event_id))
 
 
 # --------------------------------------------------------------------------- modals
@@ -540,6 +634,7 @@ class Bot(discord.Client):
     def __init__(self):
         intents = discord.Intents.none()
         intents.guilds = True          # no privileged intents (no message content, no member list)
+        intents.voice_states = True    # non-privileged: only to count people in event voice channels
         super().__init__(intents=intents, allowed_mentions=discord.AllowedMentions.none())
         self.tree = build_tree(self)
         self.started_at = now()
@@ -563,6 +658,26 @@ class Bot(discord.Client):
     async def on_disconnect(self):
         await self.heartbeat("disconnected")
 
+    def voice_counts(self, channel_ids) -> dict[str, int]:
+        """People (not bots) in each of our event voice channels, from Discord's voice-state cache."""
+        out = {}
+        for cid in channel_ids:
+            ch = self.get_channel(int(cid))
+            if ch is not None:
+                out[str(cid)] = sum(1 for m in getattr(ch, "members", []) if not m.bot)
+        return out
+
+    async def on_voice_state_update(self, member, before, after):
+        ids = {str(c.id) for c in (before.channel, after.channel) if c is not None}
+        if not ids or not Ctx.cfg()["voice"]["enabled"]:
+            return
+        try:
+            mine = set(await run_tx(voice.open_channels)) & ids
+            if mine:
+                await run_tx(voice.record_counts, self.voice_counts(mine))
+        except Exception:  # noqa: BLE001
+            log.warning("voice count update failed", exc_info=True)
+
     async def setup_hook(self):
         self.add_dynamic_items(EventButton)
 
@@ -574,6 +689,19 @@ class Bot(discord.Client):
                     from ..worker import log_config
                     await run_tx(lambda s: log_config(s, "bot", Ctx.cfg(), live))
         self.loop.create_task(reload_loop())
+
+        async def voice_loop():
+            # Catch up after a restart and keep empty channels' clocks honest.
+            while True:
+                await asyncio.sleep(60)
+                if not Ctx.cfg()["voice"]["enabled"] or not self.is_ready():
+                    continue
+                try:
+                    ids = await run_tx(voice.open_channels)
+                    await run_tx(voice.record_counts, self.voice_counts(ids))
+                except Exception:  # noqa: BLE001
+                    log.warning("voice count refresh failed", exc_info=True)
+        self.loop.create_task(voice_loop())
 
         async def heartbeat_loop():
             while True:

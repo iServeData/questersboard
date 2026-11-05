@@ -100,6 +100,19 @@ archive_after_hours = 24                      # lock and archive this long after
 reminders_in_thread = true                    # also post the reminder (with open spots) in the thread
 name_suffix = " · chat"
 
+[voice]                                       # restart. One voice channel per running event (off until approved)
+enabled = false                               # bot needs, on the category only: Manage Channels, Manage Permissions,
+                                              # Move Members, View Channel, Connect, Speak, Video, Use Voice
+                                              # Activity, Send Messages, Read Message History
+category_id = ""                              # the Discord category the channels are created in
+name_template = "{title}"                     # {title} and {id}; trimmed to 100 characters
+user_limit = 0                                # 0 = no cap
+empty_teardown_minutes = 5                    # empty this long after the scheduled end: channel removed
+member_states = ["confirmed", "tentative"]    # signups that get access (hosts always do)
+moderators_can_join = true                    # [roles] event_moderator roles can join without signing up
+staff_role_ids = []                           # more server roles (e.g. admins) that can join every event voice
+remove_on_leave = true                        # disconnect someone who leaves the event while in voice
+
 [ai]                                          # restart
 enabled = false                               # explicit opt-in
 provider = "openai_compatible"                # openai_compatible | none

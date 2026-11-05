@@ -34,12 +34,21 @@ CREATE_PUBLIC_THREADS = 1 << 35
 CREATE_PRIVATE_THREADS = 1 << 36
 SEND_IN_THREADS = 1 << 38
 ALL = (1 << 53) - 1
+MANAGE_CHANNELS = 1 << 4
+STREAM = 1 << 9
+CONNECT = 1 << 20
+SPEAK = 1 << 21
+MOVE_MEMBERS = 1 << 24
+USE_VAD = 1 << 25
+MANAGE_ROLES = 1 << 28
 
 NAMES = {MANAGE_THREADS: "Manage Threads", CREATE_PUBLIC_THREADS: "Create Public Threads",
          CREATE_PRIVATE_THREADS: "Create Private Threads", SEND_IN_THREADS: "Send Messages in Threads",
          VIEW: "View Channel", SEND: "Send Messages", EMBED: "Embed Links", HISTORY: "Read Message History",
          USE_COMMANDS: "Use Application Commands", ATTACH: "Attach Files", MANAGE_MESSAGES: "Manage Messages",
-         ADD_REACTIONS: "Add Reactions"}
+         ADD_REACTIONS: "Add Reactions", MANAGE_CHANNELS: "Manage Channels", STREAM: "Video",
+         CONNECT: "Connect", SPEAK: "Speak", MOVE_MEMBERS: "Move Members", USE_VAD: "Use Voice Activity",
+         MANAGE_ROLES: "Manage Permissions"}
 SHOWN = (VIEW, SEND, HISTORY, EMBED, USE_COMMANDS)
 SHORT = {VIEW: "view", SEND: "send", HISTORY: "history", EMBED: "embed", USE_COMMANDS: "/cmds"}
 TYPES = {0: "text", 2: "voice", 4: "category", 5: "announcement", 13: "stage", 15: "forum", 16: "media"}
@@ -212,6 +221,25 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
     else:
         rep.note("[discord] allowed_command_channel_ids is empty, so commands would work in any channel the "
                  "member can use.")
+
+    # 1b. event voice channels
+    vc = cfg.raw.get("voice") or {}
+    if vc.get("enabled"):
+        vcat = str(vc.get("category_id") or "")
+        rep.head("Event voice channels ([voice])")
+        if vcat not in chans:
+            rep.fix(f"[voice] category_id {vcat} isn't a category the bot can see.")
+        else:
+            need = (VIEW, CONNECT, SPEAK, STREAM, USE_VAD, SEND, HISTORY, MANAGE_CHANNELS, MANAGE_ROLES, MOVE_MEMBERS)
+            miss = _missing(effective(guild_id, roles, chans[vcat], bot), need)
+            rep.fix(f"Bot needs {', '.join(miss)} on the \"{chans[vcat].get('name')}\" category (category "
+                    "permissions only) to open voice channels, give signed-up players access and remove "
+                    "people who leave.") if miss else \
+                rep.ok(f"Bot can open and manage event voice channels in \"{chans[vcat].get('name')}\".")
+        staff = sorted(set(vc.get("staff_role_ids", [])) |
+                       (set(cfg["roles"].get("event_moderator", [])) if vc.get("moderators_can_join", True) else set()))
+        rep.ok("Can join every event voice channel without signing up: "
+               + (", ".join(rname(r) for r in staff) if staff else "nobody (only people signed up and hosts)"))
 
     # 2. pick the category
     cat = category_id or (str(chans.get(event_ch, {}).get("parent_id") or "") if event_ch else "")

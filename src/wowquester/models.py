@@ -167,6 +167,12 @@ class Event(Base):
     host_character_id: Mapped[int | None] = mapped_column(ForeignKey("characters.id", ondelete="SET NULL"))
     discord_thread_id: Mapped[str | None] = mapped_column(String(22))
     discord_thread_members: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    # Per-event voice channel ([voice] enabled): opened on Start, deleted on End/Cancel or when it has been
+    # empty past the scheduled end. voice_members are the members given access, so leavers can be removed.
+    discord_voice_channel_id: Mapped[str | None] = mapped_column(String(22))
+    discord_voice_members: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    voice_empty_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    voice_closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     creator_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=False)
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
