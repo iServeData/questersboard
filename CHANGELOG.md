@@ -16,6 +16,7 @@
 - `wowquester-admin discord-permissions` checks the voice category when voice is on.
 - **Text boxes** (chronicle story, event description): dragging the corner now only makes them taller, so they
   can't spill over the side column.
+- **Published chronicle pages** use the full page width (same margin on both sides) instead of a 760px column.
 
 - **Extend on a started event**: extending (or shortening) an event that has already started now only
   changes the end time and updates the post. Nobody is asked to reconfirm, nobody is moved to

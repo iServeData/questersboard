@@ -67,7 +67,7 @@ textarea{resize:vertical;max-width:100%;min-height:3.2em}
 .wq-inline{display:inline}
 .linkish{background:none;border:0;padding:0;color:var(--text);text-decoration:underline;cursor:pointer;font:inherit}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
-.wq-story{max-width:760px}
+.wq-story{max-width:none}  /* published chronicle: full page width, same margins as the rest of the page */
 .wq-body{font-size:1.06rem}
 .wq-body img{max-width:100%}
 .wq-tale+.wq-tale{margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--line)}
