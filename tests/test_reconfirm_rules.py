@@ -158,3 +158,36 @@ def test_worker_dms_repick_and_notice(seeded, worker_db, cfg):
     assert len(texts) == 3                      # player that fits, player who must repick, organizer
     assert sum("no longer fits" in c for c in texts) == 1
     assert not any("Please reconfirm" in c for c in texts)
+
+
+def test_extending_a_running_event_asks_nobody_and_sends_nothing(seeded, cfg, monkeypatch):
+    """Extend 30 min (or any end change) after Start: no reconfirm, no tentative moves, no DMs."""
+    p1, p2 = actor(61), actor(62)
+    with seeded.tx() as s:
+        ev = event(s, cfg, ORG, 0, 2)
+        signups.join(s, cfg, p1, ev.id, char(s, cfg, p1, "Grimtusk").id)
+        signups.join(s, cfg, p2, ev.id, char(s, cfg, p2, "Zulmara").id, tentative=True)
+        # an earlier reschedule left someone with an open "please reconfirm"
+        s.scalars(select(Signup).where(Signup.event_id == ev.id)).first().needs_reconfirm = True
+        monkeypatch.setattr(events, "now", lambda: at(0))
+        events.start(s, cfg, ORG, ev.id)
+        assert all(not su.needs_reconfirm for su in s.scalars(select(Signup).where(Signup.event_id == ev.id)))
+        before = s.query(Outbox).filter(Outbox.kind.like("notify.%")).count()
+        for _ in range(3):
+            events.update(s, cfg, ORG, ev.id, {"end_at": ev.end_at + timedelta(minutes=30)})
+        assert ev.end_at == at(2) + timedelta(minutes=90)
+        assert _state(s, ev.id, p1) == ("confirmed", False)
+        assert _state(s, ev.id, p2) == ("tentative", False)
+        assert s.query(Outbox).filter(Outbox.kind.like("notify.%")).count() == before
+        with pytest.raises(Exception, match="start can't move"):
+            events.update(s, cfg, ORG, ev.id, {"start_at": at(1), "end_at": at(4)})
+
+
+def test_extending_a_scheduled_event_still_asks_to_reconfirm(seeded, cfg):
+    p1 = actor(63)
+    with seeded.tx() as s:
+        ev = event(s, cfg, ORG, 30, 2)
+        signups.join(s, cfg, p1, ev.id, char(s, cfg, p1, "Vashka").id)
+        events.update(s, cfg, ORG, ev.id, {"end_at": ev.end_at + timedelta(hours=2)})
+        assert _state(s, ev.id, p1) == ("confirmed", True)
+        assert _last_change(s, ev.id)["reconfirm"] is True

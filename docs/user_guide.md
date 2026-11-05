@@ -96,7 +96,8 @@ community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
    Players see how many spots each role has left ("Tank · 1 of 1 taken") so they can pick another role to
    balance the group.
 4. **Run it**: Start when you begin. End when you're done. If it runs long you get one reminder; use
-   "Extend 30 min" if needed. Nothing is extended automatically.
+   "Extend 30 min" if needed. Nothing is extended automatically. Extending a started event only moves
+   the end time: nobody is asked to reconfirm and no DMs go out.
 5. **Afterwards**: record attendance (attended / absent / unknown) and write the chronicle. The menus show
    what you saved last time, so saving again only changes what you change.
 6. **Copy** makes a fresh draft of the same event, without signups. **Repeating events**: when editing one

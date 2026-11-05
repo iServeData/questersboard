@@ -4,6 +4,16 @@
 
 No database migration.
 
+- **Extend on a started event**: extending (or shortening) an event that has already started now only
+  changes the end time and updates the post. Nobody is asked to reconfirm, nobody is moved to
+  tentative, and no "event changed" DMs go out. Starting an event also clears any open "please
+  reconfirm" requests left over from an earlier reschedule. Moving a scheduled event still asks
+  everyone to reconfirm as before.
+
+## Earlier (efc27ca)
+
+No database migration.
+
 - **Event posts**: a blank line between headings (Time, Duration, Meet at, Going, ...).
   `[event_posts] field_spacing = false` keeps the tight layout. Applies to new edits; run
   `wowquester-admin refresh-posts --yes` to re-space current posts.

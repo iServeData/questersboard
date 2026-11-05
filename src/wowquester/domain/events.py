@@ -363,6 +363,12 @@ def _refit(s: Session, cfg: Config, ev: Event) -> list[int]:
     return out
 
 
+def _clear_reconfirm(s: Session, ev: Event) -> None:
+    for su in s.scalars(select(Signup).where(Signup.event_id == ev.id, Signup.needs_reconfirm.is_(True))):
+        su.needs_reconfirm = False
+        su.updated_at = now()
+
+
 def update(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> dict:
     """Edit fields. Time changes are a reschedule (checked, and participants asked to reconfirm).
     Edition/ruleset/faction/realm changes re-check characters: only people whose character no longer
@@ -402,7 +408,11 @@ def update(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> 
     small = cfg["scheduling"].get("end_change_notice_only_minutes", 0)
     end_only_small = (time_changed and new_start == ev.start_at and small > 0
                       and abs((new_end - ev.end_at).total_seconds()) <= small * 60)
-    ask_reconfirm = cfg["scheduling"].get("reschedule_requires_reconfirm", True) and not end_only_small
+    # Extending (or shortening) an event that has already started is overrun handling, not a reschedule:
+    # nobody is asked to reconfirm, nobody is moved to tentative and nobody gets a DM.
+    running = ev.state == "in_progress"
+    ask_reconfirm = (cfg["scheduling"].get("reschedule_requires_reconfirm", True) and not end_only_small
+                     and not running)
     if time_changed:
         if ev.state == "in_progress":
             # only extending/shortening the end is allowed while running (overrun handling)
@@ -418,7 +428,11 @@ def update(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> 
         ev.timezone = new_tz
     if ev.state in scheduling.HOLDING:
         scheduling.hold(s, ev)        # raises Conflict for capacity/exclusive/organizer conflicts
-        if time_changed:
+        if time_changed and running:
+            # keep everyone as they are; a reservation that can't stretch keeps its old window
+            scheduling.move_participant_reservations(s, ev, drop_conflicts=False)
+            _clear_reconfirm(s, ev)
+        elif time_changed:
             bumped = scheduling.move_participant_reservations(s, ev)
             for su in s.scalars(select(Signup).where(Signup.event_id == ev.id, Signup.state == "confirmed")):
                 if su.member_id in bumped:
@@ -433,17 +447,20 @@ def update(s: Session, cfg: Config, actor: Actor, event_id: int, data: dict) -> 
                                                          Signup.state.in_(("pending", "tentative", "waitlisted")))):
                     su.needs_reconfirm = su.needs_reconfirm or su.member_id not in result["bumped"]
     _changed(ev)
+    if running:
+        material = [m for m in material if m != "time"]
     if material and ev.state in scheduling.HOLDING:
         outbox.enqueue(s, "notify.material_change", f"{ev.id}:{ev.version}",
                        {"event_id": ev.id, "changes": material, "bumped": result["bumped"],
                         "repick": result["repick"], "reconfirm": bool(time_changed and ask_reconfirm)})
     changed = _diff(before, _snapshot(s, ev))
+    notify_hosts = [c for c in changed if not (running and c == "time")]
     if pick_role and ev.state in scheduling.HOLDING:
         outbox.enqueue(s, "notify.pick_role", f"{ev.id}:{ev.version}", {"event_id": ev.id, "signup_ids": pick_role})
-    if changed and (actor.member_id != ev.creator_id or cohosts):
+    if notify_hosts and (actor.member_id != ev.creator_id or cohosts):
         # tell the other hosts what changed (the person who made the edit is skipped)
         outbox.enqueue(s, "notify.event_edited", f"{ev.id}:{ev.version}",
-                       {"event_id": ev.id, "actor_id": actor.member_id, "changes": changed})
+                       {"event_id": ev.id, "actor_id": actor.member_id, "changes": notify_hosts})
     audit.record(s, actor, "event.update", "event", ev.id, fields=changed, material=material)
     _notify_post(s, cfg, ev)
     return result
@@ -535,6 +552,7 @@ def start(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
         raise InvalidTransition("Events can be started up to 2 hours early.")
     _transition(ev, "in_progress")
     ev.actual_start = now()
+    _clear_reconfirm(s, ev)          # once it's running, an open "please reconfirm" no longer applies
     _changed(ev)
     audit.record(s, actor, "event.start", "event", ev.id)
     _notify_post(s, cfg, ev)

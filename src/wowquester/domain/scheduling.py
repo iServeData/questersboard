@@ -176,7 +176,7 @@ def overlapping_count(s: Session, start, end, ignore_event_id=None) -> int:
     return s.scalar(q) or 0
 
 
-def move_participant_reservations(s: Session, ev: Event) -> list[int]:
+def move_participant_reservations(s: Session, ev: Event, drop_conflicts: bool = True) -> list[int]:
     """After a reschedule, move each confirmed participant's reservation; return members who conflict.
 
     Each move runs in its own savepoint so one conflict does not undo the others.
@@ -192,7 +192,7 @@ def move_participant_reservations(s: Session, ev: Event) -> list[int]:
             if translate(exc, s) is None:
                 raise
             conflicted.append(mr.member_id)
-    if conflicted:
+    if conflicted and drop_conflicts:
         s.execute(delete(MemberReservation).where(MemberReservation.event_id == ev.id,
                                                   MemberReservation.member_id.in_(conflicted),
                                                   MemberReservation.kind == "participant"))
