@@ -21,6 +21,7 @@ from ..domain.events import ACTIVITY_TYPES
 from ..domain.timeutil import as_local, now, resolve_local
 from ..domain import audit, voice
 from ..models import (Attendance, Character, ChronicleEntry, ChronicleUpload, Event, EventCohost, Member, Signup)
+from . import seo
 
 log = logging.getLogger("wowquester.web")
 FIELDS_TEXT = ("title", "description", "eligibility", "objective", "difficulty")
@@ -37,6 +38,11 @@ def render(request: Request, name: str, ctx: dict, status: int = 200, public: bo
                 cp=cfg["chronicle"]["public_path"].rstrip("/"), actor=a, csrf=sess.csrf if sess else "",
                 can=(lambda cap: a is not None and permissions.has(cfg, a, cap)), public=public)
     base.update(ctx)
+    base["indexable"] = public and status == 200       # error and notice pages stay out of search
+    if not base["indexable"]:
+        base["seo"] = None
+    elif "seo" not in base:
+        base["seo"] = seo.meta(request)
     return request.app.state.tpl.TemplateResponse(request, name, base, status_code=status)
 
 

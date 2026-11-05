@@ -76,6 +76,15 @@ public_after_approval = true
 #   "role_class"  -> "a druid healer"   (more identifying; off by default)
 neutral_description_style = "role"
 max_body_chars = 8000
+# Search results and link previews (Discord, iMessage, social sites) for the public Chronicle pages.
+# A story uses its own summary and first approved screenshot; the archive and pages without a
+# screenshot use these. social_image: a / path on this site or an https:// URL (empty = no image).
+description = "Stories from community WoW events"
+social_image = ""                              # e.g. "/assets/images/social/og_wow.jpg"
+social_image_alt = ""
+social_image_width = 0                         # pixels; 0 = not stated
+social_image_height = 0
+sitemap = true                                 # serves PUBLIC_PATH/sitemap.xml (archive + published stories)
 
 [uploads]                                     # restart
 storage_dir = "/var/lib/wowquester/uploads"

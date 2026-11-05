@@ -24,6 +24,7 @@ from ..domain import calendar, covers, status
 from ..domain.errors import NotFound
 from ..domain.timeutil import now
 from ..models import PublicChronicle, PublicEvent
+from . import seo
 
 OUTCOME = {"completed": "Completed", "partial": "Partly completed", "not_completed": "Not completed",
            "social": "Social", "unknown": "Outcome not recorded"}
@@ -79,7 +80,8 @@ def router(cfg: Config) -> APIRouter:
                                    .offset((page - 1) * n).limit(n + 1)))
         return render(request, "chronicle_archive.html",
                       {"title": "Chronicle", "items": items[:n], "page": page, "more": len(items) > n,
-                       "outcome": OUTCOME, "path": cp}, public=True)
+                       "outcome": OUTCOME, "path": cp,
+                       "seo": seo.meta(request, query=f"?page={page}" if page > 1 else "")}, public=True)
 
     @r.get(cp + "/{slug}/")
     def story(request: Request, slug: str):
@@ -89,8 +91,29 @@ def router(cfg: Config) -> APIRouter:
             pc = s.scalar(select(PublicChronicle).where(PublicChronicle.slug == slug))
         if pc is None:
             raise NotFound("That story isn't published (or was removed).")
+        tags = seo.meta(request, description=pc.summary, image=seo.story_image(pc), kind="article",
+                        published=pc.published_at, modified=pc.updated_at)
         return render(request, "chronicle_story.html", {"title": pc.title, "pc": pc, "outcome": OUTCOME,
-                                                        "path": cp}, public=True)
+                                                        "path": cp, "seo": tags}, public=True)
+
+    @r.get(cp + "/sitemap.xml")
+    def sitemap(request: Request):
+        """The archive and every published story, for search engines (listed in the site's robots.txt)."""
+        w, b = web(request), base(request)
+        if not w.cfg["chronicle"].get("sitemap", True):
+            raise NotFound("The Chronicle sitemap is turned off.")
+        with w.db.tx() as s:
+            rows = list(s.execute(select(PublicChronicle.slug, PublicChronicle.updated_at)
+                                  .order_by(PublicChronicle.published_at.desc()).limit(49_999)))
+        newest = max((u for _, u in rows), default=None)
+        x = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+             f"<url><loc>{escape(b + cp)}/</loc>" + (f"<lastmod>{newest.isoformat()}</lastmod>" if newest else "")
+             + "</url>"]
+        x += [f"<url><loc>{escape(f'{b}{cp}/{slug}/')}</loc><lastmod>{upd.isoformat()}</lastmod></url>"
+              for slug, upd in rows]
+        x.append("</urlset>")
+        return Response("\n".join(x), media_type="application/xml", headers=_cache(w.cfg))
 
     @r.get(cp + "/media/{name}")
     def media(request: Request, name: str):
@@ -194,11 +217,15 @@ def router(cfg: Config) -> APIRouter:
 
     @r.get(mp + "/privacy")
     def privacy(request: Request):
-        return render(request, "privacy.html", {"title": "Privacy"}, public=True)
+        return render(request, "privacy.html", {"title": "Privacy", "seo": seo.meta(
+            request, description=f"How {web(request).cfg['branding']['site_name']}'s WoW event tools handle "
+                                 "Discord sign-in and member data.")}, public=True)
 
     @r.get(mp + "/terms")
     def terms(request: Request):
-        return render(request, "terms.html", {"title": "Terms of use"}, public=True)
+        return render(request, "terms.html", {"title": "Terms of use", "seo": seo.meta(
+            request, description=f"Terms of use for {web(request).cfg['branding']['site_name']}'s WoW event "
+                                 "tools.")}, public=True)
 
     @r.get(mp + "/calendar.ics")
     def public_ics(request: Request):

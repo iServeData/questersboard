@@ -17,6 +17,12 @@
 - **Text boxes** (chronicle story, event description): dragging the corner now only makes them taller, so they
   can't spill over the side column.
 - **Published chronicle pages** use the full page width (same margin on both sides) instead of a 760px column.
+- **Search and link previews for the Chronicle**: public pages now carry a description, a canonical URL and
+  Open Graph / Twitter card tags, so links shared in Discord and elsewhere show a title, summary and image.
+  A story uses its summary and banner or first approved screenshot; other pages use the new `[chronicle]`
+  `description` and `social_image*` settings (optional; empty = no image). New
+  `PUBLIC_PATH/sitemap.xml` lists the archive and every published story (`[chronicle] sitemap`, default on);
+  point the site's robots.txt at it. Error and notice pages are now `noindex`. No migration.
 
 - **Extend on a started event**: extending (or shortening) an event that has already started now only
   changes the end time and updates the post. Nobody is asked to reconfirm, nobody is moved to

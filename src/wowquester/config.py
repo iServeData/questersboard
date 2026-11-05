@@ -267,6 +267,22 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     if ch.get("neutral_description_style", "role") not in ("role", "role_class"):
         raise ConfigError("[chronicle] neutral_description_style must be role or role_class")
     _positive(ch.get("max_body_chars", 8000), "[chronicle] max_body_chars", 200)
+    # Search and link previews for the public pages (description, canonical, Open Graph, sitemap).
+    ch.setdefault("description", "Stories from community WoW events")
+    ch.setdefault("social_image", "")
+    ch.setdefault("social_image_alt", "")
+    ch.setdefault("social_image_width", 0)
+    ch.setdefault("social_image_height", 0)
+    ch.setdefault("sitemap", True)
+    if not isinstance(ch["description"], str) or not ch["description"].strip() or len(ch["description"]) > 300:
+        raise ConfigError("[chronicle] description must be 1-300 characters")
+    if ch["social_image"] and not re.match(r"^(/|https://)", str(ch["social_image"])):
+        raise ConfigError("[chronicle] social_image must start with / or https://")
+    for k in ("social_image_width", "social_image_height"):
+        if isinstance(ch[k], bool) or not isinstance(ch[k], int) or not 0 <= ch[k] <= 10000:
+            raise ConfigError(f"[chronicle] {k} must be a whole number from 0 to 10000 (0 = not stated)")
+    if not isinstance(ch["sitemap"], bool):
+        raise ConfigError("[chronicle] sitemap must be true or false")
 
     up = r["uploads"]
     _positive(up.get("max_bytes", 5_000_000), "[uploads] max_bytes", 1024)
