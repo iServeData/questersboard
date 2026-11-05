@@ -50,6 +50,9 @@
 .wq-grid .facts,.wq-grid > section > .facts:first-child{margin-top:0}
 .wq-form input:not([type=checkbox]):not([type=radio]),.wq-form select,.wq-form textarea,.wq-table input{
   width:100%;box-sizing:border-box;font:inherit;color:var(--text);background:rgba(225,228,232,.06);border:1px solid var(--line-strong);border-radius:var(--radius,2px);padding:9px 10px}
+/* Text boxes grow downwards only, so dragging the corner can't push them over the side column. */
+textarea{resize:vertical;max-width:100%;min-height:3.2em}
+.wq-grid > *{min-width:0}
 .wq-form select option{background:#1a1b1d;color:#e1e4e8}
 .wq-form input:focus-visible,.wq-form select:focus-visible,.wq-form textarea:focus-visible,.btn:focus-visible,.linkish:focus-visible{outline:2px solid var(--accent,#c9b98f);outline-offset:2px}
 .wq-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}

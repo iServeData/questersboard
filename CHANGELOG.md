@@ -14,6 +14,8 @@
 - **Organizer in Discord**: hosts now get Start event / End event (with a confirm) / Reopen voice buttons
   in the private Organizer reply. Others still get the web link.
 - `wowquester-admin discord-permissions` checks the voice category when voice is on.
+- **Text boxes** (chronicle story, event description): dragging the corner now only makes them taller, so they
+  can't spill over the side column.
 
 - **Extend on a started event**: extending (or shortening) an event that has already started now only
   changes the end time and updates the post. Nobody is asked to reconfirm, nobody is moved to
