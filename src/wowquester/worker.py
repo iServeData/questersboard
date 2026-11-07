@@ -458,6 +458,26 @@ class Worker:
         self._need_rest().post(ch, {"content": f"Chronicle review: {note}. {self._url('review')}",
                                     "flags": SUPPRESS_EMBEDS})
 
+    def job_notify_publish_request(self, s: Session, p: dict) -> None:
+        """A member without the event-creator role sent a draft for publishing: a short notice for staff."""
+        ch = self.cfg["discord"].get("publish_request_channel_id") or self.cfg["discord"].get("review_channel_id")
+        ev = s.get(Event, p["event_id"])
+        if not ch or ev is None or ev.state != "draft" or ev.publish_requested_at is None:
+            return
+        owner = s.get(Member, ev.creator_id)
+        who = (owner.display_name or owner.username) if owner else "a member"
+        self._need_rest().post(ch, {"content": (
+            f"Event waiting to be published: **{ev.title}** by {who}, <t:{int(ev.start_at.timestamp())}:f>. "
+            f"Check it and press Publish: {self._url('events', str(ev.public_id))}"), "flags": SUPPRESS_EMBEDS})
+
+    def job_notify_draft_published(self, s: Session, p: dict) -> None:
+        ev = s.get(Event, p["event_id"])
+        if ev is None or ev.state not in ("scheduled", "in_progress"):
+            return
+        self._dm(s, [ev.creator_id], f"published:{ev.id}", ev.version,
+                 f"Your event **{ev.title}** was published by a moderator and is now open for signups: "
+                 f"{self._url('events', str(ev.public_id))}")
+
     def job_notify_chronicle_decision(self, s: Session, p: dict) -> None:
         e = s.get(ChronicleEntry, p["entry_id"])
         if e:

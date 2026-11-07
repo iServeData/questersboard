@@ -225,6 +225,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     _snowflakes(d.get("allowed_command_channel_ids", []), "[discord] allowed_command_channel_ids")
     d.setdefault("review_channel_id", "")
     _snowflake(d["review_channel_id"], "[discord] review_channel_id")
+    d.setdefault("publish_request_channel_id", "")   # empty: use review_channel_id
+    _snowflake(d["publish_request_channel_id"], "[discord] publish_request_channel_id")
     for k in ("dm_enabled", "notify_dm_on_material_change"):
         _req(d, k, bool, "discord")
     _positive(d.get("reconfirm_window_hours", 24), "[discord] reconfirm_window_hours")

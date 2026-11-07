@@ -26,6 +26,8 @@ member_role_ids = []
 application_id = ""
 event_channel_id = ""                         # where event posts live
 review_channel_id = ""                        # optional: chronicle reviewers get a short notice here (no story text)
+publish_request_channel_id = ""               # optional: staff channel told when a member sends a draft for
+                                              # publishing; empty uses review_channel_id
 allowed_command_channel_ids = []              # slash commands only work here (plus DMs if enabled)
 dm_enabled = true                             # members may use the bot in DMs; same permission checks apply
 notify_dm_on_material_change = true           # DM confirmed participants when time/location changes or event is cancelled

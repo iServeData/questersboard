@@ -103,6 +103,10 @@ community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
    **Join voice** on the post, plus event moderators and staff roles. Leaving the event while you're in the
    channel lets you stay until you hang up, but you can't rejoin unless you join the event again
    (`remove_on_leave = true` disconnects instead).
+   **Sending a draft for publishing**: members without the event-creator role see **Send for publishing**
+   instead of Publish. Moderators see these drafts under **Waiting to be published** on the home page and
+   get a notice in the staff channel (`[discord] publish_request_channel_id`, or `review_channel_id`); the
+   owner gets a DM when it's published.
    **Guest links**: anyone with voice access can run `/voice invite` for a link to give someone they're
    playing with outside the event. The guest signs in with Discord on the site, is added to the server if
    needed, and can join that event's voice until it ends (up to `max_guests_per_invite` people per link).

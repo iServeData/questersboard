@@ -174,6 +174,7 @@ class Event(Base):
     discord_voice_members: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     voice_empty_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     voice_closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    publish_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # sent for publishing
     creator_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=False)
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -209,6 +210,8 @@ class Event(Base):
         CheckConstraint("participant_limit is null or participant_limit > 0", name="ck_event_limit"),
         CheckConstraint("level_min is null or level_max is null or level_min <= level_max", name="ck_event_levels"),
         Index("ix_events_state_start", "state", "start_at"),
+        Index("ix_events_publish_requested", "publish_requested_at",
+              postgresql_where=text("state = 'draft' AND publish_requested_at IS NOT NULL")),
     )
 
 

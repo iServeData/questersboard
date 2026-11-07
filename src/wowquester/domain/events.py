@@ -513,8 +513,9 @@ def publish(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
     ev = get(s, event_id, lock=True)
     if ev.creator_id != actor.member_id and not has(cfg, actor, "event_moderator"):
         raise PermissionDenied("Only the draft's owner can publish it.")
-    _transition(ev, "scheduled")
     _validate_times(cfg, ev.start_at, ev.end_at, ev.timezone)
+    _transition(ev, "scheduled")
+    requested, ev.publish_requested_at = ev.publish_requested_at, None
     if not cfg["discord"].get("event_channel_id") and actor.source != "cli":
         pass  # posting is skipped until a channel is configured; the event still schedules
     ev.discord_channel_id = ev.discord_channel_id or (cfg["discord"].get("event_channel_id") or None)
@@ -522,7 +523,49 @@ def publish(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
     _changed(ev)
     audit.record(s, actor, "event.publish", "event", ev.id)
     _notify_post(s, cfg, ev)
+    if ev.creator_id != actor.member_id:
+        # a moderator published someone's draft: tell the owner it's live
+        outbox.enqueue(s, "notify.draft_published", f"published:{ev.id}",
+                       {"event_id": ev.id, "requested": requested is not None})
     return ev
+
+
+def request_publish(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
+    """A member without the event-creator role sends their draft to the moderators to publish.
+    (With the role, this simply publishes.) Moderators get a notice in the staff channel once."""
+    require_member(cfg, actor)
+    if has(cfg, actor, "event_creator"):
+        return publish(s, cfg, actor, event_id)
+    actor = ensure_member(s, actor)
+    ev = get(s, event_id, lock=True)
+    if ev.state != "draft":
+        raise InvalidTransition("Only drafts can be sent for publishing.")
+    if ev.creator_id != actor.member_id:
+        raise PermissionDenied("Only the draft's owner can send it for publishing.")
+    _validate_times(cfg, ev.start_at, ev.end_at, ev.timezone)
+    first = ev.publish_requested_at is None
+    ev.publish_requested_at = now()
+    audit.record(s, actor, "event.publish_request", "event", ev.id)
+    if first:
+        outbox.enqueue(s, "notify.publish_request", f"pubreq:{ev.id}", {"event_id": ev.id})
+    return ev
+
+
+def withdraw_publish_request(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
+    require_member(cfg, actor)
+    actor = ensure_member(s, actor)
+    ev = get(s, event_id, lock=True)
+    if ev.state != "draft" or ev.creator_id != actor.member_id:
+        raise PermissionDenied("Only the draft's owner can withdraw it.")
+    ev.publish_requested_at = None
+    audit.record(s, actor, "event.publish_withdraw", "event", ev.id)
+    return ev
+
+
+def awaiting_publish(s: Session) -> list[tuple[Event, Member]]:
+    """Drafts sent for publishing, soonest first, with their owner (for moderators)."""
+    return list(s.execute(select(Event, Member).join(Member, Member.id == Event.creator_id).where(
+        Event.state == "draft", Event.publish_requested_at.is_not(None)).order_by(Event.start_at)).all())
 
 
 def discard_draft(s: Session, cfg: Config, actor: Actor, event_id: int) -> None:

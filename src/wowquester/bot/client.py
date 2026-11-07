@@ -388,8 +388,10 @@ class CreateModal(discord.ui.Modal, title="Plan a WoW event"):
             data = dict(edition=ed, title=self.name.value, activity_type=self.kind.value.strip().lower(),
                         start_at=start, end_at=start + timedelta(minutes=mins), timezone=tzname)
             pid = await run_tx(lambda s: str(events.create_draft(s, cfg, actor, data).public_id))
+            how = ("publish" if permissions.has(cfg, actor, "event_creator")
+                   else "send it for publishing (a moderator posts it)")
             await reply(inter, f"Draft saved (drafts reserve nothing and only you can see them). Add roles, "
-                               f"location and publish here: {member_url(cfg, 'events', pid, 'edit')}")
+                               f"location and {how} here: {member_url(cfg, 'events', pid, 'edit')}")
         await guarded(inter, go())
 
 

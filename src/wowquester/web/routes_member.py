@@ -363,10 +363,12 @@ def router(cfg: Config) -> APIRouter:
                 recs = recommendations.for_member(s, w.cfg, a.member_id)
                 drafts = list(s.scalars(select(Event).where(Event.creator_id == a.member_id,
                                                             Event.state == "draft").order_by(Event.start_at)))
+                waiting = ([(e, m.display_name or m.username or "a member") for e, m in events.awaiting_publish(s)]
+                           if permissions.has(w.cfg, a, "event_moderator") else [])
             else:
-                drafts = []
+                drafts, waiting = [], []
         return render(request, "home.html", {"title": "Quests", "items": items, "mine": mine, "recs": recs,
-                                             "drafts": drafts})
+                                             "drafts": drafts, "waiting": waiting, "now": now()})
 
     # ------------------------------------------------------------- events
     def _form_ctx(w, a, ev=None):
@@ -414,6 +416,8 @@ def router(cfg: Config) -> APIRouter:
             ev = events.create_draft(s, w.cfg, a, data)
             if form.get("publish"):
                 events.publish(s, w.cfg, a, ev.id)
+            elif form.get("request_publish"):
+                events.request_publish(s, w.cfg, a, ev.id)
             pid = ev.public_id
         return _redirect(f"{mp}/events/{pid}")
 
@@ -455,7 +459,9 @@ def router(cfg: Config) -> APIRouter:
                 conflicts = scheduling.preview_conflicts(s, ev.start_at, ev.end_at, ev.exclusive, ev.id,
                                                          {ev.creator_id} | cohosts, w.cfg.max_simultaneous)
             me = s.get(Member, a.member_id) if a and a.member_id else None
-            ctx = {"title": ev.title, "ev": ev, "rows": rows, "mine": mine, "fit": fit, "misfits": misfits,
+            owner = s.get(Member, ev.creator_id) if ev.state == "draft" and ev.creator_id != (a and a.member_id) else None
+            creator_name = (owner.display_name or owner.username) if owner else ""
+            ctx = {"title": ev.title, "ev": ev, "rows": rows, "creator_name": creator_name, "mine": mine, "fit": fit, "misfits": misfits,
                    "requirement": signups.event_requirement(w.cfg, ev), "manager": manager,
                    "recognition_default": bool(me and me.recognition_default),
                    "entry": entry, "conflicts": conflicts, "attendance": attendance,
@@ -541,9 +547,12 @@ def router(cfg: Config) -> APIRouter:
                 events.update(s, w.cfg, a, ev.id, data)
             if form.get("publish") and ev.state == "draft":
                 events.publish(s, w.cfg, a, ev.id)
+            elif form.get("request_publish") and ev.state == "draft":
+                events.request_publish(s, w.cfg, a, ev.id)
         return _redirect(f"{mp}/events/{public_id}")
 
-    ACTIONS = ("join", "tentative", "leave", "reconfirm", "change", "publish", "start", "end", "cancel",
+    ACTIONS = ("join", "tentative", "leave", "reconfirm", "change", "publish", "request_publish",
+               "withdraw_publish", "start", "end", "cancel",
                "discard", "copy", "attendance", "extend", "story", "reopen_voice")
 
     @r.post(mp + "/events/{public_id}/{action}")
@@ -574,6 +583,10 @@ def router(cfg: Config) -> APIRouter:
                                recognition=None if rec in (None, "") else _bool(form, "recognition"))
             elif action == "publish":
                 events.publish(s, c, a, ev.id)
+            elif action == "request_publish":
+                events.request_publish(s, c, a, ev.id)
+            elif action == "withdraw_publish":
+                events.withdraw_publish_request(s, c, a, ev.id)
             elif action == "start":
                 events.start(s, c, a, ev.id)
             elif action == "end":

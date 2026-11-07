@@ -29,12 +29,21 @@
 </section>
 {% if actor %}
 <aside class="side">
+  {% if waiting %}
+  <div class="panel wq-waiting">
+    <h2 class="sub">Waiting to be published</h2>
+    <p class="note">Members sent these drafts for publishing. Check each one, fix the time if it has passed, then press Publish.</p>
+    {% for e, who in waiting %}
+      <p><a href="{{ mp }}/events/{{ e.public_id }}">{{ e.title }}</a><br><span class="note">{{ fmt_local(e.start_at, e.timezone) }} · by {{ who }}{% if e.start_at <= now %} · <strong>time has passed</strong>{% endif %}</span></p>
+    {% endfor %}
+  </div>
+  {% endif %}
   <div class="panel">
     <h2 class="sub">My signups</h2>
     {% for su, ev in mine %}
       <p><a href="{{ mp }}/events/{{ ev.public_id }}">{{ ev.title }}</a><br><span class="note">{{ fmt_local(ev.start_at, ev.timezone) }} · {{ su.state }}{% if su.needs_reconfirm %} · <strong>please reconfirm</strong>{% endif %}</span></p>
     {% else %}<p class="note">You haven't joined anything yet.</p>{% endfor %}
-    {% if drafts %}<h3 class="sub">My drafts</h3>{% for d in drafts %}<p><a href="{{ mp }}/events/{{ d.public_id }}">{{ d.title }}</a> <span class="note">(not visible to others)</span></p>{% endfor %}{% endif %}
+    {% if drafts %}<h3 class="sub">My drafts</h3>{% for d in drafts %}<p><a href="{{ mp }}/events/{{ d.public_id }}">{{ d.title }}</a> <span class="note">({{ "sent for publishing" if d.publish_requested_at else "not visible to others" }})</span></p>{% endfor %}{% endif %}
   </div>
   <div class="panel">
     <h2 class="sub">Suggested for you</h2>

@@ -93,12 +93,17 @@
   {% if manager %}
   <div class="panel">
     <h2 class="sub">Host tools</h2>
-    {% if ev.state == "draft" %}<p class="caveat"><strong>Draft:</strong> only hosts can see this event, and it isn't in Discord yet. Press <strong>Publish</strong> to post its card to Discord and open signups.</p>{% endif %}
+    {% if ev.state == "draft" %}<p class="caveat"><strong>Draft:</strong> only hosts can see this event, and it isn't in Discord yet.
+      {% if can('event_creator') %}{% if ev.publish_requested_at %}<strong>Sent for publishing{% if creator_name %} by {{ creator_name }}{% endif %}.</strong> Check the details and the time, then press <strong>Publish</strong>.{% else %}Press <strong>Publish</strong> to post its card to Discord and open signups.{% endif %}
+      {% elif ev.publish_requested_at %}<strong>Sent for publishing.</strong> A moderator will check it and publish it; you'll get a Discord message when it's live. You can still edit it.
+      {% else %}Press <strong>Send for publishing</strong> and a moderator will publish it.{% endif %}</p>{% endif %}
     {% if conflicts %}<div class="caveat"><strong>Publishing would conflict:</strong><ul class="plain-list">{% for c in conflicts %}<li>{{ c }}</li>{% endfor %}</ul></div>{% endif %}
     <div class="btns">
       {% if ev.state in ("draft", "scheduled", "in_progress") %}<a class="btn ghost" href="{{ mp }}/events/{{ ev.public_id }}/edit">Edit</a>{% endif %}
       {% if ev.state == "draft" %}
-        <form method="post" action="{{ mp }}/events/{{ ev.public_id }}/publish">{{ csrf_field() }}<button class="btn" type="submit">Publish</button></form>
+        {% if can('event_creator') %}<form method="post" action="{{ mp }}/events/{{ ev.public_id }}/publish">{{ csrf_field() }}<button class="btn" type="submit">Publish</button></form>
+        {% elif not ev.publish_requested_at %}<form method="post" action="{{ mp }}/events/{{ ev.public_id }}/request_publish">{{ csrf_field() }}<button class="btn" type="submit">Send for publishing</button></form>
+        {% else %}<form method="post" action="{{ mp }}/events/{{ ev.public_id }}/withdraw_publish">{{ csrf_field() }}<button class="btn ghost" type="submit">Withdraw request</button></form>{% endif %}
         <form method="post" action="{{ mp }}/events/{{ ev.public_id }}/discard">{{ csrf_field() }}<button class="btn ghost" type="submit" data-confirm="Discard this draft?">Discard draft</button></form>
       {% elif ev.state == "scheduled" %}
         <form method="post" action="{{ mp }}/events/{{ ev.public_id }}/start">{{ csrf_field() }}<button class="btn" type="submit">Start</button></form>

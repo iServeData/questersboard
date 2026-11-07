@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+**Database migration 0007** (events.publish_requested_at).
+
+- **Send for publishing**: members without the event-creator role send their draft to the moderators,
+  who see it under "Waiting to be published" on the home page and get a staff-channel notice
+  (`[discord] publish_request_channel_id`, falling back to `review_channel_id`). The owner gets a DM
+  when it's published. Previously these drafts were invisible to moderators.
+
 **Database migration 0006** (guest voice links, guests and voice bans; run `migrate up` before restarting).
 **New slash commands** `/voice invite|kick|ban|unban`: registered only by the approved sync-commands step.
 **Proposed Nginx rule** for short guest links (`/v/<code>`) in `deploy/nginx/wowquester_locations.conf`.

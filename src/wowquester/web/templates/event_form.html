@@ -3,7 +3,7 @@
 {% block content %}
 {% set editing = ev is not none %}
 <div class="section-head"><h1>{{ "Edit event" if editing else "Plan an event" }}</h1></div>
-{% if editing and ev.state == "draft" %}<p class="caveat"><strong>This is a draft.</strong> Only hosts can see it, and nothing is posted to Discord until you publish it. Use <strong>Save and publish</strong> below, or <strong>Publish</strong> on the event page.</p>{% endif %}
+{% if editing and ev.state == "draft" %}<p class="caveat"><strong>This is a draft.</strong> Only hosts can see it, and nothing is posted to Discord until you publish it. {% if can('event_creator') %}Use <strong>Save and publish</strong> below, or <strong>Publish</strong> on the event page.{% elif ev.publish_requested_at %}It has been sent for publishing; a moderator will publish it.{% else %}Use <strong>Save and send for publishing</strong> below and a moderator will publish it.{% endif %}</p>{% endif %}
 {% if not editing %}<p class="note">New events start as a <strong>draft</strong>: drafts reserve nothing and nobody else can see them. Publishing checks the WoW schedule (at most {{ cfg.max_simultaneous }} WoW event{{ "s" if cfg.max_simultaneous != 1 }} at once) and posts to Discord.</p>{% endif %}
 <form method="post" enctype="multipart/form-data" class="wq-form panel" action="{{ mp }}/events/{{ ev.public_id ~ '/edit' if editing else 'new' }}">
   {{ csrf_field() }}
@@ -104,7 +104,9 @@
   </fieldset>
   <div class="btns">
     <button class="btn" type="submit">{{ "Save changes" if editing else "Save draft" }}</button>
-    {% if (not editing or ev.state == "draft") and can('event_creator') %}<button class="btn ghost" type="submit" name="publish" value="1">Save and publish</button>{% endif %}
+    {% if (not editing or ev.state == "draft") and can('event_creator') %}<button class="btn ghost" type="submit" name="publish" value="1">Save and publish</button>
+    {% elif (not editing or (ev.state == "draft" and not ev.publish_requested_at)) %}<button class="btn ghost" type="submit" name="request_publish" value="1">Save and send for publishing</button>{% endif %}
+    {% if not can('event_creator') and (not editing or ev.state == "draft") %}<p class="note">Publishing needs the event-creator role. Send your draft for publishing and a moderator will post it to Discord.</p>{% endif %}
     <a class="btn ghost" href="{{ mp }}/{{ 'events/' ~ ev.public_id if editing else '' }}">Cancel</a>
   </div>
 </form>
