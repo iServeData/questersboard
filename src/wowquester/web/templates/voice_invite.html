@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel wq-msg wq-guest">
+  <div class="section-head"><span class="label"><span class="num">//</span> Guest voice</span><h1>{{ title }}</h1></div>
+  {% if joined %}
+  <p>You can now join the voice channel for <strong>{{ event_title }}</strong>{% if added %}. You've also been added to the {{ cfg["community"]["name"] }} Discord server{% endif %}.</p>
+  <p><a class="btn" href="{{ channel_url }}" rel="noopener">Open the voice channel in Discord</a></p>
+  <ul>
+    <li>If the channel doesn't show yet, wait a few seconds and open the link again.</li>
+    <li>Your access lasts only until the event ends. A host can remove you from the channel.</li>
+  </ul>
+  {% elif event_title %}
+  <p>Someone you're playing with invited you to the voice channel for <strong>{{ event_title }}</strong>{% if end_at %}, planned to run until <time datetime="{{ end_at.isoformat() }}" data-local>{{ fmt_local(end_at, cfg["community"]["default_timezone"]) }}</time>{% endif %}.</p>
+  <h2 class="sub">What happens next</h2>
+  <ol>
+    <li>Sign in with Discord. Discord asks to let us see your Discord name and add you to the {{ cfg["community"]["name"] }} server.</li>
+    <li>If you aren't in the server yet, you're added. If you are, nothing changes.</li>
+    <li>You get a button that opens the event's voice channel.</li>
+  </ol>
+  <p><a class="btn" href="{{ go_url }}">Continue with Discord</a></p>
+  <h2 class="sub">Good to know</h2>
+  <ul>
+    <li>You don't need a WoWQuester account, a character or a signup.</li>
+    <li>The link works only while the event is running, for up to {{ max_guests }} {{ "person" if max_guests == 1 else "people" }}.</li>
+    <li>When the event ends, your access to the channel ends too. You stay in the server unless you leave it.</li>
+    <li>Hosts can remove anyone from the channel. Follow the server's rules.</li>
+  </ul>
+  <p class="note">We keep your Discord ID only while the event runs, so the channel lets you in. See <a href="{{ mp }}/privacy">Privacy</a>.</p>
+  {% else %}
+  <p>{{ message }}</p>
+  <p class="note">Ask the person who sent the link for a new one, or see <a href="{{ mp }}/help#voice">how voice works</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}

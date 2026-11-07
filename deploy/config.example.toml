@@ -120,7 +120,16 @@ empty_teardown_minutes = 5                    # empty this long after the schedu
 member_states = ["confirmed", "tentative"]    # signups that get access (hosts always do)
 moderators_can_join = true                    # [roles] event_moderator roles can join without signing up
 staff_role_ids = []                           # more server roles (e.g. admins) that can join every event voice
-remove_on_leave = true                        # disconnect someone who leaves the event while in voice
+remove_on_leave = false                       # false: someone who leaves the event may stay if connected but
+                                              # can't rejoin; true: they are disconnected straight away
+protected_role_ids = []                       # roles hosts can't kick or ban (e.g. admins, officers); the server
+                                              # owner, bots, staff_role_ids and [roles] admin are always protected
+guest_invites = true                          # /voice invite: guest links for people outside the event
+                                              # (the bot's role needs Create Invite to add guests to the server)
+max_guests_per_invite = 5                     # people per guest link (1-25)
+invite_dm = "off"                             # off | hosts | everyone: DM guest links when the event starts
+guest_link_template = ""                      # "" = public_base_url + member_path + "/v/{code}";
+                                              # a short domain, e.g. "https://short.example.org/v/{code}"
 
 [ai]                                          # restart
 enabled = false                               # explicit opt-in

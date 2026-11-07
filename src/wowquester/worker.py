@@ -229,7 +229,7 @@ class Worker:
     # ------------------------------------------------------------------ event voice channels (FU-1)
     def _voice_gone(self, s: Session, ev: Event) -> None:
         ev.discord_voice_channel_id = None
-        ev.discord_voice_members = []
+        ev.discord_voice_members = {}
         ev.voice_empty_since = None
 
     def job_discord_sync_voice(self, s: Session, p: dict) -> None:
@@ -243,6 +243,7 @@ class Worker:
             if ev.discord_voice_channel_id:
                 self._need_rest().delete_channel(ev.discord_voice_channel_id)
                 self._voice_gone(s, ev)
+            voice.end_session(s, ev)        # guest links, guests and bans go with the event
             return
         if not vc["enabled"] or ev.state != "in_progress":
             return
@@ -253,7 +254,7 @@ class Worker:
             ev.discord_voice_channel_id = rest.create_voice_channel(
                 guild, vc["category_id"], voice.channel_name(self.cfg, ev), vc["user_limit"],
                 voice.creation_overwrites(self.cfg, rest.me()))
-            ev.discord_voice_members = []
+            ev.discord_voice_members = {}
             ev.voice_empty_since = now()
             s.flush()
             outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})   # adds Join voice
@@ -264,22 +265,25 @@ class Worker:
             # once per channel, as soon as both the thread and the channel exist
             outbox.enqueue(s, "discord.thread_message", tkey, {"event_id": ev.id, "content": (
                 f"Voice is open: <#{ch}>. Everyone signed up can join; use **Join voice** on the event post.")})
-        want = voice.wanted_members(s, self.cfg, ev)
-        have = set(ev.discord_voice_members or [])
-        ids = voice.discord_ids(s, want | have)
+        have = ev.discord_voice_members if isinstance(ev.discord_voice_members, dict) else {}
+        ids = voice.discord_ids(s, voice.wanted_members(s, self.cfg, ev))
+        want = voice.desired_overwrites(s, self.cfg, ev, ids, have)
         staff = self.cfg.voice_staff_roles()
+        done = dict(have)
         try:
-            for mid in sorted(want - have):
-                if mid in ids:
-                    rest.set_overwrite(ch, ids[mid], 1, voice.PARTICIPANT)
-            for mid in sorted(have - want):
-                if mid not in ids:
-                    continue
-                rest.delete_overwrite(ch, ids[mid])
-                if vc["remove_on_leave"] and rest.voice_channel_of(guild, ids[mid]) == ch:
-                    _, roles, _ = rest.member(guild, ids[mid])
-                    if not roles & staff:               # staff may stay to help
-                        rest.disconnect_voice(guild, ids[mid])
+            for did, st in sorted(want.items()):
+                if have.get(did) != st:
+                    allow, deny = voice.OVERWRITE[st]
+                    rest.set_overwrite(ch, did, 1, allow, deny)
+                    done[did] = st
+            for did in sorted(set(have) - set(want)):
+                # only with remove_on_leave = true: take the seat away and disconnect (staff may stay)
+                rest.delete_overwrite(ch, did)
+                done.pop(did, None)
+                if rest.voice_channel_of(guild, did) == ch:
+                    _, roles, _ = rest.member(guild, did)
+                    if not roles & staff:
+                        rest.disconnect_voice(guild, did)
         except dr.Gone:
             # someone deleted the channel in Discord: treat it as closed (a host can reopen it)
             log.warning("event %s: voice channel was deleted in Discord", ev.id)
@@ -287,7 +291,16 @@ class Worker:
             ev.voice_closed_at = now()
             outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})
             return
-        ev.discord_voice_members = sorted(m for m in want if m in ids)
+        ev.discord_voice_members = done
+
+    def job_discord_voice_kick(self, s: Session, p: dict) -> None:
+        """A host kicked or banned someone: disconnect them if they're in this event's channel."""
+        ev = s.get(Event, p["event_id"])
+        if ev is None or not ev.discord_voice_channel_id:
+            return
+        rest = self._need_rest()
+        if rest.voice_channel_of(self.cfg.guild_id, p["discord_id"]) == ev.discord_voice_channel_id:
+            rest.disconnect_voice(self.cfg.guild_id, p["discord_id"])
 
     def job_discord_close_voice(self, s: Session, p: dict) -> None:
         """Empty for empty_teardown_minutes after the scheduled end: remove the channel, keep the event."""
@@ -526,6 +539,10 @@ class Worker:
             s.execute(text("DELETE FROM api_cache WHERE expires_at < now() - make_interval(days => :d)"),
                       {"d": r["api_cache_days"]})
             s.execute(text("DELETE FROM rate_buckets WHERE window_start < now() - interval '1 day'"))
+            # guest voice links, guests and bans never outlive their event (End/Cancel already removes them)
+            for tbl in ("event_voice_invites", "event_voice_guests", "event_voice_bans"):
+                s.execute(text(f"DELETE FROM {tbl} t USING events e WHERE e.id = t.event_id "
+                               "AND e.state <> 'in_progress'"))
 
     def sync_policy(self) -> None:
         with self.db.tx() as s:

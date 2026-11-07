@@ -168,9 +168,10 @@ class Event(Base):
     discord_thread_id: Mapped[str | None] = mapped_column(String(22))
     discord_thread_members: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     # Per-event voice channel ([voice] enabled): opened on Start, deleted on End/Cancel or when it has been
-    # empty past the scheduled end. voice_members are the members given access, so leavers can be removed.
+    # empty past the scheduled end.
     discord_voice_channel_id: Mapped[str | None] = mapped_column(String(22))
-    discord_voice_members: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    # {discord_id: "in" | "left" | "banned"}: the member permissions the worker has set on the channel
+    discord_voice_members: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     voice_empty_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     voice_closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     creator_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=False)
@@ -442,6 +443,34 @@ class PublicEventVoice(Base):
     in_voice: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     observed_at: Mapped[datetime] = _now()
     __table_args__ = (CheckConstraint("in_voice >= 0", name="ck_public_event_voice_nonneg"),)
+
+
+class EventVoiceInvite(Base):
+    """A guest link for one running event's voice (one per inviter per event). Deleted when the event ends."""
+    __tablename__ = "event_voice_invites"
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
+    created_by: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime] = _now()
+    __table_args__ = (UniqueConstraint("event_id", "created_by", name="uq_event_voice_invites_inviter"),)
+
+
+class EventVoiceGuest(Base):
+    """Someone who joined an event's voice with a guest link. Kept only while the event runs."""
+    __tablename__ = "event_voice_guests"
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
+    discord_id: Mapped[str] = mapped_column(String(22), primary_key=True)
+    code: Mapped[str] = mapped_column(String(16), nullable=False)
+    joined_at: Mapped[datetime] = _now()
+
+
+class EventVoiceBan(Base):
+    """Banned from one event's voice for the rest of that event (by a host). Deleted when the event ends."""
+    __tablename__ = "event_voice_bans"
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
+    discord_id: Mapped[str] = mapped_column(String(22), primary_key=True)
+    banned_by: Mapped[int | None] = mapped_column(ForeignKey("members.id", ondelete="SET NULL"))
+    banned_at: Mapped[datetime] = _now()
 
 
 class ServiceHeartbeat(Base):

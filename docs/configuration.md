@@ -76,9 +76,16 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
 - **Event voice channels** (`[voice]`, restart): `enabled` (default false), `category_id`, `name_template`
   (`{title}`, `{id}`), `user_limit` (0 = no cap), `empty_teardown_minutes` (5), `member_states`
   (confirmed, tentative), `moderators_can_join` (true), `staff_role_ids` (more server roles, such as admins,
-  that can join every event voice channel), `remove_on_leave` (true). The bot needs, on that category only:
+  that can join every event voice channel), `remove_on_leave` (false: someone who leaves the event may stay
+  while connected but can't rejoin; true disconnects them). The bot needs, on that category only:
   Manage Channels, Manage Permissions, Move Members, View Channel, Connect, Speak, Video, Use Voice Activity,
   Send Messages and Read Message History. `wowquester-admin discord-permissions` checks them.
+  Guest links and host moderation: `guest_invites` (true; `/voice invite`), `max_guests_per_invite` (5, 1-25),
+  `invite_dm` (`off` | `hosts` | `everyone`: DM guest links on Start), `guest_link_template` (empty = the
+  site's `/v/{code}` page under member_path; e.g. `https://short.example.org/v/{code}` with the `/v/` Nginx
+  rule), `protected_role_ids` (roles hosts can't `/voice kick` or `/voice ban`; the server owner, bots,
+  `staff_role_ids` and `[roles] admin` are always protected). Guests need the bot's role to have **Create
+  Invite** (server level) so they can be added to the server; the permissions check reports it.
 - **Group sizes** (`[signups.party_size_max]`): the largest group per activity type (quest 5, dungeon 5,
   arena 5, raid 40, battleground 40; others 80). The participant limit can't go above it, a blank limit
   becomes it, and an event's role "How many" numbers can't add up to more than the limit. Live setting.

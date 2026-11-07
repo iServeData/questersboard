@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+**Database migration 0006** (guest voice links, guests and voice bans; run `migrate up` before restarting).
+**New slash commands** `/voice invite|kick|ban|unban`: registered only by the approved sync-commands step.
+**Proposed Nginx rule** for short guest links (`/v/<code>`) in `deploy/nginx/wowquester_locations.conf`.
+
+- **Leaving during an event** no longer disconnects you: you keep your seat until you hang up but can't
+  rejoin unless you join again. `[voice] remove_on_leave = true` brings back the old behaviour.
+- **Guest voice links** (`/voice invite`, optional DM on Start with `[voice] invite_dm`): someone outside the
+  event signs in with Discord, is added to the server if needed, and can join that event's voice until it
+  ends. No WoWQuester profile is made. The bot's role needs Create Invite.
+- **Host voice moderation**: `/voice kick`, `/voice ban` (rest of the event), `/voice unban`; the server
+  owner, bots, `protected_role_ids`, staff and admin roles can't be targeted.
+- **How it works** page (`/wow/quester/help`), linked in the footer; the privacy page covers guest IDs and
+  voice moderation records.
+
 **Database migration 0005** (adds the voice columns to events; run `migrate up` before restarting).
 
 - **Event voice channels (FU-1)**, off until `[voice] enabled = true` and `category_id` are set. Start

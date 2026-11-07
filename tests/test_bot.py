@@ -17,9 +17,12 @@ def test_command_payload_shape():
     cfg = make_cfg()
     p = bc.command_payload(cfg)
     names = {c["name"] for c in p}
-    assert names == {"quest", "character"}
+    assert names == {"quest", "character", "voice"}
     quest = next(c for c in p if c["name"] == "quest")
     assert {o["name"] for o in quest["options"]} == {"list", "my", "join", "leave", "create"}
+    vc = next(c for c in p if c["name"] == "voice")
+    assert {o["name"] for o in vc["options"]} == {"invite", "kick", "ban", "unban"}
+    assert vc.get("contexts") == [0]                                  # servers only, never in DMs
     blob = json.dumps(p)
     assert "Example Community" not in blob and not re.search(r"\d{17,20}", blob)
 

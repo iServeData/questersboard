@@ -30,6 +30,7 @@
     <li><strong>A login cookie.</strong> One cookie keeps you logged in for up to {{ cfg["web"]["session_hours"] }} hours. It is only used for this site, it isn't readable by page scripts, and we store only a scrambled (hashed) copy of it.</li>
     <li><strong>Short-lived technical records.</strong> To stop abuse we count requests per minute, which can briefly involve your IP address. A security log records actions such as creating, approving or removing things, and who did them.</li>
     <li><strong>Calendar links.</strong> If you create a personal calendar link, we store only a hashed copy, and you can revoke it.</li>
+    {% if cfg["voice"]["enabled"] %}<li><strong>Event voice channels.</strong> While an event is running, its voice channel lets in the people signed up, and we note on the channel who has access. We don't record who talks, what is said or how long anyone stays; the bot only counts how many people are in the channel.{% if cfg["voice"]["guest_invites"] %} If someone opens a guest voice link, Discord asks them to let us see their Discord name and add them to the {{ cfg["community"]["name"] }} server. We keep their Discord ID only while the event runs and delete it when it ends; the sign-in permission is used once and not kept, and no WoWQuester profile is made for them.{% endif %} If a host removes or bans someone from the channel, the security log records it.</li>{% endif %}
   </ul>
 
   <h2 class="sub" id="public">What the public can see</h2>
@@ -48,6 +49,7 @@
   <ul>
     <li>Login sessions: until they expire, plus {{ ret.session_days_after_expiry }} day{{ "s" if ret.session_days_after_expiry != 1 }}.</li>
     <li>Withdrawn or rejected signups for past events: {{ ret.withdrawn_signup_days }} days.</li>
+    {% if cfg["voice"]["enabled"] %}<li>Voice access, guest voice links, guests and voice bans for an event: until the event ends.</li>{% endif %}
     <li>Cached game data: {{ ret.api_cache_days }} days. Finished background jobs: {{ ret.outbox_done_days }} days.</li>
     <li>Security log: {{ ret.audit_days }} days.</li>
     <li>Encrypted backups: {{ lg.backup_keep_days }} days.</li>

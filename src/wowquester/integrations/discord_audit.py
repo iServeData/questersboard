@@ -41,6 +41,7 @@ SPEAK = 1 << 21
 MOVE_MEMBERS = 1 << 24
 USE_VAD = 1 << 25
 MANAGE_ROLES = 1 << 28
+CREATE_INVITE = 1 << 0
 
 NAMES = {MANAGE_THREADS: "Manage Threads", CREATE_PUBLIC_THREADS: "Create Public Threads",
          CREATE_PRIVATE_THREADS: "Create Private Threads", SEND_IN_THREADS: "Send Messages in Threads",
@@ -48,7 +49,7 @@ NAMES = {MANAGE_THREADS: "Manage Threads", CREATE_PUBLIC_THREADS: "Create Public
          USE_COMMANDS: "Use Application Commands", ATTACH: "Attach Files", MANAGE_MESSAGES: "Manage Messages",
          ADD_REACTIONS: "Add Reactions", MANAGE_CHANNELS: "Manage Channels", STREAM: "Video",
          CONNECT: "Connect", SPEAK: "Speak", MOVE_MEMBERS: "Move Members", USE_VAD: "Use Voice Activity",
-         MANAGE_ROLES: "Manage Permissions"}
+         MANAGE_ROLES: "Manage Permissions", CREATE_INVITE: "Create Invite"}
 SHOWN = (VIEW, SEND, HISTORY, EMBED, USE_COMMANDS)
 SHORT = {VIEW: "view", SEND: "send", HISTORY: "history", EMBED: "embed", USE_COMMANDS: "/cmds"}
 TYPES = {0: "text", 2: "voice", 4: "category", 5: "announcement", 13: "stage", 15: "forum", 16: "media"}
@@ -240,6 +241,17 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
                        (set(cfg["roles"].get("event_moderator", [])) if vc.get("moderators_can_join", True) else set()))
         rep.ok("Can join every event voice channel without signing up: "
                + (", ".join(rname(r) for r in staff) if staff else "nobody (only people signed up and hosts)"))
+        if vc.get("guest_invites", True):
+            # adding a guest to the server (guilds.join) needs Create Invite at server level
+            if _missing(effective(guild_id, roles, None, bot), (CREATE_INVITE,)):
+                rep.fix("Guest voice links need the bot's role to have Create Invite (server settings > Roles), "
+                        "so guests who aren't in the server yet can be added. Or set [voice] guest_invites = false.")
+            else:
+                rep.ok("Bot can add guests from guest voice links to the server.")
+        prot = sorted(set(vc.get("protected_role_ids", [])))
+        rep.ok("Hosts can't kick or ban from event voice: the server owner, bots"
+               + (", " + ", ".join(rname(r) for r in prot) if prot else "")
+               + (", the staff and admin roles" if staff or cfg["roles"].get("admin") else ""))
 
     # 2. pick the category
     cat = category_id or (str(chans.get(event_ch, {}).get("parent_id") or "") if event_ch else "")

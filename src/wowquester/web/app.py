@@ -2,6 +2,7 @@
 
 Security model
 * Login: Discord OAuth2 authorization-code flow, scope `identify` only, single-use `state`
+  (guest voice links alone also ask for `guilds.join`, to add the guest to the server; no session is made)
   bound to the pre-login session. No Discord access token is stored.
 * Sessions: random 256-bit id in a Secure/HttpOnly/SameSite=Lax cookie; only its SHA-256
   is stored (web_sessions). Rotated at login. Server-side expiry.
@@ -58,15 +59,20 @@ class DiscordOAuth:
         self.client_id, self.client_secret = client_id, client_secret
         self.http = http or httpx.Client(timeout=10)
 
-    def authorize_url(self, redirect_uri: str, state: str, prompt: str = "none") -> str:
+    def authorize_url(self, redirect_uri: str, state: str, prompt: str = "none", scope: str = "identify") -> str:
         # prompt=none skips Discord's Authorize screen, but only for accounts that have authorized the app
         # before; Discord answers everyone else with error=access_denied, and the callback then asks again
         # with prompt=consent (the normal Authorize screen).
         return "https://discord.com/oauth2/authorize?" + urlencode(dict(
-            client_id=self.client_id, response_type="code", scope="identify", state=state,
+            client_id=self.client_id, response_type="code", scope=scope, state=state,
             redirect_uri=redirect_uri, prompt=prompt))
 
-    def identify(self, code: str, redirect_uri: str) -> tuple[str, str]:
+    def guest_identify(self, code: str, redirect_uri: str) -> tuple[str, str, str, str]:
+        """Guest voice links (scope identify guilds.join): who they are, plus the token used once to add them
+        to the server. The token is never stored."""
+        return self.identify(code, redirect_uri, with_token=True)
+
+    def identify(self, code: str, redirect_uri: str, with_token: bool = False):
         if not self.client_secret:
             raise PermissionDenied("Discord login is not configured on this server yet.")
         r = self.http.post(DISCORD_API + "/oauth2/token", data=dict(
@@ -79,7 +85,8 @@ class DiscordOAuth:
         if u.status_code != 200:
             raise PermissionDenied("Discord login failed. Please try again.")
         d = u.json()
-        return str(d["id"]), d.get("global_name") or d.get("username") or "", d.get("username") or ""
+        out = (str(d["id"]), d.get("global_name") or d.get("username") or "", d.get("username") or "")
+        return out + (tok,) if with_token else out
 
 
 class Web:

@@ -77,6 +77,7 @@ textarea{resize:vertical;max-width:100%;min-height:3.2em}
 .wq-checks label{display:flex;gap:.5rem;align-items:center}
 .shot img,.wq-story img{max-width:100%;height:auto;display:block}
 .wq-foot{padding:30px 24px 50px;border-top:1px solid var(--line)}
+.wq-foot a{white-space:nowrap}
 .wq .nav{position:relative}
 .wq-state-in_progress{border-color:var(--accent,#c4493c)}
 .wq-state-cancelled{opacity:.8;text-decoration:line-through}

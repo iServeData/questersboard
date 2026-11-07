@@ -122,6 +122,11 @@ class Config:
     def role_ids(self, capability: str) -> frozenset[str]:
         return frozenset(self.raw["roles"].get(capability, []))
 
+    def voice_protected_roles(self) -> frozenset[str]:
+        """Roles hosts can't kick or ban from event voice: [voice] protected_role_ids, the voice staff roles
+        and the [roles] admin roles. (The server owner and bots are always protected.)"""
+        return frozenset(self.raw["voice"]["protected_role_ids"]) | self.voice_staff_roles() | self.role_ids("admin")
+
     def voice_staff_roles(self) -> frozenset[str]:
         """Server roles that may join every event voice channel without signing up: [voice] staff_role_ids,
         plus the [roles] event_moderator roles when [voice] moderators_can_join is on."""
@@ -364,7 +369,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
         raise ConfigError("[event_threads] name_suffix must be text of 20 characters or fewer")
 
     vc = r.setdefault("voice", {})
-    for k, dflt in (("enabled", False), ("moderators_can_join", True), ("remove_on_leave", True)):
+    for k, dflt in (("enabled", False), ("moderators_can_join", True), ("remove_on_leave", False),
+                    ("guest_invites", True)):
         if not isinstance(vc.setdefault(k, dflt), bool):
             raise ConfigError(f"[voice] {k} must be true or false")
     vc["category_id"] = _snowflake(vc.get("category_id", ""), "[voice] category_id")
@@ -388,8 +394,20 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             set(vc["member_states"]) - {"confirmed", "tentative", "waitlisted", "pending"}:
         raise ConfigError("[voice] member_states must list signup states from: confirmed, tentative, "
                           "waitlisted, pending")
+    vc["protected_role_ids"] = _snowflakes(vc.setdefault("protected_role_ids", []), "[voice] protected_role_ids")
+    _positive(vc.setdefault("max_guests_per_invite", 5), "[voice] max_guests_per_invite", 1)
+    if vc["max_guests_per_invite"] > 25:
+        raise ConfigError("[voice] max_guests_per_invite must be 1 to 25")
+    if vc.setdefault("invite_dm", "off") not in ("off", "hosts", "everyone"):
+        raise ConfigError("[voice] invite_dm must be \"off\", \"hosts\" or \"everyone\"")
+    tpl = vc.setdefault("guest_link_template", "")
+    if not isinstance(tpl, str) or (tpl and (not tpl.startswith("https://") or tpl.count("{code}") != 1)):
+        raise ConfigError("[voice] guest_link_template must be empty or an https:// address containing {code} "
+                          "once, e.g. \"https://short.example.org/v/{code}\"")
     unknown = set(vc) - {"enabled", "category_id", "name_template", "user_limit", "empty_teardown_minutes",
-                         "staff_role_ids", "moderators_can_join", "remove_on_leave", "member_states"}
+                         "staff_role_ids", "moderators_can_join", "remove_on_leave", "member_states",
+                         "guest_invites", "protected_role_ids", "max_guests_per_invite", "invite_dm",
+                         "guest_link_template"}
     if unknown:
         raise ConfigError(f"[voice] unknown setting {sorted(unknown)[0]!r}")
 

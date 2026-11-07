@@ -8,7 +8,8 @@ before it reaches main.
 Status: **built** (off until `[voice] enabled = true`). Requested during install, after go-live of the core
 release. Live Discord behaviour is UNVERIFIED until it is switched on; the tests use a FIXTURE Discord.
 
-Decisions: a member who cancels during the event is **removed from voice** (`remove_on_leave = true`), and
+Decisions: a member who cancels during the event **stays if connected but can't rejoin** (changed from
+removal; `remove_on_leave = true` restores it), and
 `event_moderator` roles plus any `staff_role_ids` (e.g. admins) can join without signing up.
 
 ### Behaviour
@@ -45,7 +46,12 @@ Decisions: a member who cancels during the event is **removed from voice** (`rem
 | `member_states` | `["confirmed", "tentative"]` | which signups get access (creator and co-hosts always do) |
 | `moderators_can_join` | `true` | `[roles] event_moderator` roles can join every event voice channel without signing up |
 | `staff_role_ids` | `[]` | more server roles (e.g. admins) that can join every event voice channel |
-| `remove_on_leave` | `true` | disconnect someone who leaves the event while they are in its channel (staff are never disconnected) |
+| `remove_on_leave` | `false` | false: a leaver keeps view/speak but loses Connect (stays until they hang up); true: disconnect them (staff are never disconnected) |
+| `guest_invites` | `true` | `/voice invite` guest links for people outside the event |
+| `max_guests_per_invite` | `5` | people per guest link |
+| `invite_dm` | `"off"` | `hosts` or `everyone`: DM guest links when the event starts |
+| `guest_link_template` | `""` | e.g. `"https://short.example.org/v/{code}"` |
+| `protected_role_ids` | `[]` | roles hosts can't kick or ban from event voice |
 
 ### Discord requirements and open questions
 
@@ -63,7 +69,7 @@ Decisions: a member who cancels during the event is **removed from voice** (`rem
   launched and the count is newer than `[status] voice_stale_after_seconds`, so the site's Next event
   card picks it up without a site change. The row goes when the event's public projection does.
 - **Move Members** on the category, so people who cancel can be disconnected.
-- Decided: a member who cancels is removed from the channel (`remove_on_leave`).
+- Decided (revised): a member who cancels may stay while connected but can't rejoin (`remove_on_leave = false`).
 - Decided: event moderators and `staff_role_ids` can join without signing up.
 
 ### How it works (built)
@@ -80,3 +86,27 @@ Decisions: a member who cancels during the event is **removed from voice** (`rem
 - After an empty removal, the event keeps running and the thread says so; a host can use
   **Organizer → Reopen voice** (or Reopen voice on the web page). If someone deletes the channel by hand in
   Discord, it is treated the same way.
+
+## FU-2 Guest voice links and host voice moderation
+
+Status: **built** (needs voice on, migration 0006 and the approved sync-commands step for `/voice`). Live
+Discord behaviour is UNVERIFIED; the tests use FIXTURE Discord and OAuth.
+
+- **Guest links.** Anyone with access to a running event's voice can run `/voice invite` (one link per
+  person per event, reused). With `invite_dm`, hosts or everyone get theirs by DM on Start, with an
+  explanation of what the link is for. The link (`/wow/quester/v/<code>`, or the short domain via the `/v/`
+  Nginx rule) shows a plain page; the guest signs in with Discord (`identify guilds.join`, consent screen),
+  is added to the server if needed, and gets a member permission on that event's channel. No WoWQuester
+  profile or session is made and the Discord token is not stored. Each link allows up to
+  `max_guests_per_invite` people. Links, guests and bans are deleted when the event ends or is cancelled
+  (and by housekeeping for any event no longer running).
+- **Host moderation.** `/voice kick member` (disconnect), `/voice ban member` (disconnect and deny for the
+  rest of the event) and `/voice unban member`, for the creator, co-hosts and event moderators, only while
+  the event runs. Never on: the server owner, bots, `protected_role_ids`, `staff_role_ids`, `[roles] admin`,
+  yourself; co-hosts can't act on the creator. Each action is in the security log. The command applies to
+  the event whose voice chat it's typed in, otherwise to the only running event the host manages.
+- **Usage page.** `/wow/quester/help` explains the flows and limits in plain language; sections follow the
+  live config. Linked in the footer as "How it works".
+- Open: whether Discord's membership screening (rules screen) applies to guests added this way, and whether
+  a connected member keeps their seat after Connect is removed (expected; check live).
+

@@ -555,6 +555,8 @@ def start(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
     _clear_reconfirm(s, ev)          # once it's running, an open "please reconfirm" no longer applies
     _changed(ev)
     audit.record(s, actor, "event.start", "event", ev.id)
+    from . import voice
+    voice.invite_dms(s, cfg, ev)     # [voice] invite_dm: guest links by DM when the event starts
     _notify_post(s, cfg, ev)
     return ev
 
@@ -578,6 +580,8 @@ def end(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
         chronicle.ensure_draft(s, cfg, ev)
         outbox.enqueue(s, "notify.chronicle_prompt", str(ev.id), {"event_id": ev.id})
     audit.record(s, actor, "event.end", "event", ev.id)
+    from . import voice
+    voice.end_session(s, ev)
     _notify_post(s, cfg, ev)
     return ev
 
@@ -594,6 +598,8 @@ def cancel(s: Session, cfg: Config, actor: Actor, event_id: int, reason: str = "
     outbox.enqueue(s, "notify.material_change", f"{ev.id}:{ev.version}",
                    {"event_id": ev.id, "changes": ["cancelled"], "bumped": []})
     audit.record(s, actor, "event.cancel", "event", ev.id, reason=ev.cancelled_reason)
+    from . import voice
+    voice.end_session(s, ev)
     _notify_post(s, cfg, ev)
     return ev
 

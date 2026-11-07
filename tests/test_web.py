@@ -21,11 +21,14 @@ pytestmark = needs_db
 
 class FakeOAuth:
     """FIXTURE: pretends Discord identified the user named in the code."""
-    def authorize_url(self, redirect_uri, state, prompt="none"):
-        return f"https://discord.example.invalid/authorize?state={state}&prompt={prompt}"
+    def authorize_url(self, redirect_uri, state, prompt="none", scope="identify"):
+        return f"https://discord.example.invalid/authorize?state={state}&prompt={prompt}&scope={scope}"
 
     def identify(self, code, redirect_uri):
         return code, f"User{code[-3:]}"
+
+    def guest_identify(self, code, redirect_uri):
+        return code, f"User{code[-3:]}", f"user{code[-3:]}", "FIXTURE-token"
 
 
 class FakeRest:
@@ -39,6 +42,11 @@ class FakeRest:
         if user_id not in self.roles:
             return False, frozenset(), ""
         return True, frozenset(self.roles[user_id]), f"Nick{user_id[-3:]}"
+
+    def add_guild_member(self, guild_id, user_id, access_token):
+        self.added = getattr(self, "added", []) + [user_id]
+        self.roles.setdefault(user_id, set())
+        return True
 
 
 @pytest.fixture

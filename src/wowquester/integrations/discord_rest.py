@@ -154,6 +154,12 @@ class DiscordRest:
             return None
         return str(v["channel_id"]) if v and v.get("channel_id") else None
 
+    def add_guild_member(self, guild_id: str, user_id: str, access_token: str) -> bool:
+        """Guest voice links: add someone who signed in (scope guilds.join) to the server. True if added,
+        False if they were already in it. Needs Create Invite for the bot. UNVERIFIED live."""
+        r = self._call("PUT", f"/guilds/{guild_id}/members/{user_id}", {"access_token": access_token})
+        return bool(r)
+
     def disconnect_voice(self, guild_id: str, user_id: str) -> None:
         try:
             self._call("PATCH", f"/guilds/{guild_id}/members/{user_id}", {"channel_id": None})

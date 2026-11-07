@@ -252,7 +252,9 @@ async def join_voice(inter: discord.Interaction, event_id: int) -> None:
         await reply(inter, f"Voice for **{_md(title)}** is for people signed up. Press **Join** on the post "
                            "and you'll get access straight away.")
     else:
-        await reply(inter, f"Voice for **{_md(title)}**: <#{ch}>", LinkView("Open voice channel", voice.link(cfg, ch)))
+        tip = ("\nPlaying with someone outside the event? `/voice invite` gives you a guest link for them."
+               if cfg["voice"]["guest_invites"] else "")
+        await reply(inter, f"Voice for **{_md(title)}**: <#{ch}>{tip}", LinkView("Open voice channel", voice.link(cfg, ch)))
 
 
 # --------------------------------------------------------------------------- views
@@ -623,11 +625,66 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
             await reply(inter, {"deleted": "Removed.", "archived": "Archived (it has event history)."}.get(res, res))
         await guarded(inter, go())
 
+    vgroup = app_commands.Group(name="voice", description="Event voice channel")
+
+    @vgroup.command(name="invite", description="Get a guest link to this event's voice for someone you're playing with")
+    async def v_invite(inter: discord.Interaction):
+        async def go():
+            cfg = Ctx.cfg()
+            actor = await build_actor(inter, "slash")
+
+            def q(s):
+                eid = voice.event_for_command(s, cfg, actor, str(inter.channel_id), manage=False)
+                ev, code = voice.invite_for(s, cfg, actor, eid)
+                return ev.title, code
+            title, code = await run_tx(q)
+            await reply(inter, voice.invite_dm_text(cfg, _Titled(title), code))
+        await guarded(inter, go())
+
+    async def _moderate(inter: discord.Interaction, member: discord.Member, action: str, done: str):
+        cfg = Ctx.cfg()
+        actor = await build_actor(inter, "slash")
+        owner = getattr(inter.guild, "owner_id", None)
+        target = voice.Target(str(member.id), frozenset(str(r.id) for r in getattr(member, "roles", [])
+                                                        if r.id != inter.guild_id),
+                              is_owner=owner is not None and member.id == owner, is_bot=bool(member.bot))
+
+        def q(s):
+            eid = voice.event_for_command(s, cfg, actor, str(inter.channel_id), manage=True)
+            return voice.moderate(s, cfg, actor, eid, target, action).title
+        title = await run_tx(q)
+        await reply(inter, done.format(name=_md(member.display_name), title=_md(title)))
+
+    @vgroup.command(name="kick", description="Take someone out of your event's voice channel")
+    async def v_kick(inter: discord.Interaction, member: discord.Member):
+        await guarded(inter, _moderate(inter, member, "kick",
+                                       "Took **{name}** out of voice for **{title}**. They can rejoin if they "
+                                       "still have access; use `/voice ban` to keep them out."))
+
+    @vgroup.command(name="ban", description="Take someone out of your event's voice and keep them out until it ends")
+    async def v_ban(inter: discord.Interaction, member: discord.Member):
+        await guarded(inter, _moderate(inter, member, "ban",
+                                       "**{name}** is out of voice for **{title}** until the event ends."))
+
+    @vgroup.command(name="unban", description="Let someone back into your event's voice")
+    async def v_unban(inter: discord.Interaction, member: discord.Member):
+        await guarded(inter, _moderate(inter, member, "unban",
+                                       "**{name}** can use voice for **{title}** again if they have access."))
+
     for cmd in (quest, character):
         cmd.allowed_contexts = app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=False)
         cmd.allowed_installs = app_commands.AppInstallationType(guild=True, user=False)
         tree.add_command(cmd)
+    vgroup.allowed_contexts = app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False)
+    vgroup.allowed_installs = app_commands.AppInstallationType(guild=True, user=False)
+    tree.add_command(vgroup)
     return tree
+
+
+class _Titled:
+    """Just enough of an event for voice.invite_dm_text."""
+    def __init__(self, title: str):
+        self.title = title
 
 
 class Bot(discord.Client):

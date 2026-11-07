@@ -38,7 +38,7 @@ def render(request: Request, name: str, ctx: dict, status: int = 200, public: bo
                 cp=cfg["chronicle"]["public_path"].rstrip("/"), actor=a, csrf=sess.csrf if sess else "",
                 can=(lambda cap: a is not None and permissions.has(cfg, a, cap)), public=public)
     base.update(ctx)
-    base["indexable"] = public and status == 200       # error and notice pages stay out of search
+    base["indexable"] = public and status == 200 and not ctx.get("noindex")   # errors, notices, guest links: no
     if not base["indexable"]:
         base["seo"] = None
     elif "seo" not in base:
@@ -234,9 +234,12 @@ def router(cfg: Config) -> APIRouter:
                 "title": "Login not finished",
                 "message": "Discord didn't confirm the login (Cancel was pressed, or Discord declined it). "
                            "Nothing was saved. You can try again.",
-                "retry_url": f"{mp}/login?next={nxt}"}, status=400, public=True)
+                "retry_url": (f"{mp}/v/{pre.data['guest_code']}" if pre.data.get("guest_code")
+                              else f"{mp}/login?next={nxt}")}, status=400, public=True)
             w.drop_session(request, resp)
             return resp
+        if pre.data.get("guest_code"):
+            return _guest_callback(request, w, pre, code)
         resp = _redirect(nxt)
         w.drop_session(request, resp)           # state is single-use
         ident = w.oauth.identify(code, w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/oauth/callback")
@@ -255,6 +258,85 @@ def router(cfg: Config) -> APIRouter:
         w.cleanup_sessions()
         log.info("login member=%s", a.member_id)
         return resp
+
+    # ------------------------------------------------------------- guest voice links
+    def _guest_page(request, title: str, message: str, status: int = 200, **extra):
+        return render(request, "voice_invite.html", {"title": title, "message": message, "noindex": True, **extra},
+                      status=status, public=True)
+
+    @r.get(mp + "/v/{code}")
+    def guest_invite(request: Request, code: str):
+        w = W(request)
+        from .app import client_ip
+        if not w.rate_ok("guest:" + client_ip(request), 20):
+            return _guest_page(request, "Slow down", "Too many tries. Wait a minute and open the link again.", 429)
+        try:
+            with w.db.tx() as s:
+                ev = voice.check_invite(s, w.cfg, code)
+                title, end = ev.title, ev.end_at
+        except NotFound as exc:
+            return _guest_page(request, "Voice link ended", str(exc), 404)
+        return _guest_page(request, "Join the voice channel", "", event_title=title, end_at=end,
+                           go_url=f"{mp}/v/{code.strip().lower()}/go", max_guests=w.cfg["voice"]["max_guests_per_invite"])
+
+    @r.get(mp + "/v/{code}/go")
+    def guest_go(request: Request, code: str):
+        w = W(request)
+        if w.oauth is None:
+            return _guest_page(request, "Sign-in unavailable", "Discord sign-in isn't set up on this server.", 503)
+        with w.db.tx() as s:
+            try:
+                voice.check_invite(s, w.cfg, code)
+            except NotFound as exc:
+                return _guest_page(request, "Voice link ended", str(exc), 404)
+        cur = w.load_session(request)
+        if cur is not None and cur.member_id is not None:
+            return _guest_finish(request, w, code.strip().lower(), cur.data.get("discord_id", ""), False)
+        state = pysecrets.token_urlsafe(24)
+        resp = _redirect("about:blank")
+        w.new_session(resp, None, {"oauth_state": state, "guest_code": code.strip().lower(), "next": mp + "/"})
+        resp.headers["location"] = w.oauth.authorize_url(
+            w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/oauth/callback", state, prompt="consent",
+            scope="identify guilds.join")
+        return resp
+
+    def _guest_callback(request, w, pre, code: str):
+        """A guest signed in: add them to the server if needed and open this event's voice to them.
+        No WoWQuester account or session is created; the Discord token is used once and dropped."""
+        gcode = pre.data["guest_code"]
+        w.forget_session(request)               # state is single-use; the cookie is cleared on the reply
+        ident = w.oauth.guest_identify(code, w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/oauth/callback")
+        discord_id, token = ident[0], ident[3]
+        try:
+            with w.db.tx() as s:
+                voice.check_invite(s, w.cfg, gcode, discord_id)     # before adding anyone to the server
+        except NotFound as exc:
+            return _guest_page(request, "Voice link ended", str(exc), 404)
+        except PermissionDenied as exc:
+            return _guest_page(request, "Can't join this voice", str(exc), 403)
+        in_guild = w.rest.member(w.cfg.guild_id, discord_id)[0] if w.rest else False
+        if not in_guild:
+            try:
+                w.rest.add_guild_member(w.cfg.guild_id, discord_id, token)
+            except Exception:  # noqa: BLE001  (banned from the server, server full, Discord refused)
+                log.info("guest voice: could not add a guest to the server")
+                return _guest_page(request, "Couldn't add you to the server",
+                                   f"Discord didn't let us add you to the {w.cfg['community']['name']} server. "
+                                   "Ask the person who sent the link to invite you.", 403)
+        resp = _guest_finish(request, w, gcode, discord_id, not in_guild)
+        w.drop_session(request, resp)
+        return resp
+
+    def _guest_finish(request, w, gcode: str, discord_id: str, added: bool):
+        try:
+            with w.db.tx() as s:
+                got = voice.redeem(s, w.cfg, gcode, discord_id)
+                title, ch = got.event.title, got.channel_id
+        except (NotFound, PermissionDenied) as exc:
+            return _guest_page(request, "Can't join this voice", str(exc), 403)
+        log.info("guest voice: joined (new to server=%s)", added)
+        return _guest_page(request, "You're in", "", joined=True, event_title=title,
+                           channel_url=voice.link(w.cfg, ch), added=added)
 
     @r.post(mp + "/logout")
     async def logout(request: Request):

@@ -100,8 +100,16 @@ community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
    the end time: nobody is asked to reconfirm and no DMs go out.
    In Discord, **Organizer** on the post gives hosts Start event and End event buttons (End asks first).
    When voice is on, Start opens a private voice channel for the event: everyone signed up gets
-   **Join voice** on the post, plus event moderators and staff roles. Leaving the event removes your access
-   (and takes you out of the channel). End or Cancel removes the channel; if it sits empty for a few
+   **Join voice** on the post, plus event moderators and staff roles. Leaving the event while you're in the
+   channel lets you stay until you hang up, but you can't rejoin unless you join the event again
+   (`remove_on_leave = true` disconnects instead).
+   **Guest links**: anyone with voice access can run `/voice invite` for a link to give someone they're
+   playing with outside the event. The guest signs in with Discord on the site, is added to the server if
+   needed, and can join that event's voice until it ends (up to `max_guests_per_invite` people per link).
+   **Moderation**: hosts, co-hosts and event moderators can `/voice kick`, `/voice ban` (until the event
+   ends) and `/voice unban`, but not on the server owner, bots, admins, officers (protected roles) or
+   themselves, and co-hosts can't act on the host. The public **How it works** page (`/wow/quester/help`)
+   explains all of this for members and guests. End or Cancel removes the channel; if it sits empty for a few
    minutes after the scheduled end it is removed too, and a host can reopen it from Organizer.
 5. **Afterwards**: record attendance (attended / absent / unknown) and write the chronicle. The menus show
    what you saved last time, so saving again only changes what you change.

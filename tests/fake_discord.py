@@ -106,6 +106,13 @@ class FakeDiscord:
             q = req.url.params.get("query", "").lower()
             return httpx.Response(200, json=[{"user": u} for u in self.directory
                                              if u["username"].lower().startswith(q)])
+        if parts[0] == "guilds" and parts[2:3] == ["members"] and req.method == "PUT":
+            assert body.get("access_token")
+            if parts[3] in self.member_roles:
+                return httpx.Response(204)
+            self.member_roles[parts[3]] = []
+            self.added = getattr(self, "added", []) + [parts[3]]
+            return httpx.Response(201, json={"user": {"id": parts[3]}, "roles": []})
         if parts[0] == "guilds" and parts[2] == "members":
             return httpx.Response(200, json={"roles": self.member_roles.get(parts[3], []), "nick": "Nick",
                                              "user": {"username": "u"}})

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% from "_legal_toc.html" import legal_toc %}
+{% block content %}
+{% set vc = cfg["voice"] %}{% set th = cfg["event_threads"] %}{% set community = cfg["community"]["name"] %}
+{% set vsubs = [("voice-leave", "Leaving an event")] %}
+{% if vc.guest_invites %}{% set vsubs = vsubs + [("guests", "Guest voice links")] %}{% endif %}
+{% set vsubs = vsubs + [("voice-hosts", "Hosts and the channel")] %}
+{% set toc = [("start", "Getting started", []), ("characters", "Your characters", []),
+  ("joining", "Joining events", []), ("reminders", "Reminders and calendars", []),
+  ("hosting", "Hosting an event", [])] %}
+{% if th.enabled %}{% set toc = toc + [("chat", "Event chat", [])] %}{% endif %}
+{% if vc.enabled %}{% set toc = toc + [("voice", "Event voice", vsubs)] %}{% endif %}
+{% set toc = toc + [("chronicle", "Chronicle stories", []), ("privacy", "Privacy and Remove me", []),
+  ("limits", "Good to know", [])] %}
+<div class="wq-legal-layout">
+{{ legal_toc(toc, mp ~ "/privacy", "Privacy") }}
+<article class="panel wq-legal">
+  <div class="section-head"><span class="label"><span class="num">//</span> WoWQuester</span><h1>How it works</h1></div>
+  <p>WoWQuester is where {{ community }} plans World of Warcraft events, keeps track of who's coming, and shares stories afterwards. You can use it on this site or with the community bot in Discord; both do the same things.</p>
+
+  <h2 class="sub" id="start">Getting started</h2>
+  <ul>
+    <li>Press <strong>Log in</strong> and sign in with Discord. You need to be a member of the {{ community }} Discord server.</li>
+    <li>The first time, Discord asks you to allow WoWQuester to see your Discord name. That's all it asks for.</li>
+    <li>Upcoming events are on the home page and in the event channel in Discord. You can look around without logging in.</li>
+  </ul>
+
+  <h2 class="sub" id="characters">Your characters</h2>
+  <ul>
+    <li>Add the characters you play under <a href="{{ mp }}/characters">My characters</a>, or with <code>/character add</code> in Discord.</li>
+    <li>Pick the game edition, then the realm or ruleset, faction, race and class. Suggestions follow what you choose, and a pairing that can't exist in that edition is pointed out.</li>
+    <li>Set the roles you can play (for example tank, healer or damage). Events use these when you join.</li>
+    <li>Click a character to change it. Some details lock once the character has been in an event, so past events stay accurate; you can add it again as a new character instead.</li>
+  </ul>
+
+  <h2 class="sub" id="joining">Joining events</h2>
+  <ul>
+    <li>Press <strong>Join</strong> on an event, here or on its post in Discord, and choose a character and role.</li>
+    <li>If there's a free spot you're in straight away. If it's full you go on the waitlist and move up automatically when someone leaves. Some events need a host to approve you first.</li>
+    <li><strong>Tentative</strong> means "maybe": you're on the list but you don't take a spot.</li>
+    <li>You can only be in one event at a time. If two events overlap, you're told which one is in the way.</li>
+    <li>If a host moves an event to a new time before it starts, you're asked to confirm you can still make it. Once an event has started, extending it doesn't ask you anything.</li>
+    <li>Press <strong>Leave</strong> any time to give your spot to someone else.</li>
+  </ul>
+
+  <h2 class="sub" id="reminders">Reminders and calendars</h2>
+  <ul>
+    <li>The bot sends reminders by Discord direct message before events you've joined. Make sure the server allows messages from members.</li>
+    <li>Under My events you can make a private calendar link for your phone or computer calendar. Keep it to yourself; you can switch it off at any time.</li>
+    <li>The public calendar on the WoW page lists every event, without anyone's names.</li>
+  </ul>
+
+  <h2 class="sub" id="hosting">Hosting an event</h2>
+  <ul>
+    <li>Press <strong>New event</strong> (or use <code>/quest create</code> in Discord) and fill in the title, edition, time and the roles you need. It starts as a draft that only you can see.</li>
+    <li>Press <strong>Publish</strong> when it's ready. A post appears in the event channel with Join, Tentative and Leave buttons, and it keeps itself up to date.</li>
+    <li>Add <strong>co-hosts</strong> by their Discord username. They can help run the event and are told when it changes.</li>
+    <li>On the day, press <strong>Organizer</strong> on the Discord post (or open the event here) to <strong>Start</strong> and later <strong>End</strong> the event. If it runs long you get one reminder, and you can extend it by 30 minutes.</li>
+    <li>Afterwards, mark who came and write the event's story for the Chronicle.</li>
+  </ul>
+
+  {% if th.enabled %}
+  <h2 class="sub" id="chat">Event chat</h2>
+  <ul>
+    <li>Each published event gets its own chat thread in Discord for the people taking part. Joining adds you to it; leaving takes you out.</li>
+    <li>Use it to plan, share where to meet and talk about the run. It closes about a day after the event.</li>
+  </ul>
+  {% endif %}
+
+  {% if vc.enabled %}
+  <h2 class="sub" id="voice">Event voice</h2>
+  <ul>
+    <li>When a host presses Start, the event gets its own private voice channel in Discord.</li>
+    <li>Everyone signed up, the hosts and community staff can get in. Press <strong>Join voice</strong> on the event post to jump straight there.</li>
+    <li>When the event ends or is cancelled, the channel is removed. If it sits empty for {{ vc.empty_teardown_minutes }} minute{{ "s" if vc.empty_teardown_minutes != 1 }} after the planned end, it is removed too, and a host can open it again if the group is still playing.</li>
+  </ul>
+  <h3 class="sub" id="voice-leave">Leaving an event</h3>
+  {% if vc.remove_on_leave %}
+  <p>If you leave an event while it's running, you lose access to its voice channel and are taken out of it.</p>
+  {% else %}
+  <p>If you leave an event while you're in its voice channel, you can stay until you hang up. After that you can't get back in unless you join the event again.</p>
+  {% endif %}
+  {% if vc.guest_invites %}
+  <h3 class="sub" id="guests">Guest voice links</h3>
+  <p>Met someone in the game you'd like to talk to? You don't have to get them to make a character and join the event first.</p>
+  <ul>
+    <li>Anyone who can use the event's voice can get a guest link with <code>/voice invite</code> in Discord{% if vc.invite_dm == "hosts" %}. Hosts also get their link by direct message when the event starts{% elif vc.invite_dm == "everyone" %}. Everyone in the event also gets their link by direct message when it starts{% endif %}.</li>
+    <li>Send the link to the person you're playing with. They open it, sign in with Discord, and are added to the {{ community }} server if they aren't already in it. Then they can join the voice channel.</li>
+    <li>Each link works for up to {{ vc.max_guests_per_invite }} {{ "person" if vc.max_guests_per_invite == 1 else "people" }} and only while the event is running. When it ends, the link stops working and guests lose access to the channel.</li>
+    <li>Guests don't need a WoWQuester account, a character or a signup. They stay in the Discord server afterwards unless they leave it.</li>
+    <li>Only share your link with people you're actually playing with. You're responsible for who you invite.</li>
+  </ul>
+  {% endif %}
+  <h3 class="sub" id="voice-hosts">Hosts and the channel</h3>
+  <ul>
+    <li>The host and co-hosts can manage who's in the event's voice channel with <code>/voice kick</code> (take someone out; they can come back if they still have access), <code>/voice ban</code> (take them out and keep them out until the event ends) and <code>/voice unban</code>.</li>
+    <li>These only work for the event they're running, and only while it's running. A ban ends with the event.</li>
+    <li>Hosts can't kick or ban the server owner, community admins and officers, or the bot. Co-hosts can't kick or ban the event's host.</li>
+    <li>Use these for this event's channel only. Anything bigger is for the community's moderators.</li>
+  </ul>
+  {% endif %}
+
+  <h2 class="sub" id="chronicle">Chronicle stories</h2>
+  <ul>
+    <li>After an event, the host and everyone who took part are invited to write their own story about it. You don't need to be added as a co-author to write one.</li>
+    <li>Answer a few short questions (the plan, what happened, best moments), write more if you like, and add screenshots.</li>
+    <li>Press <strong>Submit for review</strong>. A reviewer reads it before it's published; they can also ask for changes.</li>
+    <li>Every approved story about an event appears on the same Chronicle page, starting with the host's.</li>
+    <li>If you'd like to write together, the author can add co-authors from the people at the event.</li>
+    <li>Your character is only named in a story if you've said yes. You can change that per event, and stop being named in a published story at any time.</li>
+  </ul>
+
+  <h2 class="sub" id="privacy">Privacy and Remove me</h2>
+  <ul>
+    <li>WoWQuester keeps only what it needs to run events. The <a href="{{ mp }}/privacy">Privacy</a> page explains what that is and how long it's kept.</li>
+    <li>Under My settings, <a href="{{ mp }}/me/remove">Remove me</a> deletes your WoWQuester profile, characters and signups. It doesn't remove you from the Discord server or touch anything you've posted there.</li>
+  </ul>
+
+  <h2 class="sub" id="limits">Good to know</h2>
+  <ul>
+    <li>You need to be in the {{ community }} Discord server to log in, join events or write stories.</li>
+    <li>Only one WoW event can run at a time unless the community says otherwise, and you can only be in one event at a time.</li>
+    <li>Direct messages from the bot only reach you if your Discord settings allow messages from server members.</li>
+    <li>Stories are reviewed before they're public, so publishing isn't instant.</li>
+    {% if vc.enabled %}<li>Voice channels exist only while an event is running.</li>{% endif %}
+    <li>Questions or problems? Ask a host or an officer in Discord.</li>
+  </ul>
+</article>
+</div>
+{% endblock %}

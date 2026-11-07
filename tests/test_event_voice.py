@@ -1,5 +1,6 @@
 """FU-1 event voice channels: opened on Start, signed-up players and hosts get access, staff roles can
-join without signing up, leavers lose access and are disconnected, End/Cancel remove the channel, and
+join without signing up, leavers may stay while connected but can't rejoin (or are disconnected with
+remove_on_leave), End/Cancel remove the channel, and
 an empty channel is removed after the scheduled end (event keeps running; hosts can reopen).
 All names are made up; Discord is a FIXTURE (no live calls)."""
 from __future__ import annotations
@@ -110,8 +111,8 @@ def test_start_opens_one_private_channel_for_signed_up_people(seeded, worker_db,
     assert len(fake.voice) == 1
 
 
-def test_join_after_start_and_leave_disconnects(seeded, worker_db, monkeypatch):
-    cfg, fake = _cfg(), FakeDiscord()
+def test_join_after_start_and_leave_disconnects_with_remove_on_leave(seeded, worker_db, monkeypatch):
+    cfg, fake = _cfg(remove_on_leave=True), FakeDiscord()
     w = Worker(ConfigHolder(cfg), worker_db, fake.client())
     a, b, late, staff = actor(80), actor(81), actor(83), actor(84)
     eid = _started(seeded, cfg, monkeypatch, w, a, b)
@@ -133,8 +134,9 @@ def test_join_after_start_and_leave_disconnects(seeded, worker_db, monkeypatch):
     assert fake.voice_states[fake_id(81)] == "elsewhere" and fake.voice_states[fake_id(84)] == vid
 
 
-def test_leave_without_remove_on_leave_only_stops_rejoining(seeded, worker_db, monkeypatch):
-    cfg, fake = _cfg(remove_on_leave=False), FakeDiscord()
+def test_leave_by_default_only_stops_rejoining(seeded, worker_db, monkeypatch):
+    cfg, fake = _cfg(), FakeDiscord()
+    assert cfg["voice"]["remove_on_leave"] is False
     w = Worker(ConfigHolder(cfg), worker_db, fake.client())
     a = actor(80)
     eid = _started(seeded, cfg, monkeypatch, w, a)
@@ -143,7 +145,14 @@ def test_leave_without_remove_on_leave_only_stops_rejoining(seeded, worker_db, m
     with seeded.tx() as s:
         signups.leave(s, cfg, a, eid)
     _drain(w)
-    assert fake_id(80) not in fake.voice[vid]["overwrites"] and not fake.disconnects
+    kind, allow, deny = fake.voice[vid]["overwrites"][fake_id(80)]
+    assert (kind, allow, deny) == (1, voice.LEFT, 0) and not allow & voice.CONNECT and allow & voice.SPEAK
+    assert not fake.disconnects and fake.voice_states[fake_id(80)] == vid       # still talking
+    with seeded.tx() as s:
+        assert _ev(s, eid).discord_voice_members[fake_id(80)] == "left"
+        signups.join(s, cfg, a, eid, char(s, cfg, a, "Vashka").id)            # signs up again: can rejoin
+    _drain(w)
+    assert fake.voice[vid]["overwrites"][fake_id(80)] == (1, voice.PARTICIPANT, 0)
 
 
 @pytest.mark.parametrize("how", ["end", "cancel"])
