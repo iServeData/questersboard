@@ -112,3 +112,59 @@ def test_web_send_for_publishing_and_moderator_list(seeded):
     assert "Waiting to be published" not in mod.get("/wow/quester/").text
     other = login(app, 43, "event_creator")                            # role but not a moderator: no list
     assert "Waiting to be published" not in other.get("/wow/quester/").text
+
+
+# ------------------------------------------------------------------ open publishing with probation
+def _member(n, days, *caps):
+    from dataclasses import replace
+    a = actor(n, *caps)
+    return replace(a, joined_at=None if days is None else now() - timedelta(days=days))
+
+
+def test_everyone_publishes_after_probation():
+    from wowquester.config import ConfigError
+    from wowquester.domain import permissions as perm
+    cfg = make_cfg()
+    assert cfg["publishing"] == {"open_to_all": True, "probation_days": 7}
+    assert perm.has(cfg, _member(50, 30), "event_creator")                 # older member: may publish
+    assert not perm.has(cfg, _member(50, 2), "event_creator")              # new: probation
+    assert not perm.has(cfg, _member(50, None), "event_creator")           # unknown join date: probation
+    assert perm.has(cfg, _member(50, 2, "event_creator"), "event_creator") # the role always may
+    assert not perm.has(cfg, _member(50, 30), "event_moderator")           # only publishing opens up
+    assert perm.has(make_cfg(publishing={"probation_days": 0}), _member(50, 0), "event_creator")
+    assert not perm.has(make_cfg(publishing={"open_to_all": False}), _member(50, 30), "event_creator")
+    assert "less than 7 days" in perm.probation_message(cfg) and "approval first" in perm.probation_message(cfg)
+    for bad in ({"open_to_all": "yes"}, {"probation_days": -1}, {"probation": 3}):
+        with pytest.raises(ConfigError):
+            make_cfg(publishing=bad)
+
+
+def test_new_member_is_told_and_can_send_for_publishing(seeded):
+    cfg = _cfg()
+    new, old = _member(52, 3), _member(53, 40)
+    with seeded.tx() as s:
+        ev = event(s, cfg, new, 24, publish=False)
+        with pytest.raises(PermissionDenied, match="approval first"):
+            events.publish(s, cfg, new, ev.id)
+        events.request_publish(s, cfg, new, ev.id)
+        assert ev.state == "draft" and ev.publish_requested_at is not None
+        mine = event(s, cfg, old, 30, publish=False)
+        events.publish(s, cfg, old, mine.id)                               # no role needed any more
+        assert mine.state == "scheduled"
+
+
+def test_web_probation_message_and_open_publish(seeded):
+    from test_web import FakeOAuth, FakeRest, login
+
+    from wowquester.web.app import create_app
+    cfg = _cfg()
+    cfg.raw["web"]["cookie_secure"] = False
+    rest = FakeRest()
+    rest.joined = {fake_id(54): now() - timedelta(days=2), fake_id(55): now() - timedelta(days=60)}
+    app = create_app(ConfigHolder(cfg), seeded, FakeOAuth(), rest)
+    app.state.fake_rest = rest
+    new, old = login(app, 54), login(app, 55)
+    form = new.get("/wow/quester/events/new").text
+    assert "Save and send for publishing" in form and "approval first" in form
+    form = old.get("/wow/quester/events/new").text
+    assert "Save and publish" in form and "approval first" not in form

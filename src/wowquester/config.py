@@ -32,7 +32,7 @@ DEFAULT_PARTY_SIZE = {"quest": 5, "dungeon": 5, "arena": 5, "raid": 40, "battleg
 DEFAULT_FACTION_COLORS = {"horde": "#C41E3A", "alliance": "#1F6FD8", "any": "#C9A227"}
 COVER_NAME = re.compile(r"^[A-Za-z0-9_-]{1,60}\.(webp|png|jpg|jpeg)$")
 
-LIVE_SECTIONS = ("roles", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status",
+LIVE_SECTIONS = ("roles", "publishing", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status",
                  "event_posts")
 API_STATUSES = ("verified", "unverified", "unsupported")
 API_CAPS = ("reference", "character", "quests", "locations", "ownership")
@@ -412,6 +412,15 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
                          "guest_link_template"}
     if unknown:
         raise ConfigError(f"[voice] unknown setting {sorted(unknown)[0]!r}")
+
+    # Who may publish events. open_to_all: every member may, except during probation (newer to the server
+    # than probation_days), when their drafts go to the moderators. The event_creator role always may.
+    pb = r.setdefault("publishing", {})
+    pb.setdefault("open_to_all", True)
+    _req(pb, "open_to_all", bool, "publishing")
+    _positive(pb.setdefault("probation_days", 7), "[publishing] probation_days", 0)
+    if set(pb) - {"open_to_all", "probation_days"}:
+        raise ConfigError(f"[publishing] unknown setting {sorted(set(pb) - {'open_to_all', 'probation_days'})[0]!r}")
 
     b = r.setdefault("branding", {})
     b.setdefault("site_name", c["name"])

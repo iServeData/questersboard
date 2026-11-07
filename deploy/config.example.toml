@@ -33,6 +33,11 @@ dm_enabled = true                             # members may use the bot in DMs; 
 notify_dm_on_material_change = true           # DM confirmed participants when time/location changes or event is cancelled
 reconfirm_window_hours = 24
 
+[publishing]                                  # live
+open_to_all = true                            # every member may publish events (the event_creator role always may)
+probation_days = 7                            # members newer to the server than this send drafts to moderators
+                                              # for approval instead; 0 = no probation
+
 [roles]                                       # [live] Discord role IDs per capability
 event_creator = []          # create and publish events
 event_moderator = []        # start/end/cancel/edit ANY event; manage any signups

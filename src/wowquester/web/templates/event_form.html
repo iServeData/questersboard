@@ -106,7 +106,7 @@
     <button class="btn" type="submit">{{ "Save changes" if editing else "Save draft" }}</button>
     {% if (not editing or ev.state == "draft") and can('event_creator') %}<button class="btn ghost" type="submit" name="publish" value="1">Save and publish</button>
     {% elif (not editing or (ev.state == "draft" and not ev.publish_requested_at)) %}<button class="btn ghost" type="submit" name="request_publish" value="1">Save and send for publishing</button>{% endif %}
-    {% if not can('event_creator') and (not editing or ev.state == "draft") %}<p class="note">Publishing needs the event-creator role. Send your draft for publishing and a moderator will post it to Discord.</p>{% endif %}
+    {% if not can('event_creator') and (not editing or ev.state == "draft") %}<p class="note">{% if probation %}{{ probation }}{% else %}Publishing needs the event-creator role. Send your draft for publishing and a moderator will post it to Discord.{% endif %}</p>{% endif %}
     <a class="btn ghost" href="{{ mp }}/{{ 'events/' ~ ev.public_id if editing else '' }}">Cancel</a>
   </div>
 </form>

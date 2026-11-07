@@ -38,10 +38,12 @@ class FakeRest:
         self.calls = 0
 
     def member(self, guild_id, user_id):
+        from wowquester.integrations.discord_rest import MemberInfo
         self.calls += 1
         if user_id not in self.roles:
-            return False, frozenset(), ""
-        return True, frozenset(self.roles[user_id]), f"Nick{user_id[-3:]}"
+            return MemberInfo(False, frozenset(), "")
+        return MemberInfo(True, frozenset(self.roles[user_id]), f"Nick{user_id[-3:]}",
+                          getattr(self, "joined", {}).get(user_id))
 
     def add_guild_member(self, guild_id, user_id, access_token):
         self.added = getattr(self, "added", []) + [user_id]

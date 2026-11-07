@@ -24,7 +24,7 @@ from ..models import Event, Series
 from . import audit, events
 from .actor import Actor
 from .errors import Invalid
-from .permissions import require
+from .permissions import require_publisher
 from .roster import ensure_member
 from .timeutil import UTC, now, resolve_local, zone
 
@@ -57,7 +57,7 @@ def occurrences(rrule: str, local_start: datetime, tz: str, limit: int) -> tuple
 
 def create_series(s: Session, cfg: Config, actor: Actor, template: dict, rrule: str, local_start: datetime,
                   tz: str, duration_minutes: int) -> tuple[Series, list[Event], list[str]]:
-    require(cfg, actor, "event_creator", "Recurring events need the event-creator role.")
+    require_publisher(cfg, actor, "Recurring events")
     actor = ensure_member(s, actor)
     zone(tz)
     limit = cfg["scheduling"].get("max_recurrence_occurrences", 26)

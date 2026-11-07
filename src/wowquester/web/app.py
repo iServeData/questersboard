@@ -21,7 +21,7 @@ import hmac
 import logging
 import secrets as pysecrets
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode, urlparse, urlsplit
 
@@ -156,13 +156,16 @@ class Web:
             return None
         d = sess.data
         if fresh and time.time() - d.get("roles_at", 0) > ROLE_TTL and self.rest is not None:
-            in_guild, roles, name = self.rest.member(self.cfg.guild_id, d["discord_id"])
+            info = self.rest.member(self.cfg.guild_id, d["discord_id"])
+            in_guild, roles, name = info
+            joined = getattr(info, "joined_at", None)
             self.update_session_data(sess, roles=sorted(roles), in_guild=in_guild, roles_at=time.time(),
-                                     name=name or d.get("name", ""))
+                                     name=name or d.get("name", ""),
+                                     joined_at=joined.isoformat() if joined else d.get("joined_at"))
             d = sess.data
         return Actor(discord_id=d["discord_id"], source="web", role_ids=frozenset(d.get("roles", [])),
                      in_guild=d.get("in_guild", False), member_id=sess.member_id, display_name=d.get("name", ""),
-                     username=d.get("username", ""))
+                     username=d.get("username", ""), joined_at=_parse_when(d.get("joined_at")))
 
     def member_search(self, query: str) -> list[dict]:
         """Discord guild member search, used when a typed co-host name isn't a known WoWQuester member."""
@@ -204,6 +207,13 @@ class Web:
         with self.db.tx() as s:
             return s.execute(text("DELETE FROM web_sessions WHERE expires_at < now() - make_interval(days => :d)"),
                              {"d": days}).rowcount or 0
+
+
+def _parse_when(v) -> datetime | None:
+    try:
+        return datetime.fromisoformat(v) if v else None
+    except (TypeError, ValueError):
+        return None
 
 
 def client_ip(request: Request) -> str:

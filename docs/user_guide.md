@@ -103,7 +103,9 @@ community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
    **Join voice** on the post, plus event moderators and staff roles. Leaving the event while you're in the
    channel lets you stay until you hang up, but you can't rejoin unless you join the event again
    (`remove_on_leave = true` disconnects instead).
-   **Sending a draft for publishing**: members without the event-creator role see **Send for publishing**
+   **Who can publish**: with `[publishing] open_to_all = true` every member can, except members who joined
+   the server less than `probation_days` (7) ago; they're told their events need approval first.
+   **Sending a draft for publishing**: members who can't publish see **Send for publishing**
    instead of Publish. Moderators see these drafts under **Waiting to be published** on the home page and
    get a notice in the staff channel (`[discord] publish_request_channel_id`, or `review_channel_id`); the
    owner gets a DM when it's published.

@@ -4,6 +4,9 @@
 
 **Database migration 0007** (events.publish_requested_at).
 
+- **Everyone can publish events** (`[publishing] open_to_all = true`). Members who joined the server less
+  than `probation_days` (7) ago are on probation: they're told their events need approval first and use
+  Send for publishing. The event_creator role always publishes. Join dates come from Discord.
 - **Send for publishing**: members without the event-creator role send their draft to the moderators,
   who see it under "Waiting to be published" on the home page and get a staff-channel notice
   (`[discord] publish_request_channel_id`, falling back to `review_channel_id`). The owner gets a DM

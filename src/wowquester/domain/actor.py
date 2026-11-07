@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import datetime
 
 SOURCES = ("web", "slash", "dm", "button", "worker", "cli")
 
@@ -17,14 +18,14 @@ class Actor:
     member_id: int | None = None       # filled by services.ensure_member
     display_name: str = ""
     username: str = ""                 # unique Discord username, when the login/bot provides it
+    joined_at: datetime | None = None  # when they joined the Discord server (probation for publishing)
 
     def __post_init__(self):
         if self.source not in SOURCES:
             raise ValueError(f"unknown actor source {self.source}")
 
     def with_member(self, member_id: int) -> "Actor":
-        return Actor(self.discord_id, self.source, self.role_ids, self.in_guild, self.channel_id,
-                     member_id, self.display_name)
+        return replace(self, member_id=member_id)
 
 
 SYSTEM = Actor(discord_id="0", source="worker")

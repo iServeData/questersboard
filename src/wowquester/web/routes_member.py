@@ -36,7 +36,9 @@ def render(request: Request, name: str, ctx: dict, status: int = 200, public: bo
     cfg = w.cfg
     base = dict(request=request, cfg=cfg, b=cfg["branding"], mp=cfg["web"]["member_path"].rstrip("/"),
                 cp=cfg["chronicle"]["public_path"].rstrip("/"), actor=a, csrf=sess.csrf if sess else "",
-                can=(lambda cap: a is not None and permissions.has(cfg, a, cap)), public=public)
+                can=(lambda cap: a is not None and permissions.has(cfg, a, cap)), public=public,
+                probation=(permissions.probation_message(cfg) if a is not None and cfg["publishing"]["open_to_all"]
+                           and permissions.on_probation(cfg, a) else ""))
     base.update(ctx)
     base["indexable"] = public and status == 200 and not ctx.get("noindex")   # errors, notices, guest links: no
     if not base["indexable"]:
@@ -245,15 +247,17 @@ def router(cfg: Config) -> APIRouter:
         ident = w.oauth.identify(code, w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/oauth/callback")
         discord_id, name = ident[0], ident[1]
         username = ident[2] if len(ident) > 2 else ""
-        in_guild, roles, gname = (w.rest.member(w.cfg.guild_id, discord_id) if w.rest else (False, frozenset(), ""))
+        info = w.rest.member(w.cfg.guild_id, discord_id) if w.rest else (False, frozenset(), "")
+        in_guild, roles, gname = info
+        joined = getattr(info, "joined_at", None)
         from ..domain.actor import Actor
         a = Actor(discord_id=discord_id, source="web", role_ids=roles, in_guild=in_guild, display_name=gname or name,
-                  username=username)
+                  username=username, joined_at=joined)
         permissions.require_member(w.cfg, a)
         with w.db.tx() as s:
             a = roster.ensure_member(s, a)
         w.new_session(resp, a.member_id, {"discord_id": discord_id, "name": a.display_name, "username": username,
-                                          "roles": sorted(roles),
+                                          "roles": sorted(roles), "joined_at": joined.isoformat() if joined else None,
                                           "in_guild": in_guild, "roles_at": __import__("time").time()})
         w.cleanup_sessions()
         log.info("login member=%s", a.member_id)

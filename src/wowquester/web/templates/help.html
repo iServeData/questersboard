@@ -54,7 +54,10 @@
   <ul>
     <li>Press <strong>New event</strong> (or use <code>/quest create</code> in Discord) and fill in the title, edition, time and the roles you need. It starts as a draft that only you can see.</li>
     <li>Press <strong>Publish</strong> when it's ready. A post appears in the event channel with Join, Tentative and Leave buttons, and it keeps itself up to date.</li>
-    <li>Don't have the event-creator role? Press <strong>Send for publishing</strong> instead. A moderator checks your draft and publishes it, and you get a Discord message when it's live. If the start time passes before then, it has to be moved first.</li>
+    {% set pdays = cfg["publishing"]["probation_days"] %}
+    {% if cfg["publishing"]["open_to_all"] %}<li>Every member can publish their own events.{% if pdays %} If you joined the {{ community }} server less than {{ pdays }} day{{ "s" if pdays != 1 }} ago, your first events need a moderator's approval: press <strong>Send for publishing</strong> and a moderator checks your draft and publishes it. You get a Discord message when it's live.{% endif %}</li>
+    {% else %}<li>Don't have the event-creator role? Press <strong>Send for publishing</strong> instead. A moderator checks your draft and publishes it, and you get a Discord message when it's live.</li>{% endif %}
+    <li>If the start time passes while a draft waits for approval, it has to be moved before it can be published.</li>
     <li>Add <strong>co-hosts</strong> by their Discord username. They can help run the event and are told when it changes.</li>
     <li>On the day, press <strong>Organizer</strong> on the Discord post (or open the event here) to <strong>Start</strong> and later <strong>End</strong> the event. If it runs long you get one reminder, and you can extend it by 30 minutes.</li>
     <li>Afterwards, mark who came and write the event's story for the Chronicle.</li>

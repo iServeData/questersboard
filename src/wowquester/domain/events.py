@@ -13,7 +13,7 @@ from ..models import Attendance, Character, Event, EventCohost, EventRole, Membe
 from . import audit, outbox, projections, scheduling
 from .actor import Actor
 from .errors import Invalid, InvalidTransition, NotFound, PermissionDenied
-from .permissions import has, require, require_event_manager, require_member
+from .permissions import has, require_event_manager, require_member, require_publisher
 from .roster import ensure_member
 from .timeutil import now, zone
 
@@ -508,7 +508,7 @@ def _diff(a: dict, b: dict) -> list[str]:
 
 def publish(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
     """Draft -> Scheduled. Needs event_creator; checks capacity, exclusivity and the organizer's own time."""
-    require(cfg, actor, "event_creator", "Publishing events needs the event-creator role.")
+    require_publisher(cfg, actor)
     actor = ensure_member(s, actor)
     ev = get(s, event_id, lock=True)
     if ev.creator_id != actor.member_id and not has(cfg, actor, "event_moderator"):

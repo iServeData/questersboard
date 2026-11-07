@@ -8,6 +8,7 @@ Allowed mentions are always empty: WoWQuester never pings @everyone/roles/users 
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 import httpx
 from urllib.parse import quote
@@ -31,6 +32,21 @@ class RateLimited(DiscordError):
 
 class Transient(DiscordError):
     pass
+
+
+class MemberInfo(tuple):
+    """(in_guild, role_ids, display_name) that unpacks as before, with the server join time on .joined_at."""
+    def __new__(cls, in_guild: bool, roles: frozenset, name: str, joined_at: datetime | None = None):
+        t = super().__new__(cls, (in_guild, roles, name))
+        t.joined_at = joined_at
+        return t
+
+
+def _when(v) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(v).replace("Z", "+00:00")) if v else None
+    except ValueError:
+        return None
 
 
 class Gone(DiscordError):
@@ -170,14 +186,14 @@ class DiscordRest:
         ch = self._call("POST", "/users/@me/channels", {"recipient_id": user_id})
         return self.post(ch["id"], payload)
 
-    def member(self, guild_id: str, user_id: str) -> tuple[bool, frozenset[str], str]:
-        """(in_guild, role_ids, display_name). Used to re-check roles for web and DM actions."""
+    def member(self, guild_id: str, user_id: str) -> "MemberInfo":
+        """(in_guild, role_ids, display_name), plus .joined_at. Used to re-check roles for web and DM actions."""
         try:
             m = self._call("GET", f"/guilds/{guild_id}/members/{user_id}")
         except Gone:
-            return False, frozenset(), ""
+            return MemberInfo(False, frozenset(), "")
         name = m.get("nick") or (m.get("user") or {}).get("global_name") or (m.get("user") or {}).get("username", "")
-        return True, frozenset(m.get("roles", [])), name
+        return MemberInfo(True, frozenset(m.get("roles", [])), name, _when(m.get("joined_at")))
 
     def search_members(self, guild_id: str, query: str, limit: int = 5) -> list[dict]:
         """Guild member search by name prefix. UNVERIFIED live: Discord may require the Server Members
