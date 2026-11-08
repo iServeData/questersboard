@@ -555,7 +555,7 @@ def router(cfg: Config) -> APIRouter:
                 events.request_publish(s, w.cfg, a, ev.id)
         return _redirect(f"{mp}/events/{public_id}")
 
-    ACTIONS = ("join", "tentative", "leave", "reconfirm", "change", "publish", "request_publish",
+    ACTIONS = ("join", "tentative", "confirm", "leave", "reconfirm", "change", "publish", "request_publish",
                "withdraw_publish", "start", "end", "cancel",
                "discard", "copy", "attendance", "extend", "story", "reopen_voice")
 
@@ -575,6 +575,8 @@ def router(cfg: Config) -> APIRouter:
                              note=form.get("note", ""))
             elif action == "tentative":
                 signups.set_tentative(s, c, a, ev.id)
+            elif action == "confirm":
+                signups.confirm(s, c, a, ev.id, form.get("role_key") or None)
             elif action == "leave":
                 signups.leave(s, c, a, ev.id)
             elif action == "reconfirm":

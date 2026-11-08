@@ -39,7 +39,8 @@ Log in with Discord. WoWQuester only learns your Discord ID, username and displa
 - Join with a character and (if the event has roles) a role. Open events confirm you straight away if a
   slot is free, otherwise you're waitlisted and moved up automatically. Approval events show "pending"
   until a host decides.
-- Tentative means "maybe": it doesn't hold a slot.
+- Tentative means "maybe": it doesn't hold a slot. When you're sure, press Join on the post (or I'm in on
+  the event page): you're confirmed, waitlisted if it's full, or sent to the host on approval events.
 - You can't be confirmed in two WoW events at the same time, whichever character you use.
 - If an event moves, you're asked to reconfirm. If the new time clashes with another event you're in,
   you're switched to tentative and told why.

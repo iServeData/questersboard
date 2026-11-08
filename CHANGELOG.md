@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Tentative to confirmed**: tentative members can now say they're in, with **I'm in** on the event page
+  or by pressing **Join** again in Discord (previously "already signed up", so the only way was Leave and
+  join again). Full events waitlist them; approval events send the request to the host.
 - **Fix: event voice channels weren't created** (Discord 403 50013 on Start). Discord only lets a bot attach
   permissions it holds server-wide when creating a channel, and only administrators may set Manage
   Permissions that way. The channel is now created bare in the category (copying its permissions,

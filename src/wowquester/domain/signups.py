@@ -133,7 +133,12 @@ def join(s: Session, cfg: Config, actor: Actor, event_id: int, character_id: int
         raise NotFound("Character not found.")
     _check_character(cfg, ev, ch, actor.member_id)
     role_key = _check_role(ev, role_key)
-    if _active(s, ev.id, actor.member_id):
+    existing = _active(s, ev.id, actor.member_id)
+    if existing is not None and existing.state == "tentative" and not tentative:
+        # Join again while tentative = "I'm sure now": upgrade the signup (Discord Join button, web form)
+        existing.character_id = ch.id
+        return _confirm_tentative(s, cfg, actor, ev, existing, role_key)
+    if existing is not None:
         raise Conflict("You're already signed up for this event. Use Change or Leave instead.", reason="duplicate")
     if tentative and not cfg["signups"].get("allow_tentative", True):
         raise Invalid("Tentative signups are turned off.")
@@ -204,6 +209,43 @@ def withdraw(s: Session, cfg: Config, actor: Actor, signup_id: int, reason: str 
 def leave(s: Session, cfg: Config, actor: Actor, event_id: int) -> Signup:
     actor = ensure_member(s, actor)
     return withdraw(s, cfg, actor, _own_active(s, actor, event_id).id)
+
+
+def _confirm_tentative(s: Session, cfg: Config, actor: Actor, ev: Event, su: Signup, role_key) -> Signup:
+    """Tentative -> confirmed (open events), waitlisted (full) or pending (approval events)."""
+    if role_key is not None:
+        su.role_key = role_key
+    if ev.signup_policy == "open":
+        try:
+            _try_confirm(s, ev, su)
+        except Conflict as c:
+            if c.detail.get("reason") not in ("role_full", "event_full"):
+                raise                               # personal time conflict: stays tentative
+            su.state, su.updated_at = "waitlisted", now()
+    else:
+        su.state, su.updated_at = "pending", now()
+        s.flush()
+        outbox.enqueue(s, "notify.signup_pending", f"{ev.id}:{su.id}", {"event_id": ev.id, "signup_id": su.id})
+    s.flush()
+    audit.record(s, actor, "signup.confirm", "signup", su.id, event_id=ev.id, state=su.state, role=su.role_key)
+    _after(s, cfg, ev)
+    return su
+
+
+def confirm(s: Session, cfg: Config, actor: Actor, event_id: int, role_key: str | None = None) -> Signup:
+    """A tentative member is sure now. Keeps their character; open events confirm straight away."""
+    require_member(cfg, actor)
+    actor = ensure_member(s, actor)
+    ev = get_event(s, event_id, lock=True)
+    _open_for_signup(ev)
+    su = _own_active(s, actor, event_id)
+    if su.state != "tentative":
+        raise Conflict("You're not tentative for this event.", reason="not_tentative")
+    if role_key is not None:
+        role_key = _check_role(ev, role_key)
+    elif ev.roles and su.role_key:
+        su.role_key = _check_role(ev, su.role_key)
+    return _confirm_tentative(s, cfg, actor, ev, su, role_key)
 
 
 def set_tentative(s: Session, cfg: Config, actor: Actor, event_id: int) -> Signup:

@@ -60,7 +60,8 @@
         {% if ev.roles and mine.role_key not in role_keys %}<label>Role <select name="role_key" required>{{ role_options() }}</select> {{ role_hint() }}</label>{% endif %}
         <button class="btn" type="submit">Reconfirm</button></form>{% endif %}{% endif %}
       <div class="btns">
-      {% if mine.state != "tentative" %}<form method="post" action="{{ mp }}/events/{{ ev.public_id }}/tentative">{{ csrf_field() }}<button class="btn ghost" type="submit">Switch to tentative</button></form>{% endif %}
+      {% if mine.state != "tentative" %}<form method="post" action="{{ mp }}/events/{{ ev.public_id }}/tentative">{{ csrf_field() }}<button class="btn ghost" type="submit">Switch to tentative</button></form>
+      {% else %}<form method="post" action="{{ mp }}/events/{{ ev.public_id }}/confirm">{{ csrf_field() }}<button class="btn" type="submit">{{ "Request to join" if ev.signup_policy == "approval" else "I'm in" }}</button></form>{% endif %}
       <form method="post" action="{{ mp }}/events/{{ ev.public_id }}/leave">{{ csrf_field() }}<button class="btn ghost" type="submit">Leave</button></form>
       </div>
       <details><summary>Change character, role or privacy</summary>
