@@ -58,12 +58,25 @@ def channel_name(cfg: Config, ev: Event) -> str:
     return cfg["voice"]["name_template"].format(title=ev.title, id=ev.id)[:100] or f"event-{ev.id}"
 
 
-def creation_overwrites(cfg: Config, bot_user_id: str) -> list[dict]:
-    """Hidden from everyone; the bot keeps what it needs to manage the channel; staff roles may join."""
-    ows = [{"id": cfg.guild_id, "type": 0, "allow": "0", "deny": str(VIEW | CONNECT)},
-           {"id": bot_user_id, "type": 1, "allow": str(BOT), "deny": "0"}]
-    ows += [{"id": rid, "type": 0, "allow": str(PARTICIPANT), "deny": "0"} for rid in sorted(cfg.voice_staff_roles())]
-    return ows
+BOT_SELF = PARTICIPANT | MANAGE_CHANNELS | MOVE_MEMBERS   # Manage Permissions comes copied from the category
+
+
+def lock_ops(cfg: Config, bot_user_id: str, bot_role_ids, current: list[dict], keep=()) -> list[tuple]:
+    """Make a channel that was created bare in the category (so it copied the category's permissions,
+    including the bot role's Manage Permissions) private. Discord only lets a bot attach permissions it
+    holds server-wide when creating a channel, and only administrators may set Manage Permissions, so the
+    channel is created first and locked straight after. Order matters: the bot keeps View and Connect for
+    itself before @everyone loses them (denying Connect on voice also takes away Manage Channels).
+    Returns ("put", id, kind, allow, deny) and ("del", id) steps; overwrites in `keep` are left alone."""
+    guild = cfg.guild_id
+    staff = sorted(cfg.voice_staff_roles())
+    own = next((o for o in current if str(o.get("id")) == bot_user_id), None)
+    own_allow = int(own.get("allow") or 0) if own else 0      # keeps a copied Manage Permissions
+    ops = [("put", bot_user_id, 1, own_allow | BOT_SELF, 0), ("put", guild, 0, 0, VIEW | CONNECT)]
+    ops += [("put", rid, 0, PARTICIPANT, 0) for rid in staff]
+    mine = {bot_user_id, guild, *staff, *(str(r) for r in bot_role_ids), *(str(k) for k in keep)}
+    ops += [("del", str(o["id"])) for o in current if str(o.get("id")) not in mine]
+    return ops
 
 
 def managers(s: Session, ev: Event) -> set[int]:

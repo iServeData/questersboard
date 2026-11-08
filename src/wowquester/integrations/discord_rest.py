@@ -133,17 +133,21 @@ class DiscordRest:
 
     # Event voice channels ([voice], FU-1). UNVERIFIED live: needs Manage Channels, Manage Permissions,
     # Move Members, View Channel, Connect, Speak, Video, Use Voice Activity, Send Messages and Read Message
-    # History for the bot on the voice category (category only; no server-wide Manage Roles).
+    # History for the bot on the voice category (category only; no server-wide Manage Roles). Channels are
+    # created bare in the category and locked afterwards: see voice.lock_ops.
     def me(self) -> str:
         if not getattr(self, "_me", None):
             self._me = str(self._call("GET", "/users/@me")["id"])
         return self._me
 
-    def create_voice_channel(self, guild_id: str, category_id: str, name: str, user_limit: int,
-                             overwrites: list[dict]) -> str:
-        body = {"name": name[:100], "type": 2, "parent_id": category_id, "user_limit": user_limit,
-                "permission_overwrites": overwrites}
-        return str(self._call("POST", f"/guilds/{guild_id}/channels", body)["id"])
+    def create_voice_channel(self, guild_id: str, category_id: str, name: str, user_limit: int) -> dict:
+        """Created without permission_overwrites, so Discord copies the category's (the bot's category-only
+        Manage Permissions comes with them). The caller locks it straight after (voice.lock_ops)."""
+        body = {"name": name[:100], "type": 2, "parent_id": category_id, "user_limit": user_limit}
+        return self._call("POST", f"/guilds/{guild_id}/channels", body)
+
+    def channel(self, channel_id: str) -> dict:
+        return self._call("GET", f"/channels/{channel_id}")
 
     def set_overwrite(self, channel_id: str, target_id: str, kind: int, allow: int, deny: int = 0) -> None:
         """kind 0 = role, 1 = member."""

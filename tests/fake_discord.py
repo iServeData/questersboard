@@ -23,6 +23,17 @@ class FakeDiscord:
         self.member_roles: dict[str, list] = {}  # FIXTURE user id -> role ids
         self.disconnects: list[str] = []
         self.bot_id = "b" + "1" * 17               # FIXTURE bot user id (not a real snowflake)
+        self.bot_role = "r" + "2" * 17             # FIXTURE the bot's own role
+        self.member_roles[self.bot_id] = [self.bot_role]
+        self.other_role = "r" + "3" * 17           # FIXTURE a role the category shows its channels to
+        # FIXTURE category permissions, as set in Discord: the bot's role may manage channels there
+        # (category only), and another role can see them. New bare channels copy these.
+        self.category_overwrites = [
+            {"id": self.bot_role, "type": 0, "allow": str((1 << 4) | (1 << 28) | (1 << 24) | (1 << 10) | (1 << 20)
+                                                         | (1 << 21) | (1 << 9) | (1 << 25) | (1 << 11) | (1 << 16)),
+             "deny": "0"},
+            {"id": self.other_role, "type": 0, "allow": str(1 << 10), "deny": "0"}]
+        self.bot_guild_perms = (1 << 10) | (1 << 20) | (1 << 11) | (1 << 16)   # FIXTURE server-wide: basics only
 
     def handler(self, req: httpx.Request) -> httpx.Response:
         path = req.url.path.replace("/api/v10", "")
@@ -35,12 +46,19 @@ class FakeDiscord:
         if req.method == "GET" and parts == ["users", "@me"]:
             return httpx.Response(200, json={"id": self.bot_id})
         if parts[0] == "guilds" and parts[2:] == ["channels"] and req.method == "POST":
+            given = body.get("permission_overwrites")
+            if given:
+                # Discord: only permissions the bot has server-wide, and Manage Permissions only for admins
+                for o in given:
+                    bits = int(o.get("allow") or 0) | int(o.get("deny") or 0)
+                    if bits & (1 << 28) or bits & ~self.bot_guild_perms:
+                        return httpx.Response(403, json={"code": 50013})
+            ows = given if given else [dict(o) for o in self.category_overwrites]
             vid = "v" + str(next(self.ids))
             self.voice[vid] = {"name": body["name"], "type": body["type"], "parent": body["parent_id"],
                                "limit": body["user_limit"],
-                               "overwrites": {o["id"]: (o["type"], int(o["allow"]), int(o["deny"]))
-                                              for o in body["permission_overwrites"]}}
-            return httpx.Response(201, json={"id": vid})
+                               "overwrites": {o["id"]: (o["type"], int(o["allow"]), int(o["deny"])) for o in ows}}
+            return httpx.Response(201, json={"id": vid, "permission_overwrites": ows})
         if parts[0] == "guilds" and parts[2:3] == ["voice-states"]:
             ch = self.voice_states.get(parts[3])
             return httpx.Response(200, json={"channel_id": ch}) if ch else httpx.Response(404, json={"code": 10065})
@@ -52,11 +70,17 @@ class FakeDiscord:
         if parts[0] == "channels" and parts[1] in self.voice:
             v = self.voice[parts[1]]
             if parts[2:3] == ["permissions"]:
+                mine = [v["overwrites"].get(r) for r in [self.bot_id, *self.member_roles[self.bot_id]]]
+                if not any(o and o[1] & (1 << 28) for o in mine):
+                    return httpx.Response(403, json={"code": 50013})     # no Manage Permissions here
                 if req.method == "PUT":
                     v["overwrites"][parts[3]] = (body["type"], int(body["allow"]), int(body["deny"]))
                 else:
                     v["overwrites"].pop(parts[3], None)
                 return httpx.Response(204)
+            if req.method == "GET" and len(parts) == 2:
+                return httpx.Response(200, json={"id": parts[1], "permission_overwrites": [
+                    {"id": k, "type": t, "allow": str(a), "deny": str(d)} for k, (t, a, d) in v["overwrites"].items()]})
             if req.method == "DELETE" and len(parts) == 2:
                 del self.voice[parts[1]]
                 return httpx.Response(200, json={"id": parts[1]})

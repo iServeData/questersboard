@@ -251,12 +251,21 @@ class Worker:
         if not ev.discord_voice_channel_id:
             if ev.voice_closed_at is not None:          # removed for being empty; a host can reopen it
                 return
-            ev.discord_voice_channel_id = rest.create_voice_channel(
-                guild, vc["category_id"], voice.channel_name(self.cfg, ev), vc["user_limit"],
-                voice.creation_overwrites(self.cfg, rest.me()))
+            made = rest.create_voice_channel(guild, vc["category_id"], voice.channel_name(self.cfg, ev),
+                                             vc["user_limit"])
+            new_ch = str(made["id"])
+            try:
+                self._lock_voice(rest, new_ch, made.get("permission_overwrites") or [])
+            except dr.DiscordError:
+                rest.delete_channel(new_ch)         # never leave an open channel behind
+                raise
+            ev.discord_voice_channel_id = new_ch
             ev.discord_voice_members = {}
             ev.voice_empty_since = now()
             s.flush()
+            # Discord can apply permission changes on a brand-new channel out of order; check again shortly
+            outbox.enqueue(s, "discord.sync_voice", f"{ev.id}:relock", {"event_id": ev.id, "relock": True},
+                           run_after=now() + timedelta(seconds=5))
             outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})   # adds Join voice
         ch = ev.discord_voice_channel_id
         tkey = f"voice-open:{ev.id}:{ch}"
@@ -270,9 +279,13 @@ class Worker:
         want = voice.desired_overwrites(s, self.cfg, ev, ids, have)
         staff = self.cfg.voice_staff_roles()
         done = dict(have)
+        compare = have
         try:
+            if p.get("relock"):
+                self._lock_voice(rest, ch, rest.channel(ch).get("permission_overwrites") or [], keep=have)
+                compare = {}                        # set every member's permission again
             for did, st in sorted(want.items()):
-                if have.get(did) != st:
+                if compare.get(did) != st:
                     allow, deny = voice.OVERWRITE[st]
                     rest.set_overwrite(ch, did, 1, allow, deny)
                     done[did] = st
@@ -292,6 +305,14 @@ class Worker:
             outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})
             return
         ev.discord_voice_members = done
+
+    def _lock_voice(self, rest, channel_id: str, current: list[dict], keep=()) -> None:
+        _, bot_roles, _ = rest.member(self.cfg.guild_id, rest.me())
+        for op in voice.lock_ops(self.cfg, rest.me(), bot_roles, current, keep):
+            if op[0] == "put":
+                rest.set_overwrite(channel_id, op[1], op[2], op[3], op[4])
+            else:
+                rest.delete_overwrite(channel_id, op[1])
 
     def job_discord_voice_kick(self, s: Session, p: dict) -> None:
         """A host kicked or banned someone: disconnect them if they're in this event's channel."""

@@ -15,7 +15,7 @@ from sqlalchemy import select, text
 
 from wowquester.bot import render
 from wowquester.config import ConfigError, ConfigHolder
-from wowquester.domain import events, signups, voice
+from wowquester.domain import events, outbox, signups, voice
 from wowquester.domain.errors import DomainError
 from wowquester.integrations import discord_audit
 from wowquester.models import Event, Outbox, PublicEventVoice
@@ -89,7 +89,11 @@ def test_start_opens_one_private_channel_for_signed_up_people(seeded, worker_db,
     assert (v["name"], v["type"], v["parent"], v["limit"]) == ("Mine run", 2, CAT, 0)
     ow = v["overwrites"]
     assert ow[GUILD] == (0, 0, voice.VIEW | voice.CONNECT)                      # @everyone (guild id) hidden
-    assert ow[fake.bot_id][1] & voice.MANAGE_CHANNELS
+    assert ow[fake.bot_id][1] & voice.MANAGE_CHANNELS and ow[fake.bot_id][1] & voice.CONNECT
+    assert fake.bot_role in ow                                                  # copied Manage Permissions kept
+    assert fake.other_role not in ow                                            # category's other roles removed
+    posts = [c for c in fake.calls if c[0] == "POST" and c[1].endswith("/channels")]
+    assert len(posts) == 1                                                      # created bare in the category
     for role in (ADMINS, ROLE["event_moderator"]):                            # staff join without signing up
         assert ow[role] == (0, voice.PARTICIPANT, 0)
     people = {k for k, (kind, _, _) in ow.items() if kind == 1} - {fake.bot_id}
@@ -324,3 +328,32 @@ def test_organizer_and_join_voice_buttons(seeded, monkeypatch):
     log, inter = _click(80)
     asyncio.run(bc.join_voice(inter, eid))
     assert "isn't open" in log[0][0]
+
+
+def test_channel_is_created_bare_then_locked_and_checked_again(seeded, worker_db, monkeypatch):
+    """Discord refuses (403 50013) a new channel that carries Manage Permissions or anything the bot lacks
+    server-wide, so the channel copies the category, is locked, and is locked again a few seconds later."""
+    cfg, fake = _cfg(), FakeDiscord()
+    w = Worker(ConfigHolder(cfg), worker_db, fake.client())
+    eid = _started(seeded, cfg, monkeypatch, w, actor(80), actor(81))
+    vid = next(iter(fake.voice))
+    fake.voice[vid]["overwrites"][fake.other_role] = (0, voice.VIEW, 0)        # Discord applied it late
+    fake.voice[vid]["overwrites"].pop(fake_id(80))
+    with seeded.tx() as s:
+        outbox.enqueue(s, "discord.sync_voice", f"{eid}:relock", {"event_id": eid, "relock": True})
+    _drain(w)
+    ow = fake.voice[vid]["overwrites"]
+    assert fake.other_role not in ow and ow[fake_id(80)] == (1, voice.PARTICIPANT, 0)
+    assert ow[GUILD] == (0, 0, voice.VIEW | voice.CONNECT)
+    assert len(fake.voice) == 1
+
+
+def test_channel_removed_if_it_cant_be_locked(seeded, worker_db, monkeypatch):
+    """No Manage Permissions on the category: the bare channel is deleted again, never left open."""
+    cfg, fake = _cfg(), FakeDiscord()
+    fake.category_overwrites = [o for o in fake.category_overwrites if o["id"] != fake.bot_role]
+    w = Worker(ConfigHolder(cfg), worker_db, fake.client())
+    eid = _started(seeded, cfg, monkeypatch, w, actor(80))
+    assert fake.voice == {}
+    with seeded.tx() as s:
+        assert _ev(s, eid).discord_voice_channel_id is None

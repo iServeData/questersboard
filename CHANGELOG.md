@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Fix: event voice channels weren't created** (Discord 403 50013 on Start). Discord only lets a bot attach
+  permissions it holds server-wide when creating a channel, and only administrators may set Manage
+  Permissions that way. The channel is now created bare in the category (copying its permissions,
+  including the bot's category-only Manage Permissions), then locked: the bot keeps View and Connect,
+  @everyone is hidden, staff roles are added, the category's other overwrites are removed, and signed-up
+  players are added. A second pass a few seconds later re-applies everything, because Discord can apply
+  changes on a brand-new channel out of order. If locking fails, the channel is deleted. Until the lock
+  lands (well under a second) the channel has the category's permissions. No Discord settings change.
+
 **Database migration 0007** (events.publish_requested_at).
 
 - **Everyone can publish events** (`[publishing] open_to_all = true`). Members who joined the server less
