@@ -772,9 +772,13 @@ def router(cfg: Config) -> APIRouter:
 
     def _battlenet_review(request, w, edition, region, verified, offers, added=(), skipped=()):
         ed = w.cfg.edition(edition)
-        rows = [{"i": i, "c": c, "ruleset": c.get("ruleset"),
-                 "ready": bool(c.get("faction") in ed.factions and c.get("race") and c.get("class"))}
-                for i, c in offers]
+        rows = []
+        for i, c in offers:
+            # Blizzard gives characters awaiting a forced rename a placeholder like "Name1A2B3C"; WoW names
+            # never have digits, so those can't be added until they're renamed in game.
+            named = bool(roster.NAME_RE.match(c.get("name") or ""))
+            rows.append({"i": i, "c": c, "ruleset": c.get("ruleset"), "named": named,
+                         "ready": named and bool(c.get("faction") in ed.factions and c.get("race") and c.get("class"))})
         return render(request, "battlenet_sync.html", {
             "title": "Battle.net characters", "ed": ed, "edition": edition, "region": region,
             "verified": verified, "rows": rows, "added": list(added), "skipped": list(skipped),

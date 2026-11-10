@@ -32,12 +32,13 @@
     <li>
       <label><input type="checkbox" name="pick" value="{{ r.i }}"{% if r.ready %} checked{% else %} disabled{% endif %}>
         <strong>{{ c.name }}</strong>
-        <span class="note">{% if r.ready %}{{ c.faction|title }} {{ c.race }} {{ c["class"] }}{% endif %}{% if c.level %}{% if r.ready %} · {% endif %}level {{ c.level }}{% endif %}{% if c.realm %} · {{ c.realm }}{% endif %}</span></label>
+        <span class="note">{% if c.race and c["class"] %}{{ (c.faction or "")|title }} {{ c.race }} {{ c["class"] }}{% endif %}{% if c.level %}{% if c.race and c["class"] %} · {% endif %}level {{ c.level }}{% endif %}{% if c.realm %} · {{ c.realm|replace("-", " ")|title }}{% endif %}</span></label>
       {% if r.ready and not ed.uses_realms %}
       <label>Ruleset <select name="ruleset_{{ r.i }}">{% for k in ed.rulesets %}<option value="{{ k }}"{% if (r.ruleset or ed.default_ruleset) == k %} selected{% endif %}>{{ ed.ruleset_label(k) }}</option>{% endfor %}</select>
         {% if not r.ruleset %}<span class="note">Blizzard didn't say; check it's right.</span>{% endif %}</label>
       {% endif %}
-      {% if not r.ready %}<span class="note">Blizzard didn't send the race, class or faction yet; add this one with the form on My characters.</span>{% endif %}
+      {% if not r.named %}<span class="note">Battle.net shows a temporary name, which usually means the game wants this character renamed. Log in with it, pick a new name, then sync again.</span>
+      {% elif not r.ready %}<span class="note">Blizzard didn't send the race, class or faction yet; add this one with the form on My characters.</span>{% endif %}
     </li>
   {% endfor %}
   </ul>

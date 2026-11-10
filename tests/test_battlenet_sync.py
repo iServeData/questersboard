@@ -25,6 +25,8 @@ ACCOUNT = {"wow_accounts": [{"characters": [
     {"id": 504, "name": "Corwin", "surname": "Brightmere", "level": 30, "ruleset": {"id": 99, "name": "Mystery"},
      "playable_race": {"name": "Human"}, "playable_class": {"name": "Mage"}, "faction": {"type": "ALLIANCE", "name": "Alliance"}},
     {"id": 505, "name": "Elspeth", "surname": "Rowan", "level": 12},          # nothing but the name yet
+    {"id": 506, "name": "Zulma4C7D21", "level": 14,                           # placeholder: awaiting a rename
+     "playable_race": {"name": "Troll"}, "playable_class": {"name": "Mage"}, "faction": {"type": "HORDE", "name": "Horde"}},
 ]}]}
 
 
@@ -81,7 +83,9 @@ def test_forever_sync_verifies_offers_and_imports(seeded, tmp_path, monkeypatch)
     assert re.search(rf'name="ruleset_{idx["Zulmara Ashveil"]}">.*?value="rp" selected', page, re.S)
     assert re.search(rf'name="ruleset_{idx["Vashka Duskmane"]}">.*?value="rp_pvp" selected', page, re.S)
     assert re.search(r'value="\d+" disabled>\s*<strong>Elspeth Rowan', page)      # can't be added yet
-    form = {"csrf": csrf(c), "region": "us", "pick": list(idx.values()),
+    assert re.search(r'value="(\d+)" disabled>\s*<strong>Zulma4C7D21', page) and "temporary name" in page
+    z = re.search(r'value="(\d+)" disabled>\s*<strong>Zulma4C7D21', page).group(1)
+    form = {"csrf": csrf(c), "region": "us", "pick": [*idx.values(), z],
             f"ruleset_{idx['Zulmara Ashveil']}": "rp", f"ruleset_{idx['Vashka Duskmane']}": "rp_pvp",
             f"ruleset_{idx['Corwin Brightmere']}": "normal"}
     r = c.post("/wow/quester/characters/battlenet/import", data=form)
@@ -94,6 +98,7 @@ def test_forever_sync_verifies_offers_and_imports(seeded, tmp_path, monkeypatch)
     assert rows["Zulmara Ashveil"] == ("rp", "horde", "troll/priest", 15, "ownership_verified", "502")
     assert rows["Vashka Duskmane"] == ("rp_pvp", "horde", "tauren/druid", 11, "ownership_verified", "503")
     assert rows["Corwin Brightmere"] == ("normal", "alliance", "human/mage", 30, "ownership_verified", "504")
+    assert "Zulma4C7D21" not in rows                               # a forced-rename placeholder is never added
     # sending the same page again adds nothing twice
     r = c.post("/wow/quester/characters/battlenet/import", data=form)
     assert r.status_code == 200

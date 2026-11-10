@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Battle.net sync: placeholder names.** Characters Battle.net lists under a temporary name (letters plus
+  a code, e.g. awaiting a forced rename) are shown but can't be ticked, with a note to rename them in game
+  and sync again. Realm names on the list read "Dark Iron" rather than "dark-iron".
+
 **Database migration 0008** (worker grants only; run `migrate up` before restarting).
 
 - **Blizzard API terms.** Blizzard data is kept no longer than `[blizzard] data_ttl_days` (30, the most
