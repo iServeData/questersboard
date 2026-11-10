@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Difficulty lists per edition.** `difficulties = []` hides the event form's Difficulty choice for
+  editions with a single difficulty; the example config now uses it for WoW: Forever and Classic Era
+  (TBC Anniversary, Mists Classic and Retail keep their lists). Saving an event in such an edition
+  clears an old difficulty. Host: edit `[[editions]] difficulties` in config.toml and restart; no
+  database migration.
+
 - **Renamed to QuestersBoard.** The app was called WoWQuester; Blizzard's API terms don't allow its
   trademarks in an application's name. Pages, messages, docs and the repository now say QuestersBoard.
   Entries below keep the old name.

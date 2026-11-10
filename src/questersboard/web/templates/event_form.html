@@ -31,8 +31,12 @@
       <datalist id="wq-locations"></datalist>
       <span class="note" data-autocomplete-status>Free text always works. Suggestions appear only where Blizzard data is available for this edition.</span></label>
     {% for k, ed in editions.items() %}
+    {% if not ed.difficulties %}
+    <span data-for-edition="{{ k }}" hidden><input type="hidden" name="difficulty" value=""></span>
+    {% else %}
     <label data-for-edition="{{ k }}">Difficulty <span class="note">(optional)</span>
       <select name="difficulty"><option value="">Not set</option>{% for d in ed.difficulties %}<option value="{{ d }}"{% if editing and ev.difficulty == d %} selected{% endif %}>{{ d }}</option>{% endfor %}</select></label>
+    {% endif %}
     {% endfor %}
     <div class="wq-row">
       <label>Lowest level <input type="number" name="level_min" min="1" max="{{ max_level }}" value="{{ ev.level_min or '' if editing else '' }}"></label>

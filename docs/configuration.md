@@ -62,7 +62,9 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   Retail uses `catalog = "retail"` (packaged race/class seed, unverified); a Blizzard import adds
   dungeons and raids once the API is enabled.
 - **Difficulties** (`[[editions]] difficulties`): the event form's Difficulty list per edition, e.g.
-  Retail `["Normal", "Heroic", "Mythic", "Mythic+", "Raid Finder"]`. Optional; default Normal only. When a
+  Retail `["Normal", "Heroic", "Mythic", "Mythic+", "Raid Finder"]`. `[]` hides the choice for editions
+  with a single difficulty (WoW: Forever, Classic Era); saving an event there clears an old value.
+  Optional; when the key is missing the list is Normal only. Loads at restart. When a
   Blizzard import has read an instance's modes, the form marks the ones that instance doesn't offer.
 - **Event posts** (`[event_posts]`, live): `faction_colors` (hex per `horde`, `alliance`, `any`),
   `field_spacing` (default true: a blank line between the post's headings),

@@ -549,8 +549,12 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def _difficulties(v: Any, where: str) -> tuple[str, ...]:
-    if not isinstance(v, list) or not v or any(not isinstance(x, str) or not 1 <= len(x) <= 32 for x in v):
-        raise ConfigError(f"{where} difficulties must be a list of names (1-32 characters each)")
+    # An empty list means the edition has a single difficulty (WoW: Forever): the form hides the choice.
+    if not isinstance(v, list) or len(v) > 25 or any(not isinstance(x, str) or not 1 <= len(x) <= 32 for x in v):
+        raise ConfigError(f"{where} difficulties must be a list of up to 25 names (1-32 characters each), "
+                          "or [] for none")
+    if len({x.casefold() for x in v}) != len(v):
+        raise ConfigError(f"{where} difficulties has a name twice")
     return tuple(v)
 
 

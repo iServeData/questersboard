@@ -235,7 +235,9 @@ default_region = "us"
 factions = ["horde", "alliance"]
 default_faction = "horde"
 max_level = 60
-difficulties = ["Normal"]      # optional; the event form's Difficulty list (default: Normal only)
+# Forever dungeons and raids have a single difficulty (no Heroic or Mythic), so the form shows no
+# Difficulty choice. Optional key; [] = no choice, omitted = Normal only.
+difficulties = []
 catalog = "forever"                           # packaged race/class seed (src/questersboard/catalog/forever.toml)
 # Forever namespaces aren't documented by Blizzard; these come from community testing after
 # launch (Nov 2026) and may change. Check with: questersboard-admin blizzard probe forever --region us
@@ -283,7 +285,7 @@ default_region = "us"
 factions = ["horde", "alliance"]
 default_faction = "horde"
 max_level = 60
-difficulties = ["Normal"]
+difficulties = []              # one difficulty per dungeon and raid
 catalog = "classic_era"
 static_namespace = "static-classic1x-{region}"
 dynamic_namespace = "dynamic-classic1x-{region}"

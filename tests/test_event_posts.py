@@ -4,17 +4,18 @@ All names are made up; Discord and Blizzard are FIXTURES (no live calls)."""
 from __future__ import annotations
 
 import io
+import tomllib
 from datetime import timedelta
 
 import httpx
 import pytest
-from conftest import actor, at, fake_id, make_cfg, needs_db
+from conftest import ROOT, actor, at, fake_id, make_cfg, needs_db
 from fake_discord import FakeDiscord
 from fastapi.testclient import TestClient
 from helpers import char, event
 from PIL import Image
 from sqlalchemy import select, text
-from test_web import _form_defaults, app, csrf, login, wcfg  # noqa: F401  (fixtures)
+from test_web import _form_defaults, app, csrf, login  # noqa: F401  (fixtures)
 
 from questersboard.bot import render
 from questersboard.config import ConfigError, ConfigHolder
@@ -26,6 +27,26 @@ from questersboard.worker import Worker
 pytestmark = needs_db
 ORG = actor(1, "event_creator", name="HostOne")
 CH = str(10 ** 17 + 91)
+
+
+def _with_forever_difficulties(tmp_path, **over):
+    """These tests exercise the Difficulty field on Forever events, so give Forever a list here (the
+    example config has none: Forever has a single difficulty)."""
+    eds = [dict(e) for e in tomllib.loads((ROOT / "deploy" / "config.example.toml").read_text())["editions"]]
+    for e in eds:
+        if e["key"] == "forever":
+            e["difficulties"] = ["Normal", "Heroic"]
+    return make_cfg(tmp_path, editions=eds, **over)
+
+
+@pytest.fixture
+def cfg(tmp_path):
+    return _with_forever_difficulties(tmp_path)
+
+
+@pytest.fixture
+def wcfg(tmp_path):
+    return _with_forever_difficulties(tmp_path, web={"cookie_secure": False})
 
 
 def _img(w=320, h=180, fmt="PNG"):
@@ -267,3 +288,41 @@ def test_blizzard_instance_details_fixture(monkeypatch):
     b2 = blizzard.Blizzard(make_cfg(blizzard={"enabled": True, "instance_details": False}),
                            http=httpx.Client(transport=httpx.MockTransport(h)), sleep=lambda _s: None)
     assert b2._instance_details(None, "us", "static-us", 1, {"id": 63}) == {}
+
+
+# ------------------------------------------------------------------ editions with a single difficulty
+def test_example_difficulty_lists_per_edition(tmp_path):
+    cfg = make_cfg(tmp_path)          # the shipped example config
+    assert cfg.edition("forever").difficulties == ()
+    assert cfg.edition("classic_era").difficulties == ()
+    assert cfg.edition("classic_anniversary").difficulties == ("Normal", "Heroic")
+    assert "Challenge Mode" in cfg.edition("mists_classic").difficulties
+    assert "Mythic+" in cfg.edition("retail").difficulties
+    for bad in (["Normal", "normal"], [""], ["x" * 33], "Normal"):
+        eds = [dict(e) for e in tomllib.loads((ROOT / "deploy" / "config.example.toml").read_text())["editions"]]
+        eds[0]["difficulties"] = bad
+        with pytest.raises(ConfigError, match="difficulties"):
+            make_cfg(tmp_path, editions=eds)
+
+
+def test_single_difficulty_edition_clears_and_rejects(seeded, tmp_path):
+    cfg = make_cfg(tmp_path)          # Forever: difficulties = []
+    with seeded.tx() as s:
+        ev = event(s, cfg, ORG, 30, 2, objective="Clear the mine.")
+        ev.difficulty = "Normal"      # saved before this release
+        events.update(s, cfg, ORG, ev.id, {"difficulty": ""})
+        assert ev.difficulty == ""
+        with pytest.raises(Invalid, match="single difficulty"):
+            events.update(s, cfg, ORG, ev.id, {"difficulty": "Normal"})
+
+
+def test_web_form_hides_difficulty_for_single_difficulty_edition(seeded, tmp_path):
+    from questersboard.web.app import create_app
+    from test_web import FakeOAuth, FakeRest
+    c = make_cfg(tmp_path, web={"cookie_secure": False})
+    rest = FakeRest()
+    a = create_app(ConfigHolder(c), seeded, FakeOAuth(), rest)
+    a.state.fake_rest = rest
+    page = login(a, 70, "event_creator").get("/wow/quester/events/new").text
+    assert '<span data-for-edition="forever" hidden><input type="hidden" name="difficulty" value=""></span>' in page
+    assert '<label data-for-edition="retail">Difficulty' in page

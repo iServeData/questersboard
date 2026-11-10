@@ -138,6 +138,8 @@ def _apply_fields(s: Session, cfg: Config, actor: Actor, ev: Event, data: dict, 
     ed = cfg.edition(ev.edition)
     if "difficulty" in data:
         d = str(data["difficulty"] or "").strip()
+        if d and not ed.difficulties:
+            raise Invalid(f"{ed.name} has a single difficulty, so there is nothing to choose.")
         if d and d not in ed.difficulties:
             raise Invalid(f"Difficulty must be one of {', '.join(ed.difficulties)} for {ed.name}.")
         ev.difficulty = d
