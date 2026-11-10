@@ -234,5 +234,6 @@ tr[hidden]{display:none}
 .wq-bulk{margin:0 0 1rem}
 .wq-bulk .note{margin-top:10px}
 .wq-bulk-row .btn{margin:0}
+.wq-bulk-row .btn:disabled{opacity:.45;cursor:not-allowed}
 .wq-bulk-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px}
 .wq-bulk-row label{display:flex;flex-direction:column;gap:4px;min-width:min(100%,260px)}

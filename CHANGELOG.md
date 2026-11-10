@@ -5,7 +5,8 @@
 - **Refresh all and one sharing choice at the top of My characters.** One press re-imports every
   imported character (same groups, oldest first, up to `[blizzard] refresh_all_max` per press), and
   "Who can see it" can set every group of every character at once. Each character keeps its own
-  Refresh and per-group choices for fine-tuning afterwards.
+  Refresh and per-group choices for fine-tuning afterwards. "Save sharing only" stays inactive until a
+  level is picked; without one it returns to the page with a note instead of an error.
 - **Fixed-shape gear panel.** Every character shows the same left, right and weapon columns; empty
   slots appear as dimmed placeholders (hidden on phones), and the centre keeps its space even without
   a picture. Older imports are laid out by slot name. Weapon-row slots are set per edition with

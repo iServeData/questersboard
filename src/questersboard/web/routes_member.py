@@ -689,7 +689,7 @@ def router(cfg: Config) -> APIRouter:
                                                    "gear_columns": profiles.gear_columns, "gear_portrait_key": profiles.gear_portrait_key,
                                                    "share_choice": profiles.share_choice,
                                                    "guild_links": guild_links, "saved": saved,
-                                                   "bulk": bulk if bulk in ("refreshed", "shared") else "",
+                                                   "bulk": bulk if bulk in ("refreshed", "shared", "pick") else "",
                                                    "bulk_n": max(0, n), "bulk_failed": max(0, failed),
                                                    "removed": removed})
 
@@ -764,6 +764,8 @@ def router(cfg: Config) -> APIRouter:
         level = form.get("share_level") or ""
         with w.db.tx() as s:
             if form.get("action") == "share":
+                if not level:                   # "Keep each character's choices": nothing to apply
+                    return _redirect(f"{mp}/characters?bulk=pick")
                 n = profiles.share_all(s, w.cfg, a, level)
                 return _redirect(f"{mp}/characters?bulk=shared&n={n}")
             done, failed = profiles.refresh_all(s, w.cfg, w.bz, a, level)

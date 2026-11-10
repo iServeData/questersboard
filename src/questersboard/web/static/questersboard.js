@@ -373,6 +373,13 @@
     });
     rows.forEach(function (s) { s.addEventListener("change", function () { all.value = ""; }); });
   });
+  // Top of My characters: "Save sharing only" needs a level picked first.
+  document.querySelectorAll("select[data-bulk-level]").forEach(function (sel) {
+    var btn = sel.form && sel.form.querySelector("[data-bulk-share]");
+    if (!btn) { return; }
+    var sync = function () { btn.disabled = !sel.value; };
+    sel.addEventListener("change", sync); sync();
+  });
   // Imported portraits: if Blizzard has no picture (broken image), say so instead of an empty box.
   document.querySelectorAll("img[data-portrait]").forEach(function (img) {
     var miss = function () {
