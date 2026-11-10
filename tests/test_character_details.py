@@ -366,3 +366,11 @@ def test_saving_details_returns_to_the_character_with_a_note(seeded, tmp_path, m
     assert f'id="char-{cid}"' in page and "Saved. Imported details and sharing are updated for Zulmara Ashveil." in page
     r = c.post(f"/wow/quester/characters/{cid}/details/remove", data={"csrf": csrf(c)}, follow_redirects=False)
     assert r.headers["location"].endswith(f"?removed={cid}#char-{cid}")
+
+
+@needs_db
+def test_help_page_explains_character_details(seeded, tmp_path, monkeypatch):
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    page = login(a, 97).get("/wow/quester/help").text
+    assert 'id="details"' in page and 'href="#details"' in page and "Set all" in page
+    assert "deleted after 30 days" in page

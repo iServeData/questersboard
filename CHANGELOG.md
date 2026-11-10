@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- How it works has a new "Character details and guild pages" section (shown when Blizzard is enabled),
+  and Remove me now mentions imported character details.
+
 - After Import or Refresh from Blizzard (or Remove imported details), My characters returns to the top
   of that character's card with a "Saved" note, instead of below it. Roster tables on the guild and
   Shared characters pages line up with their headings again (a style name clashed with the event roster).

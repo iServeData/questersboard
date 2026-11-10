@@ -5,7 +5,10 @@
 {% set vsubs = [("voice-leave", "Leaving an event")] %}
 {% if vc.guest_invites %}{% set vsubs = vsubs + [("guests", "Guest voice links")] %}{% endif %}
 {% set vsubs = vsubs + [("voice-hosts", "Hosts and the channel")] %}
-{% set toc = [("start", "Getting started", []), ("characters", "Your characters", []),
+{% set bz_on = cfg["blizzard"]["enabled"] %}
+{% set toc = [("start", "Getting started", []), ("characters", "Your characters", [])] %}
+{% if bz_on %}{% set toc = toc + [("details", "Character details and guild pages", [])] %}{% endif %}
+{% set toc = toc + [
   ("joining", "Joining events", []), ("reminders", "Reminders and calendars", []),
   ("hosting", "Hosting an event", [])] %}
 {% if th.enabled %}{% set toc = toc + [("chat", "Event chat", [])] %}{% endif %}
@@ -33,6 +36,17 @@
     {% if cfg["blizzard"]["enabled"] and cfg["blizzard"]["battlenet_link_enabled"] %}<li><strong>Sync from Battle.net</strong> (on My characters) reads the characters on your Battle.net account once: ones you already have here are marked as verified and get their level updated, and you can tick the others to add them. QuestersBoard doesn't keep your Battle.net login, so sync again to refresh. WoW: Forever characters only show up from level 10, after you log out with them once.</li>{% endif %}
     <li>Click a character to change it. Some details lock once the character has been in an event, so past events stay accurate; you can add it again as a new character instead.</li>
   </ul>
+{% if bz_on %}
+  <h2 class="sub" id="details">Character details and guild pages</h2>
+  <ul>
+    <li><strong>Import details from Blizzard</strong> (on My characters, under each character) brings in its gear, talents, professions, stats, portrait, PvP, progress and guild from Blizzard's public character pages. Every group is ticked; untick anything you'd rather keep out. Nothing is imported until you press Import.</li>
+    <li><strong>Who can see it</strong> is set per group: Only me, My guild, or All QuestersBoard members. <strong>Set all</strong> changes every group at once. Sharing beyond Only me needs the character verified as yours with Sync from Battle.net; until then everything stays private.</li>
+    <li><strong>Open its character page</strong> shows the character the way others see it: only the groups shared with them.</li>
+    <li><strong>Guild roster</strong>: once you share your guild, your guild gets a roster page. Only members with a verified character in that guild who also share their guild can see it. It lists only characters whose owners shared them, and filters by class, role, spec, profession, level and item level. Click a name to see what that player shared, so guildmates can help with builds and plan crafting.</li>
+    <li><strong>Shared characters</strong> lists characters with details shared with all QuestersBoard members.</li>
+    <li>Imported details are deleted after {{ cfg["blizzard"].get("data_ttl_days", 30) }} days unless you press Refresh from Blizzard. <strong>Remove imported details</strong> deletes them at once. Portraits are fetched by QuestersBoard, so your browser doesn't contact Blizzard.</li>
+  </ul>
+{% endif %}
 
   <h2 class="sub" id="joining">Joining events</h2>
   <ul>
@@ -118,7 +132,7 @@
   <h2 class="sub" id="privacy">Privacy and Remove me</h2>
   <ul>
     <li>QuestersBoard keeps only what it needs to run events. The <a href="{{ mp }}/privacy">Privacy</a> page explains what that is and how long it's kept.</li>
-    <li>Under My settings, <a href="{{ mp }}/me/remove">Remove me</a> deletes your QuestersBoard profile, characters and signups. It doesn't remove you from the Discord server or touch anything you've posted there.</li>
+    <li>Under My settings, <a href="{{ mp }}/me/remove">Remove me</a> deletes your QuestersBoard profile, characters, imported character details and signups. It doesn't remove you from the Discord server or touch anything you've posted there.</li>
   </ul>
 
   <h2 class="sub" id="limits">Good to know</h2>
