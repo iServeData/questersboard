@@ -777,7 +777,9 @@ def router(cfg: Config) -> APIRouter:
                 (prof.edition, prof.region, prof.guild_id) in profiles.viewer_guilds(s, a.member_id)
             s.expunge(ch)
             s.expunge(prof)
-        return render(request, "character_view.html", {"title": ch.name, "c": ch, "d": prof, "visible": vis,
+        with w.db.tx() as s:
+            guild_links = profiles.my_guild_links(s, a.member_id)
+        return render(request, "character_view.html", {"guild_links": guild_links, "title": ch.name, "c": ch, "d": prof, "visible": vis,
                                                       "owner_view": owner, "open_groups": True,
                                                       "portrait_key": "main-raw", "guild_ok": guild_ok,
                                                       **_details_ctx(w)})
@@ -806,10 +808,13 @@ def router(cfg: Config) -> APIRouter:
         f = {k: request.query_params.get(k, "") for k in ("class", "role", "spec", "profession", "min_level",
                                                            "min_ilvl", "edition")}
         shown = profiles.filter_rows(rows, f)
+        with w.db.tx() as s:
+            guild_links = profiles.my_guild_links(s, a.member_id)
         return render(request, "roster.html", {"title": title, "rows": shown, "total": len(rows), "f": f,
                                                "opts": profiles.filter_options(rows), "scope": scope,
                                                "guild": guild, "editions": w.cfg.editions,
-                                               "presets": {p.key: p.label for p in w.cfg.role_presets}})
+                                               "presets": {p.key: p.label for p in w.cfg.role_presets},
+                                               "guild_links": guild_links})
 
     @r.get(mp + "/guilds/{edition}/{region}/{guild_id}")
     def guild_page(request: Request, edition: str, region: str, guild_id: str):

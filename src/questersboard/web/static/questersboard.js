@@ -364,6 +364,15 @@
     });
     showTop();
   }
+  // "Set all" on the import form: copy the choice to every row; changing a row afterwards clears it.
+  document.querySelectorAll("select[data-share-all]").forEach(function (all) {
+    var form = all.form, rows = form ? form.querySelectorAll("select[data-share-one]") : [];
+    all.addEventListener("change", function () {
+      if (!all.value) { return; }
+      rows.forEach(function (s) { s.value = all.value; });
+    });
+    rows.forEach(function (s) { s.addEventListener("change", function () { all.value = ""; }); });
+  });
   // Imported portraits: if Blizzard has no picture (broken image), say so instead of an empty box.
   document.querySelectorAll("img[data-portrait]").forEach(function (img) {
     var miss = function () {

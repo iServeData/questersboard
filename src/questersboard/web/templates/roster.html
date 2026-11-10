@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="section-head"><h1>{{ title }}</h1></div>
+{% include "_details_nav.html" %}
 {% if scope == "guild" %}
 <p class="note">Characters whose owners shared their guild membership. Only QuestersBoard members verified in this guild through Battle.net can see this page. Each character shows only what its owner shared.</p>
 {% else %}

@@ -330,3 +330,24 @@ def test_fetch_image_refuses_other_hosts():
     assert b.fetch_image("http://render.worldofwarcraft.com/a.png") is None
     assert not seen
     assert b.fetch_image("https://render.worldofwarcraft.com/a.png") == (b"x", "image/png")
+
+
+def test_set_all_applies_one_choice_to_every_group():
+    from starlette.datastructures import FormData as MultiDict
+    form = MultiDict([("groups", "gear"), ("share_all", "guild"), ("share_gear", "private")])
+    assert set(profiles.parse_form(form)[1].values()) == {"guild"}
+    form = MultiDict([("share_all", ""), ("share_gear", "members")])
+    assert profiles.parse_form(form)[1]["gear"] == "members"
+    assert profiles.parse_form(MultiDict([("share_all", "bogus")]))[1]["gear"] == "private"
+
+
+@needs_db
+def test_roster_and_view_link_back_to_my_characters(seeded, tmp_path, monkeypatch):
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    full = {g: "guild" for g in profiles.GROUP_KEYS}
+    cid = _shared(seeded, cfg, 95, "Navi Hunter", guild="9003", shares=full)
+    c = login(a, 95)
+    for url in ("/wow/quester/guilds/forever/us/9003", f"/wow/quester/characters/{cid}/view", "/wow/quester/players"):
+        page = c.get(url).text
+        assert 'href="/wow/quester/characters">My characters' in page and "Fixture Guild roster" in page, url
+    assert 'name="share_all"' in c.get("/wow/quester/characters").text

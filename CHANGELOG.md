@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Guild roster, character and Shared characters pages have a bar back to My characters and to your
+  other roster pages. The import form has a "Set all" row that applies one "Who can see it" choice to
+  every group (works without JavaScript too).
+
 - **Character pages and guild roster.** "Open its character page" shows a character as others see it:
   only the groups shared with the viewer. A guild roster page (`/guilds/...`) appears once a verified
   member shares their guild, visible only to members verified in that guild, filterable by class,

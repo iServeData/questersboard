@@ -154,6 +154,8 @@ tr[hidden]{display:none}
 .wq-import-table{width:100%;border-collapse:collapse;margin:.5em 0}
 .wq-import-table th{text-align:left;font-weight:600;padding:4px 6px}
 .wq-import-table td{padding:4px 6px;vertical-align:top}
+.wq-import-table tr.wq-share-all td{border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:8px}
+.wq-details-nav{margin:0 0 1em}
 .wq-import-table select{max-width:100%}
 @media (max-width:600px){.wq-import-table thead{display:none}.wq-import-table tr,.wq-import-table td{display:block;padding:2px 0}.wq-import-table tr{padding:6px 0}}
 .wq-detail-list{margin:.3em 0 .3em 1.1em;padding:0}

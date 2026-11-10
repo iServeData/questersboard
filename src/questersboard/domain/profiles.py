@@ -209,8 +209,9 @@ def parse_form(form) -> tuple[set[str], dict[str, str]]:
     picked = getlist("groups") if getlist else form.get("groups", [])
     groups = {g for g in (picked if isinstance(picked, list) else [picked]) if g in GROUP_KEYS}
     shares = {}
+    every = form.get("share_all") or ""                # "Set all": one choice for every group
     for g in GROUP_KEYS:
-        v = form.get(f"share_{g}") or "private"
+        v = (every if every in SHARE_LEVELS else "") or form.get(f"share_{g}") or "private"
         shares[g] = v if v in SHARE_LEVELS else "private"
     return groups, shares
 
