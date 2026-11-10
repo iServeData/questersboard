@@ -373,7 +373,7 @@
     });
     rows.forEach(function (s) { s.addEventListener("change", function () { all.value = ""; }); });
   });
-  // Top of My characters: "Save sharing only" needs a level picked first.
+  // Top of My characters: Save needs a level picked first.
   document.querySelectorAll("select[data-bulk-level]").forEach(function (sel) {
     var btn = sel.form && sel.form.querySelector("[data-bulk-share]");
     if (!btn) { return; }

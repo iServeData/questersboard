@@ -292,11 +292,11 @@ def test_refresh_all_and_one_sharing_choice_for_every_character(seeded, tmp_path
     c.post(f"/wow/quester/characters/{cid}/details", data={"csrf": csrf(c), "groups": ["gear", "talents"],
                                                            "share_gear": "private", "share_talents": "private"})
     page = c.get("/wow/quester/characters").text
-    assert "Refresh all from Blizzard" in page and "Save sharing only" in page
+    assert "Refresh all from Blizzard" in page and "Who can see all of them" in page
 
     r = c.post("/wow/quester/characters/details/all", data={"csrf": csrf(c), "action": "share", "share_level": ""})
     assert r.status_code == 303 and r.headers["location"].endswith("bulk=pick")     # no level: back, nothing changed
-    assert "Pick who can see it first" in c.get(r.headers["location"]).text
+    assert "Choose who can see them first" in c.get(r.headers["location"]).text
     assert "data-bulk-level" in page and "data-bulk-share" in page
     calls.clear()
     r = c.post("/wow/quester/characters/details/all", data={"csrf": csrf(c), "action": "share", "share_level": "members"})

@@ -5,18 +5,24 @@
 {% if guild_links or bz_enabled %}<p class="btns">{% for g in guild_links %}<a class="btn ghost" href="{{ mp }}/guilds/{{ g.edition }}/{{ g.region }}/{{ g.guild_id }}">{{ g.name }} roster</a> {% endfor %}{% if bz_enabled %}<a class="btn ghost" href="{{ mp }}/players">Shared characters</a>{% endif %}</p>{% endif %}
 <p class="note">Characters are self-reported. A Blizzard API match (where available) confirms the character exists; it does not prove it's yours.{% if bz_enabled %} Character checks use data from Blizzard Entertainment's Battle.net API. QuestersBoard isn't made, endorsed or supported by Blizzard.{% endif %}</p>
 {% if bz_enabled and details %}
-<form method="post" class="panel wq-form wq-bulk" action="{{ mp }}/characters/details/all">{{ csrf_field() }}
+<div class="panel wq-form wq-bulk">
   {% if bulk == "refreshed" %}<p class="wq-saved" role="status">Refreshed {{ bulk_n }} character{{ "" if bulk_n == 1 else "s" }} from Blizzard.{% if bulk_failed %} {{ bulk_failed }} didn't refresh; use Refresh on that character to see why.{% endif %}</p>
-  {% elif bulk == "pick" %}<p class="wq-saved" role="status">Pick who can see it first, then press Save sharing only. Nothing was changed.</p>
+  {% elif bulk == "pick" %}<p class="wq-saved" role="status">Choose who can see them first, then press Save. Nothing was changed.</p>
   {% elif bulk == "shared" %}<p class="wq-saved" role="status">Sharing updated for {{ bulk_n }} character{{ "" if bulk_n == 1 else "s" }}.</p>{% endif %}
   <h2 class="sub">All characters</h2>
-  <div class="wq-bulk-row">
-    <label>Who can see it <select name="share_level" data-bulk-level aria-label="Who can see every group of every character"><option value="">Keep each character's choices</option>{% for lv, lab in share_labels.items() %}<option value="{{ lv }}">{{ lab }}</option>{% endfor %}</select></label>
-    <button class="btn" type="submit" name="action" value="refresh">Refresh all from Blizzard</button>
-    <button class="btn ghost" type="submit" name="action" value="share" data-bulk-share>Save sharing only</button>
-  </div>
-  <p class="note">Refresh all re-imports the same groups for each character (up to {{ cfg["blizzard"].get("refresh_all_max", 10) }} per press). A sharing choice here applies to every group of every character; sharing beyond yourself only applies to characters verified as yours through Battle.net. You can still change any one character below afterwards.</p>
-</form>
+  <form method="post" action="{{ mp }}/characters/details/all">{{ csrf_field() }}
+    <label for="bulk-level">Who can see all of them</label>
+    <div class="wq-bulk-row">
+      <span class="wq-select"><select id="bulk-level" name="share_level" data-bulk-level><option value="">Choose who can see them…</option>{% for lv, lab in share_labels.items() %}<option value="{{ lv }}">{{ lab }}</option>{% endfor %}</select></span>
+      <button class="btn" type="submit" name="action" value="share" data-bulk-share>Save</button>
+    </div>
+    <p class="note">Applies to every group of every character. Sharing beyond yourself only applies to characters verified as yours through Battle.net. You can still change any one character below afterwards.</p>
+  </form>
+  <form method="post" action="{{ mp }}/characters/details/all" class="wq-bulk-refresh">{{ csrf_field() }}
+    <div class="wq-bulk-row"><button class="btn ghost" type="submit" name="action" value="refresh">Refresh all from Blizzard</button></div>
+    <p class="note">Re-imports the same groups for each character (up to {{ cfg["blizzard"].get("refresh_all_max", 10) }} per press) and keeps each one's sharing.</p>
+  </form>
+</div>
 {% endif %}
 <div class="wq-grid">
 <section>
