@@ -30,10 +30,16 @@ Log in with Discord. WoWQuester only learns your Discord ID, username and displa
   offers a picker for the missing or valid choice and saves as soon as you pick. Any other problem (a name
   with a number, an unknown ruleset) comes with an "Edit the form" button that reopens it filled in.
 - Set the roles you can fill (tank, healer, damage, or your community's custom roles).
-- "Check with Blizzard" (Retail only for now) confirms the character exists. It doesn't prove it's yours.
-- "Prove a character is yours" (if your community turned it on): log in with Battle.net once. Matching
-  characters show "verified as yours". "Forget my Battle.net link" removes that data any time.
-- Forever shows "no Blizzard API for this edition yet". That's expected until Blizzard publishes one.
+- "Check with Blizzard" confirms the character exists. It doesn't prove it's yours. For WoW: Forever it
+  looks up "Name Surname" with no realm; Blizzard reportedly answers in the US but not yet in the EU.
+- "Sync from Battle.net" (if your community turned it on): log in with Battle.net. Characters you already
+  have here show "verified as yours" and get their level updated; the others are listed so you can tick
+  them and add them (also verified). For Forever, pick the ruleset where Blizzard didn't send it. The list
+  works for `battlenet_import_minutes` (60) after the login. Sync again any time to refresh: WoWQuester
+  doesn't keep your Battle.net login. "Forget my Battle.net link" removes the stored list any time.
+- Forever characters only appear on Battle.net from level 10, after you log out with them once, and the
+  account list can trail the game by about 20 to 40 minutes. Blizzard hasn't documented the Forever API,
+  so this can stop working if they change it; adding characters by hand always works.
 
 **Joining events.**
 - Join with a character and (if the event has roles) a role. Open events confirm you straight away if a

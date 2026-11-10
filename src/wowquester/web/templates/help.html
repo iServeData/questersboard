@@ -30,6 +30,7 @@
     <li>Add the characters you play under <a href="{{ mp }}/characters">My characters</a>, or with <code>/character add</code> in Discord.</li>
     <li>Pick the game edition, then the realm or ruleset, faction, race and class. Suggestions follow what you choose, and a pairing that can't exist in that edition is pointed out.</li>
     <li>Set the roles you can play (for example tank, healer or damage). Events use these when you join.</li>
+    {% if cfg["blizzard"]["enabled"] and cfg["blizzard"]["battlenet_link_enabled"] %}<li><strong>Sync from Battle.net</strong> (on My characters) reads the characters on your Battle.net account once: ones you already have here are marked as verified and get their level updated, and you can tick the others to add them. WoWQuester doesn't keep your Battle.net login, so sync again to refresh. WoW: Forever characters only show up from level 10, after you log out with them once.</li>{% endif %}
     <li>Click a character to change it. Some details lock once the character has been in an event, so past events stay accurate; you can add it again as a new character instead.</li>
   </ul>
 

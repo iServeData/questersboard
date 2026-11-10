@@ -62,6 +62,9 @@ class Edition:
     api_status: dict[str, str]
     ruleset_labels: dict[str, str] = field(default_factory=dict)
     difficulties: tuple[str, ...] = ("Normal",)
+    # Realmless editions: Blizzard's numeric ruleset IDs mapped to WoWQuester ruleset keys
+    # (Battle.net sync reads a character's ruleset as an ID or a name).
+    ruleset_api_ids: dict[str, int] = field(default_factory=dict)
 
     def ruleset_label(self, ruleset: str | None) -> str:
         if not ruleset:
@@ -188,6 +191,19 @@ def _positive(v: Any, where: str, minimum: int = 1) -> int:
     if isinstance(v, bool) or not isinstance(v, int) or v < minimum:
         raise ConfigError(f"{where} must be an integer >= {minimum}")
     return v
+
+
+def _ruleset_ids(v, rulesets, where) -> dict[str, int]:
+    if not isinstance(v, dict):
+        raise ConfigError(f"{where} ruleset_api_ids must be a table like {{ pvp = 1 }}")
+    out = {}
+    for k, n in v.items():
+        if k not in rulesets:
+            raise ConfigError(f"{where} ruleset_api_ids.{k} isn't one of this edition's rulesets")
+        if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+            raise ConfigError(f"{where} ruleset_api_ids.{k} must be a positive number")
+        out[str(k)] = n
+    return out
 
 
 def validate(raw: dict[str, Any]) -> dict[str, Any]:
@@ -454,6 +470,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     bz = r["blizzard"]
     _req(bz, "enabled", bool, "blizzard")
     _positive(bz.get("max_retries", 3), "[blizzard] max_retries", 0)
+    _positive(bz.get("battlenet_import_minutes", 60), "[blizzard] battlenet_import_minutes")
+    _positive(bz.get("battlenet_profile_lookups", 25), "[blizzard] battlenet_profile_lookups", 0)
 
     # editions
     eds = r.get("editions")
@@ -481,7 +499,7 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
                 raise ConfigError(f"{where} api_status.{cap} must be one of {API_STATUSES}")
         for kind in ("static_namespace", "dynamic_namespace", "profile_namespace"):
             ns = e.get(kind, "")
-            if ns and ("{region}" not in ns or not re.match(r"^[a-z0-9{}-]+$", ns)):
+            if ns and ("{region}" not in ns or not re.match(r"^[a-z0-9{}._-]+$", ns)):
                 raise ConfigError(f"{where} {kind} must be a template containing {{region}}")
             if ns.startswith(("static-classic-ptr", "profile-classic-ptr")) or "-ptr" in ns:
                 raise ConfigError(f"{where} {kind}: PTR namespaces are not allowed in production config")
@@ -497,7 +515,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             profile_namespace=e.get("profile_namespace", ""),
             ruleset_realm_slugs=dict(e.get("ruleset_realm_slugs", {})), api_status=status,
             ruleset_labels={str(k): str(v)[:40] for k, v in dict(e.get("ruleset_labels", {})).items()},
-            difficulties=_difficulties(e.get("difficulties", ["Normal"]), where))
+            difficulties=_difficulties(e.get("difficulties", ["Normal"]), where),
+            ruleset_api_ids=_ruleset_ids(e.get("ruleset_api_ids", {}), rulesets, where))
     r["_editions"] = parsed
 
     presets = []

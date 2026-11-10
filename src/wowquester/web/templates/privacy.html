@@ -40,7 +40,7 @@
   <h2 class="sub" id="others">Who else is involved</h2>
   <ul>
     <li><strong>Discord</strong> handles login and the community bot, under <a href="https://discord.com/privacy" rel="noopener">Discord's privacy policy</a>.</li>
-    {% if cfg["blizzard"]["enabled"] %}<li><strong>Blizzard.</strong> WoWQuester looks up public game data (such as realms and classes) from Blizzard's API.{% if cfg["blizzard"]["battlenet_link_enabled"] %} If you choose to link Battle.net to verify a character, we store an encrypted snapshot of that character list. <strong>Forget my Battle.net link</strong> deletes it.{% endif %}</li>{% endif %}
+    {% if cfg["blizzard"]["enabled"] %}<li><strong>Blizzard.</strong> WoWQuester looks up public game data (such as realms and classes) from Blizzard's API.{% if cfg["blizzard"]["battlenet_link_enabled"] %} If you choose to sync with Battle.net, we read your character list once (names, level, race, class, faction and ruleset), don't keep your Battle.net login, and store that list encrypted so matching characters show as verified and you can add the others. <strong>Forget my Battle.net link</strong> deletes it.{% endif %}</li>{% endif %}
     {% if cfg["ai"]["enabled"] %}<li><strong>Writing helper.</strong> If you press the suggest-wording button, the draft text you're writing is sent to an AI service to suggest wording. Nothing is published automatically; you decide what to keep.</li>{% endif %}
   </ul>
   <p>Nobody else receives your data. People with administrator access to the community server can technically read the database, as with any self-hosted service.</p>

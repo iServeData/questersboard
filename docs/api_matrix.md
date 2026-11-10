@@ -42,7 +42,8 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | POST | `/wow/quester/characters/{id}/remove` | archive a character |
 | POST | `/wow/quester/characters/{id}/lookup` | "Check with Blizzard" (existence only) |
 | GET | `/wow/quester/characters/battlenet?edition=&region=` | start optional ownership link |
-| GET | `/wow/quester/battlenet/callback` | Battle.net OAuth (`wow.profile`), single-use state |
+| GET | `/wow/quester/battlenet/callback` | Battle.net OAuth (`wow.profile`), single-use state; shows verified and addable characters |
+| POST | `/wow/quester/characters/battlenet/import` | add ticked characters from the member's own encrypted list (`pick`, `ruleset_<n>`), within `battlenet_import_minutes` |
 | POST | `/wow/quester/characters/battlenet/unlink` | forget the Battle.net snapshot |
 | GET/POST | `/wow/quester/me` | preferences, consent default, time zone |
 | POST | `/wow/quester/me/calendar` | create (replacing any old one) or revoke the private calendar link |

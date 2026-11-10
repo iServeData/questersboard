@@ -31,6 +31,7 @@ Test file names refer to `tests/`.
 | Never use `classic-ptr`; never substitute Retail/Classic for Forever | Done, fixture-tested | `test_ptr_namespace_rejected_by_config`, `test_forever_is_unsupported_and_never_falls_back_to_retail`, `test_check_with_blizzard_forever_is_refused_without_requests` (zero requests) |
 | API lookup ≠ ownership | Done, fixture-tested | `api_matched` vs `ownership_verified`; `test_retail_lookup_retries_429_and_is_not_ownership` |
 | Optional Battle.net ownership link (state single-use, user token never stored, snapshot encrypted) | Done, fixture-tested | `test_battlenet_link_state_single_use_and_marks_owned` |
+| Battle.net character sync incl. WoW: Forever (realmless names, ruleset IDs, add ticked characters, list expires) | Done, fixture-tested; live sign-in unverified | `test_forever_sync_verifies_offers_and_imports`, `test_forever_sync_other_member_and_expiry` |
 | Retries, 429 handling, caching, rate limiting | Done, fixture-tested | `test_retail_404_is_not_found_and_5xx_exhausts_to_api_error` |
 | Live Blizzard Retail API | Externally unverified | needs a Blizzard API client; run `wowquester-admin blizzard probe retail --region us` |
 | Forever API data | **Blocked** | Blizzard hasn't published Forever namespaces (see `plan.md`); ships as `unsupported` |

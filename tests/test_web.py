@@ -314,7 +314,7 @@ def test_check_with_blizzard_retail_is_existence_only(seeded, tmp_path, monkeypa
     cid = _retail(seeded, cfg, 30)
     c = login(a, 30)
     page = c.get("/wow/quester/characters").text
-    assert "Check with Blizzard" in page and "Prove a character is yours" in page
+    assert "Check with Blizzard" in page and "Sync from Battle.net" in page
     r = c.post(f"/wow/quester/characters/{cid}/lookup", data={"csrf": csrf(c)})
     assert r.status_code == 303
     with seeded.tx() as s:
@@ -327,16 +327,22 @@ def test_check_with_blizzard_retail_is_existence_only(seeded, tmp_path, monkeypa
     assert o.post(f"/wow/quester/characters/{cid}/lookup", data={"csrf": csrf(o)}).status_code == 404
 
 
-def test_check_with_blizzard_forever_is_refused_without_requests(seeded, tmp_path, monkeypatch):
+def test_check_with_blizzard_forever_uses_realmless_slug(seeded, tmp_path, monkeypatch):
     import httpx
-    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, lambda r: httpx.Response(200, json={"id": 1}))
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, lambda r: httpx.Response(
+        200, json={"id": 1, "level": 24, "ruleset": {"id": 1, "name": "PvP"}}))
     with seeded.tx() as s:
-        cid = char(s, cfg, actor(32), "Grom").id
+        cid = char(s, cfg, actor(32), "Grimtusk Ironhide").id
     c = login(a, 32)
-    assert "Check with Blizzard" not in c.get("/wow/quester/characters").text
+    assert "Check with Blizzard" in c.get("/wow/quester/characters").text
     r = c.post(f"/wow/quester/characters/{cid}/lookup", data={"csrf": csrf(c)})
-    assert r.status_code == 422 and "Forever" in r.text
-    assert calls == []                                    # no Retail fallback, no request at all
+    assert r.status_code == 303
+    paths = [q.url.path for q in calls if q.url.path != "/token"]
+    assert paths == ["/profile/wow/character/grimtusk-ironhide"]          # no realm, no Retail fallback
+    assert all(q.url.params["namespace"] == "profile-forever-us" for q in calls if q.url.path != "/token")
+    with seeded.tx() as s:
+        v = s.execute(text("select verification, level from characters where id=:i"), {"i": cid}).one()
+    assert v == ("api_matched", 24)
 
 
 def test_battlenet_link_state_single_use_and_marks_owned(seeded, tmp_path, monkeypatch):
@@ -363,7 +369,7 @@ def test_battlenet_link_state_single_use_and_marks_owned(seeded, tmp_path, monke
     r = c.get("/wow/quester/characters/battlenet?edition=retail&region=us")
     state = re.search(r"state=([^&]+)", r.headers["location"]).group(1)
     r = c.get(f"/wow/quester/battlenet/callback?code=FIXTURE-code&state={state}")
-    assert r.status_code == 200 and "1 of your characters" in r.text
+    assert r.status_code == 200 and "Already here, now verified" in r.text and "Ragna" in r.text
     with seeded.tx() as s:
         got = dict(s.execute(text("select id, verification from characters where id in (:a,:b)"),
                              {"a": cid, "b": other}).all())
@@ -376,8 +382,6 @@ def test_battlenet_link_state_single_use_and_marks_owned(seeded, tmp_path, monke
         assert s.execute(text("select count(*) from battlenet_links")).scalar_one() == 0
         assert s.execute(text("select verification from characters where id=:i"), {"i": cid}).scalar_one() \
             == "self_reported"
-    # Forever has no ownership API: refused before any redirect
-    assert c.get("/wow/quester/characters/battlenet?edition=forever&region=us").status_code == 422
 
 
 def test_autocomplete_options_and_free_text(app, seeded):

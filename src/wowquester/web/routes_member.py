@@ -760,14 +760,54 @@ def router(cfg: Config) -> APIRouter:
             raise Invalid("That Battle.net login link expired. Start again from My characters.")
         with w.db.tx() as s:
             try:
-                n = w.bz.link_account(s, a.member_id, edition, region, code,
-                                      w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/battlenet/callback")
+                res = w.bz.link_account(s, a.member_id, edition, region, code,
+                                        w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/battlenet/callback")
             except (Unsupported, ApiError) as exc:
                 raise Invalid(str(exc)) from None
-            audit.record(s, a, "character.ownership_link", "member", a.member_id, edition=edition, verified=n)
-        return render(request, "message.html", {"title": "Battle.net linked", "message":
-                      f"{n} of your characters matched your Battle.net account and are now marked as yours.",
-                      "back": mp + "/characters"})
+            audit.record(s, a, "character.ownership_link", "member", a.member_id, edition=edition,
+                         verified=len(res["verified"]), offered=len(res["new"]))
+        return _battlenet_review(request, w, edition, region, res["verified"], res["new"])
+
+    def _battlenet_review(request, w, edition, region, verified, offers, added=(), skipped=()):
+        ed = w.cfg.edition(edition)
+        rows = [{"i": i, "c": c, "ruleset": c.get("ruleset"),
+                 "ready": bool(c.get("faction") in ed.factions and c.get("race") and c.get("class"))}
+                for i, c in offers]
+        return render(request, "battlenet_sync.html", {
+            "title": "Battle.net characters", "ed": ed, "edition": edition, "region": region,
+            "verified": verified, "rows": rows, "added": list(added), "skipped": list(skipped),
+            "minutes": int(w.cfg["blizzard"].get("battlenet_import_minutes", 60))})
+
+    @r.post(mp + "/characters/battlenet/import")
+    async def battlenet_import(request: Request):
+        """Add characters picked from the Battle.net list. Reads the member's own encrypted snapshot, so it
+        needs no Battle.net token; the list is only usable for battlenet_import_minutes after the login."""
+        form, a = await post_guard(request, fresh=False)
+        w = W(request)
+        region = form.get("region", "")
+        idx = set()
+        for v in form.getlist("pick"):
+            if not str(v).isdigit():
+                raise Invalid("Pick characters from the list.")
+            idx.add(int(v))
+        with w.db.tx() as s:
+            snap = w.bz.read_snapshot(s, a.member_id, region,
+                                      max_age_minutes=w.cfg["blizzard"].get("battlenet_import_minutes", 60))
+            if snap is None:
+                raise Invalid("That Battle.net list has expired. Log in with Battle.net again from My characters.")
+            edition, chars = snap
+            if edition not in w.cfg.editions:
+                raise Invalid("That Battle.net list is for an edition this site no longer has.")
+            if not idx:
+                raise Invalid("Tick at least one character to add.")
+            # Only entries still on offer: a page sent twice doesn't add anything twice.
+            offered = dict(w.bz.offer(s, a.member_id, edition, region, chars))
+            picks = [(offered[i], form.get(f"ruleset_{i}") or None) for i in sorted(idx) if i in offered]
+            added, skipped = roster.import_verified(s, w.cfg, a, edition, region, picks)
+            left = w.bz.offer(s, a.member_id, edition, region, chars)
+        if not skipped and not left:
+            return _redirect(mp + "/characters")
+        return _battlenet_review(request, w, edition, region, [], left, added=added, skipped=skipped)
 
     @r.post(mp + "/characters/battlenet/unlink")
     async def battlenet_unlink(request: Request):

@@ -21,8 +21,8 @@
   {% else %}<p class="note">No characters yet.</p>{% endfor %}
   {% if bn_enabled %}
   <div class="panel">
-    <h2 class="sub">Prove a character is yours</h2>
-    <p class="note">Optional. Log in with Battle.net once; WoWQuester reads your character list, marks matching characters as verified, and doesn't keep your Battle.net login.</p>
+    <h2 class="sub">Sync from Battle.net</h2>
+    <p class="note">Optional. Log in with Battle.net; WoWQuester reads your character list once, marks matching characters as verified (and updates their level), and lets you add the others. It doesn't keep your Battle.net login, so sync again whenever you want to refresh. WoW: Forever characters show up from level 10, after you log out with them once.</p>
     <p class="btns">{% for k, ed in editions.items() if ed.capability("ownership") != "unsupported" %}{% for rg in ed.regions %}<a class="btn ghost" href="{{ mp }}/characters/battlenet?edition={{ k }}&amp;region={{ rg }}">{{ ed.name }} · {{ rg|upper }}</a> {% endfor %}{% endfor %}</p>
     {% if bn_linked %}<form method="post" action="{{ mp }}/characters/battlenet/unlink">{{ csrf_field() }}<button class="linkish" type="submit">Forget my Battle.net link</button></form>{% endif %}
   </div>

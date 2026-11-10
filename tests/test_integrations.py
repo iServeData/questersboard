@@ -43,11 +43,26 @@ def ch(**kw):
     return SimpleNamespace(**{**base, **kw})
 
 
-def test_forever_is_unsupported_and_never_falls_back_to_retail():
-    b, calls = _bz(lambda r: httpx.Response(200, json={"id": 1}))
+def test_forever_lookup_is_realmless_and_never_falls_back_to_retail():
+    b, calls = _bz(lambda r: httpx.Response(200, json={"id": 1, "level": 14, "ruleset": {"id": 3}}))
+    m = b.lookup_character(None, ch(edition="forever", realm_slug=None, ruleset="pvp", name="Zulmara Ashveil"))
+    prof = [r for r in calls if "/profile/" in r.url.path]
+    assert m.found and m.ruleset == "rp" and m.level == 14
+    assert [r.url.path for r in prof] == ["/profile/wow/character/zulmara-ashveil"]
+    assert prof[0].url.params["namespace"] == "profile-forever-us"          # never profile-us (Retail)
+
+
+def test_edition_without_character_api_is_refused_without_requests():
+    import copy
+    import tomllib
+    from conftest import ROOT
+    eds = copy.deepcopy(tomllib.loads((ROOT / "deploy" / "config.example.toml").read_text())["editions"])
+    eds[0]["api_status"]["character"] = "unsupported"
+    b = blizzard.Blizzard(make_cfg(blizzard={"enabled": True}, editions=eds),
+                          http=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200))))
     with pytest.raises(blizzard.Unsupported) as e:
         b.lookup_character(None, ch(edition="forever", realm_slug=None, ruleset="pvp"))
-    assert "Forever" in str(e.value) and calls == []          # no request at all, no Retail namespace tried
+    assert "Forever" in str(e.value)
 
 
 def test_retail_requires_realm():

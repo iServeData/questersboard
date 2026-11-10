@@ -115,8 +115,12 @@ In the Discord developer portal for the WoWQuester application:
   (View Channel 1024 + Send Messages 2048 + Embed Links 16384 + Read Message History 65536),
   limited to the event channel (and review channel) by channel overrides.
 
-Optional Battle.net ownership link: register `<public_base_url>/wow/quester/battlenet/callback`
-in the Blizzard developer portal and set `[blizzard] battlenet_link_enabled = true`.
+Optional Battle.net sync (ownership check plus "add my characters"): create an API client at
+https://develop.battle.net/access/clients, register `<public_base_url>/wow/quester/battlenet/callback`
+as its redirect URL, install its ID and secret as the `blizzard-client-id` and `blizzard-client-secret`
+credentials (plus `field-key` for the encrypted list), then set `[blizzard] enabled = true` and
+`battlenet_link_enabled = true`. For WoW: Forever the edition also needs the `forever` namespaces and
+`api_status` from `deploy/config.example.toml`; check them with `wowquester-admin blizzard probe forever us`.
 
 ## 6. Schema migration (approval: production database migration)
 

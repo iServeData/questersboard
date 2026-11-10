@@ -57,6 +57,7 @@ class CharacterMatch:
     faction: str | None = None
     external_id: str | None = None
     namespace: str | None = None
+    ruleset: str | None = None
 
 
 class _Limiter:
@@ -75,6 +76,53 @@ class _Limiter:
 
 def slug(name: str) -> str:
     return name.strip().lower().replace(" ", "-").replace("'", "")
+
+
+def char_slug(name: str) -> str:
+    """Realmless (Forever) character key: "Grimtusk Ironhide" -> "grimtusk-ironhide"."""
+    return "-".join(name.strip().lower().split())
+
+
+_RULESET_WORDS = {"pvp": "pvp", "normal": "normal", "pve": "normal", "rp": "rp", "roleplay": "rp",
+                  "role-playing": "rp", "roleplaying": "rp", "rppvp": "rp_pvp", "roleplaypvp": "rp_pvp",
+                  "hardcore": "hardcore"}
+
+
+def ruleset_key(ed: Edition, raw) -> str | None:
+    """Map what Blizzard returns for a ruleset ({id, name}, a name or an ID) to one of the edition's keys.
+    Unknown or unconfigured rulesets give None; the member then picks it."""
+    if raw is None:
+        return None
+    rid, name = None, None
+    if isinstance(raw, dict):
+        rid, name = raw.get("id"), raw.get("name") or raw.get("type") or raw.get("key")
+        if isinstance(name, dict):
+            name = name.get("en_US") or next(iter(name.values()), None)
+    elif isinstance(raw, int) and not isinstance(raw, bool):
+        rid = raw
+    else:
+        name = str(raw)
+    if isinstance(rid, int):
+        hit = next((k for k, v in ed.ruleset_api_ids.items() if v == rid), None)
+        if hit:
+            return hit
+    if name:
+        squashed = "".join(ch for ch in str(name).lower() if ch.isalnum())
+        key = _RULESET_WORDS.get(squashed) or str(name).strip().lower().replace("-", "_").replace(" ", "_")
+        if key in ed.rulesets:
+            return key
+        for k in ed.rulesets:
+            if "".join(ch for ch in ed.ruleset_label(k).lower() if ch.isalnum()) == squashed:
+                return k
+    return None
+
+
+def _label(v) -> str:
+    if isinstance(v, dict):
+        v = v.get("name") if v.get("name") is not None else v.get("type")
+        if isinstance(v, dict):
+            v = v.get("en_US") or next(iter(v.values()), "")
+    return str(v or "").strip()
 
 
 class Blizzard:
@@ -168,18 +216,24 @@ class Blizzard:
     def lookup_character(self, s: Session, ch: Character) -> CharacterMatch:
         ed = self.cfg.edition(ch.edition)
         ns = self.require(ed, "character", "profile", ch.region)
-        realm = self.realm_for(ed, ch.ruleset, ch.realm_slug)
-        path = f"/profile/wow/character/{quote(realm)}/{quote(ch.name.lower())}"
+        if ed.uses_realms:
+            realm = self.realm_for(ed, ch.ruleset, ch.realm_slug)
+            path = f"/profile/wow/character/{quote(realm)}/{quote(ch.name.lower())}"
+        else:
+            # Realmless (Forever): /profile/wow/character/{name}-{surname}. Characters only appear from
+            # level 10, after logging out once.
+            path = f"/profile/wow/character/{quote(char_slug(ch.name))}"
         status, body = self.get(s, ch.region, path, ns, self.bz.get("cache_hours_profile", 6))
         if status == 404:
+            extra = "" if ed.uses_realms else " Forever characters show up from level 10, after you log out once."
             return CharacterMatch(False, "Blizzard has no public profile for that name (it may be new, "
-                                         "private, or misspelled).", namespace=ns)
-        m = CharacterMatch(True, "Blizzard returned a character with this name.", level=body.get("level"),
-                           race=(body.get("race") or {}).get("name"),
-                           klass=(body.get("character_class") or {}).get("name"),
-                           faction=((body.get("faction") or {}).get("type") or "").lower() or None,
-                           external_id=str(body.get("id")) if body.get("id") else None, namespace=ns)
-        return m
+                                         "private, or misspelled)." + extra, namespace=ns)
+        return CharacterMatch(True, "Blizzard returned a character with this name.", level=body.get("level"),
+                              race=_label(body.get("race")) or None,
+                              klass=_label(body.get("character_class")) or None,
+                              faction=((body.get("faction") or {}).get("type") or "").lower() or None,
+                              external_id=str(body.get("id")) if body.get("id") else None, namespace=ns,
+                              ruleset=None if ed.uses_realms else ruleset_key(ed, body.get("ruleset")))
 
     def apply_lookup(self, s: Session, ch: Character) -> CharacterMatch:
         """Look up and record the result on the character. Never sets ownership_verified."""
@@ -199,6 +253,8 @@ class Blizzard:
                   "character": ("dynamic", "/data/wow/realm/index"),
                   "quests": ("static", "/data/wow/quest/area/index"),
                   "locations": ("static", "/data/wow/journal-instance/index")}
+        if not ed.uses_realms:
+            checks["character"] = ("dynamic", "/data/wow/ruleset/index")   # no realms; rulesets instead
         out = {}
         for cap, (kind, path) in checks.items():
             ns = ed.namespace(kind, region)
@@ -295,11 +351,36 @@ class Blizzard:
                        "state": state, "redirect_uri": redirect_uri, "response_type": "code"})
         return f"{self.bz['oauth_base'].rstrip('/')}/authorize?{q}", state
 
+    def account_characters(self, region: str, ns: str, user_token: str) -> list[dict]:
+        """The characters on the signed-in Battle.net account (/profile/user/wow, user token)."""
+        url = self.cfg["blizzard"]["api_host_template"].replace("{region}", region) + "/profile/user/wow"
+        r = self._send("GET", url, params={"namespace": ns, "locale": "en_US"},
+                       headers={"Authorization": f"Bearer {user_token}"})
+        if r.status_code == 404:
+            return []          # no characters for this edition and region on the account
+        if r.status_code != 200:
+            raise ApiError(f"Couldn't read the Battle.net account ({r.status_code}).")
+        out = []
+        for acct in r.json().get("wow_accounts", []) or []:
+            for c in acct.get("characters", []) or []:
+                first, last = str(c.get("name") or "").strip(), str(c.get("surname") or "").strip()
+                if not first:
+                    continue
+                full = f"{first} {last}".strip()
+                out.append({"id": str(c.get("id") or ""), "name": full, "slug": char_slug(full),
+                            "realm": (c.get("realm") or {}).get("slug", "") or "",
+                            "level": c.get("level") if isinstance(c.get("level"), int) else None,
+                            "race": _label(c.get("playable_race")), "class": _label(c.get("playable_class")),
+                            "faction": _label(c.get("faction")).lower(), "ruleset_raw": c.get("ruleset")})
+        return out
+
     def link_account(self, s: Session, member_id: int, edition: str, region: str, code: str,
-                     redirect_uri: str) -> int:
-        """Exchange the code, read the account's character list once, mark matching characters verified.
+                     redirect_uri: str) -> dict:
+        """Exchange the code, read the account's character list once, mark matching characters verified
+        (and bring their level up to date), and keep the rest as an encrypted list the member can add from.
 
         The user token is never stored (Battle.net user tokens last ~24h and have no refresh token).
+        Returns {"verified": [names], "new": [entries not on the member's roster yet]}.
         """
         ed = self.cfg.edition(edition)
         ns = self.require(ed, "ownership", "profile", region)
@@ -309,33 +390,108 @@ class Blizzard:
         if r.status_code != 200:
             raise ApiError("Battle.net login failed.")
         user_token = r.json()["access_token"]
-        url = self.cfg["blizzard"]["api_host_template"].replace("{region}", region) + "/profile/user/wow"
-        r2 = self._send("GET", url, params={"namespace": ns, "locale": "en_US"},
-                        headers={"Authorization": f"Bearer {user_token}"})
-        del user_token
-        if r2.status_code != 200:
-            raise ApiError(f"Couldn't read the Battle.net account ({r2.status_code}).")
-        chars = []
-        for acct in r2.json().get("wow_accounts", []):
-            for c in acct.get("characters", []):
-                chars.append({"id": str(c.get("id")), "name": c.get("name", "").lower(),
-                              "realm": (c.get("realm") or {}).get("slug", "")})
+        try:
+            chars = self.account_characters(region, ns, user_token)
+        finally:
+            del user_token
+        if ed.uses_realms:
+            for c in chars:
+                c.pop("ruleset_raw", None)
+                c["ruleset"] = None
+        else:
+            self._fill_rulesets(s, ed, region, chars)
         key = get_secret("field-key")
-        blob = Fernet(key.reveal().encode()).encrypt(json.dumps(chars).encode())
+        blob = Fernet(key.reveal().encode()).encrypt(json.dumps({"edition": ed.key, "chars": chars}).encode())
         vals = dict(member_id=member_id, region=region, snapshot_enc=blob, linked_at=now())
         s.execute(insert(BattlenetLink).values(**vals).on_conflict_do_update(
             index_elements=[BattlenetLink.member_id, BattlenetLink.region],
             set_={"snapshot_enc": blob, "linked_at": now()}))
-        n = 0
+        verified = []
         mine = s.scalars(select(Character).where(Character.member_id == member_id, Character.edition == edition,
                                                  Character.region == region, Character.archived_at.is_(None)))
         for ch in mine:
+            hit = self._match(ed, ch, chars)
+            if hit is None:
+                continue
+            if self._claimed_by_other(s, ed.key, region, hit["id"], member_id):
+                continue
+            ch.verification, ch.api_external_id, ch.api_refreshed_at = "ownership_verified", hit["id"] or None, now()
+            if hit.get("level") and 1 <= hit["level"] <= ed.max_level:
+                ch.level = hit["level"]
+            verified.append(ch.name)
+        s.flush()
+        return {"verified": verified, "new": self.offer(s, member_id, ed.key, region, chars)}
+
+    def offer(self, s: Session, member_id: int, edition: str, region: str, chars: list[dict]
+              ) -> list[tuple[int, dict]]:
+        """Snapshot entries (with their index) that aren't on the member's roster yet and that nobody else
+        has verified as theirs."""
+        ed = self.cfg.edition(edition)
+        mine = list(s.scalars(select(Character).where(
+            Character.member_id == member_id, Character.edition == edition, Character.region == region,
+            Character.archived_at.is_(None))))
+        out = []
+        for i, c in enumerate(chars):
+            if any((c.get("id") and ch.api_external_id == c["id"]) or self._match(ed, ch, [c]) for ch in mine):
+                continue
+            if self._claimed_by_other(s, edition, region, c.get("id") or "", member_id):
+                continue
+            out.append((i, c))
+        return out
+
+    def _match(self, ed: Edition, ch: Character, chars: list[dict]) -> dict | None:
+        if ed.uses_realms:
             try:
                 realm = self.realm_for(ed, ch.ruleset, ch.realm_slug)
             except Unsupported:
+                return None
+            return next((c for c in chars if c["name"].lower() == ch.name.lower() and c["realm"] == realm), None)
+        # Realmless: a first name + surname is unique per region, so the slug alone identifies it.
+        want = char_slug(ch.name)
+        return next((c for c in chars if c["slug"] == want), None)
+
+    @staticmethod
+    def _claimed_by_other(s: Session, edition: str, region: str, external_id: str, member_id: int) -> bool:
+        if not external_id:
+            return False
+        return s.scalar(select(Character.id).where(
+            Character.edition == edition, Character.region == region, Character.api_external_id == external_id,
+            Character.verification == "ownership_verified", Character.archived_at.is_(None),
+            Character.member_id != member_id).limit(1)) is not None
+
+    def _fill_rulesets(self, s: Session, ed: Edition, region: str, chars: list[dict]) -> None:
+        """Forever: the account list may not say which ruleset a character is on; the character profile does.
+        Read it with the app token where the edition's character API is switched on. Failures just leave the
+        ruleset for the member to pick."""
+        budget = int(self.bz.get("battlenet_profile_lookups", 25))
+        ns = ed.namespace("profile", region)
+        for c in chars:
+            c["ruleset"] = ruleset_key(ed, c.pop("ruleset_raw", None))
+            if c["ruleset"] or budget <= 0 or ed.capability("character") == "unsupported" or not ns:
                 continue
-            hit = next((c for c in chars if c["name"] == ch.name.lower() and c["realm"] == realm), None)
-            if hit:
-                ch.verification, ch.api_external_id, ch.api_refreshed_at = "ownership_verified", hit["id"], now()
-                n += 1
-        return n
+            budget -= 1
+            try:
+                st, body = self.get(s, region, f"/profile/wow/character/{quote(c['slug'])}", ns,
+                                    self.bz.get("cache_hours_profile", 6))
+            except ApiError:
+                continue
+            if st == 200:
+                c["ruleset"] = ruleset_key(ed, body.get("ruleset"))
+                c["race"] = c["race"] or _label(body.get("race"))
+                c["class"] = c["class"] or _label(body.get("character_class"))
+                c["faction"] = c["faction"] or _label(body.get("faction")).lower()
+                if not c.get("level") and isinstance(body.get("level"), int):
+                    c["level"] = body["level"]
+
+    def read_snapshot(self, s: Session, member_id: int, region: str, max_age_minutes: float | None = None
+                      ) -> tuple[str, list[dict]] | None:
+        """(edition, characters) from the member's encrypted snapshot, or None if missing or too old."""
+        row = s.get(BattlenetLink, (member_id, region))
+        if row is None:
+            return None
+        if max_age_minutes is not None and row.linked_at < now() - timedelta(minutes=max_age_minutes):
+            return None
+        data = json.loads(Fernet(get_secret("field-key").reveal().encode()).decrypt(bytes(row.snapshot_enc)))
+        if isinstance(data, list):         # snapshots from before Battle.net sync: keys only, no edition
+            return None
+        return data.get("edition", ""), list(data.get("chars", []))

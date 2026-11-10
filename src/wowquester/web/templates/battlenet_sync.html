@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
+{% block content %}
+<div class="section-head"><h1>Battle.net characters</h1></div>
+<p class="note">{{ ed.name }} · {{ region|upper }}. Read once from your Battle.net account; WoWQuester didn't keep your Battle.net login.</p>
+{% if added %}
+<section class="panel">
+  <h2 class="sub">Added</h2>
+  <ul class="plain-list">{% for n in added %}<li>{{ n }} <span class="note">· verified as yours</span></li>{% endfor %}</ul>
+  <p class="note">Set roles and interests on each one from <a href="{{ mp }}/characters">My characters</a>.</p>
+</section>
+{% endif %}
+{% if skipped %}
+<section class="panel">
+  <h2 class="sub">Not added</h2>
+  <ul class="plain-list">{% for n, why in skipped %}<li>{{ n }} <span class="note">· {{ why }}</span></li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% if verified %}
+<section class="panel">
+  <h2 class="sub">Already here, now verified</h2>
+  <ul class="plain-list">{% for n in verified %}<li>{{ n }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% if rows %}
+<form method="post" class="wq-form panel" action="{{ mp }}/characters/battlenet/import">{{ csrf_field() }}
+  <input type="hidden" name="region" value="{{ region }}">
+  <h2 class="sub">Add from your account</h2>
+  <p class="note">Tick the characters to add. They're added as verified; you can set roles, spec and interests afterwards. This list works for {{ minutes }} minutes.</p>
+  <ul class="plain-list wq-bn-list">
+  {% for r in rows %}{% set c = r.c %}
+    <li>
+      <label><input type="checkbox" name="pick" value="{{ r.i }}"{% if r.ready %} checked{% else %} disabled{% endif %}>
+        <strong>{{ c.name }}</strong>
+        <span class="note">{% if r.ready %}{{ c.faction|title }} {{ c.race }} {{ c["class"] }}{% endif %}{% if c.level %}{% if r.ready %} · {% endif %}level {{ c.level }}{% endif %}{% if c.realm %} · {{ c.realm }}{% endif %}</span></label>
+      {% if r.ready and not ed.uses_realms %}
+      <label>Ruleset <select name="ruleset_{{ r.i }}">{% for k in ed.rulesets %}<option value="{{ k }}"{% if (r.ruleset or ed.default_ruleset) == k %} selected{% endif %}>{{ ed.ruleset_label(k) }}</option>{% endfor %}</select>
+        {% if not r.ruleset %}<span class="note">Blizzard didn't say; check it's right.</span>{% endif %}</label>
+      {% endif %}
+      {% if not r.ready %}<span class="note">Blizzard didn't send the race, class or faction yet; add this one with the form on My characters.</span>{% endif %}
+    </li>
+  {% endfor %}
+  </ul>
+  <p class="btns"><button class="btn" type="submit">Add ticked characters</button> <a class="btn ghost" href="{{ mp }}/characters">Skip</a></p>
+</form>
+{% elif not added and not skipped %}
+<section class="panel">
+  <p>{% if verified %}Nothing new to add.{% else %}No {{ ed.name }} characters came back for this account in {{ region|upper }}.{% endif %}</p>
+</section>
+{% endif %}
+{% if not ed.uses_realms %}
+<p class="note">Missing a character? {{ ed.name }} characters only show up on Battle.net from level 10, after you log out with them once, and the list can lag behind the game by up to about 40 minutes. Try again later, or add it with the form.</p>
+{% endif %}
+<p><a class="btn ghost" href="{{ mp }}/characters">My characters</a></p>
+{% endblock %}

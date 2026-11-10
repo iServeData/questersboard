@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Battle.net character sync, including WoW: Forever.** Sync from Battle.net on My characters reads the
+  account's character list once (user token used once, never stored). Characters already on WoWQuester
+  are marked verified and get their level updated; the rest are listed to tick and add, verified, with
+  the ruleset prefilled from Blizzard where it says (Forever ruleset IDs in `ruleset_api_ids`). The list
+  is kept encrypted and usable for `[blizzard] battlenet_import_minutes` (60). Forever is realmless: the
+  edition now uses `profile-forever-{region}`, `dynamic-forever-{region}` and `static-forever-{region}`,
+  and Check with Blizzard looks up `/profile/wow/character/{name}-{surname}`. These namespaces come from
+  community testing; Blizzard hasn't documented them. Namespaces may now contain `.` and `_` so the static
+  one can be pinned to a game version. No database migration. Live sign-in is untested here (fixtures only).
+
 - **Tentative to confirmed**: tentative members can now say they're in, with **I'm in** on the event page
   or by pressing **Join** again in Discord (previously "already signed up", so the only way was Leave and
   join again). Full events waitlist them; approval events send the request to the host.

@@ -140,6 +140,48 @@ def add_character(s: Session, cfg: Config, actor: Actor, data: dict) -> Characte
     return ch
 
 
+def import_verified(s: Session, cfg: Config, actor: Actor, edition: str, region: str,
+                    picks: list[tuple[dict, str | None]]) -> tuple[list[str], list[tuple[str, str]]]:
+    """Add characters read from the member's own Battle.net account (see Blizzard.link_account).
+
+    Each pick is (snapshot entry, ruleset chosen on the review page). They're added as ownership verified;
+    roles, spec and interests start empty for the member to fill in. Returns (added names,
+    [(name, why it was skipped)])."""
+    require_member(cfg, actor)
+    actor = ensure_member(s, actor)
+    ed = cfg.edition(edition)
+    added, skipped = [], []
+    for c, ruleset in picks:
+        name = str(c.get("name") or "")
+        data = {"edition": ed.key, "region": region, "name": name, "faction": c.get("faction") or None,
+                "race_key": c.get("race") or "", "class_key": c.get("class") or "",
+                "level": c.get("level") if c.get("level") and 1 <= c["level"] <= ed.max_level else None}
+        if ed.uses_realms:
+            data["realm_slug"] = c.get("realm") or ""
+        else:
+            data["ruleset"] = ruleset or c.get("ruleset") or ""
+        if not data["faction"] or data["faction"] not in ed.factions:
+            skipped.append((name, "Blizzard didn't say which faction it is; add it with the form instead"))
+            continue
+        try:
+            vals = _validate(s, cfg, data)
+        except Invalid as exc:
+            skipped.append((name, exc.message))
+            continue
+        ch = Character(member_id=actor.member_id, verification="ownership_verified",
+                       api_external_id=str(c.get("id") or "") or None, api_refreshed_at=now(), **vals)
+        try:
+            with s.begin_nested():
+                s.add(ch)
+                s.flush()
+        except IntegrityError:
+            skipped.append((name, "already on WoWQuester (yours or verified by someone else)"))
+            continue
+        audit.record(s, actor, "character.import", "character", ch.id, edition=ch.edition)
+        added.append(ch.name)
+    return added, skipped
+
+
 def _own(s: Session, actor: Actor, character_id: int) -> Character:
     ch = s.get(Character, character_id)
     if ch is None or ch.archived_at is not None:
