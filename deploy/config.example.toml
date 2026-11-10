@@ -237,7 +237,7 @@ max_level = 60
 difficulties = ["Normal"]      # optional; the event form's Difficulty list (default: Normal only)
 catalog = "forever"                           # packaged race/class seed (src/wowquester/catalog/forever.toml)
 # Forever namespaces aren't documented by Blizzard; these come from community testing after
-# launch (Nov 2026) and may change. Check with: wowquester-admin blizzard probe forever us
+# launch (Nov 2026) and may change. Check with: wowquester-admin blizzard probe forever --region us
 # The static namespace can be pinned to a game version, e.g. "static-1.60.1_70399-forever-{region}".
 static_namespace = "static-forever-{region}"
 dynamic_namespace = "dynamic-forever-{region}"

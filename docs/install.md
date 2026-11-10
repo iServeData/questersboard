@@ -120,7 +120,7 @@ https://develop.battle.net/access/clients, register `<public_base_url>/wow/quest
 as its redirect URL, install its ID and secret as the `blizzard-client-id` and `blizzard-client-secret`
 credentials (plus `field-key` for the encrypted list), then set `[blizzard] enabled = true` and
 `battlenet_link_enabled = true`. For WoW: Forever the edition also needs the `forever` namespaces and
-`api_status` from `deploy/config.example.toml`; check them with `wowquester-admin blizzard probe forever us`.
+`api_status` from `deploy/config.example.toml`; check them with `wowquester-admin blizzard probe forever --region us`.
 
 ## 6. Schema migration (approval: production database migration)
 
