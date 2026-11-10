@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Add or edit a character in a dialog.** My characters drops the side form: an "Add a character"
+  button sits at the top and a floating one stays at the bottom right while scrolling. Both open the
+  same on-page dialog that Edit uses (filled in for that character). Without scripts the form shows
+  in the page at `?add=1` / `?edit=N`, as before.
+- **Talent trees no longer clip.** Trees centre safely in their frame (never pushed off the left),
+  columns can shrink on narrow screens, and tooltips are no longer cut by a scrolling frame. Trees
+  are also grouped more robustly when a tree has an empty column inside it.
+- **Pets on a stand.** Pet pictures have their flat backdrop made transparent and stand on the same
+  faint base as the character portrait.
+
 - **Talent trees placed by their block of the class grid.** WoW: Forever's per-specialization pages
   each carry the next tree's leftmost column, which pushed a stray column off the side of a tree.
   Talents are now grouped by the run of class-grid columns they sit in (blocks split by empty

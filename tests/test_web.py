@@ -708,6 +708,11 @@ def test_character_edit_form_fills_in_and_saves(app, seeded):
     page = p.get("/wow/quester/characters").text
     cid = re.search(r'characters\?edit=(\d+)#character-form" title="Edit Zanra"', page).group(1)
     assert ">Edit</a>" in page and "Add a character" in page
+    # the add/edit form is a dialog: closed on the list, open for ?add=1 and ?edit=N, plus a floating Add button
+    assert 'data-character-dialog data-mode="add">' in page and 'class="wq-fab"' in page and "data-open-character" in page
+    assert 'data-mode="add" open>' in p.get("/wow/quester/characters?add=1").text
+    assert 'data-mode="edit" open>' in p.get(f"/wow/quester/characters?edit={cid}").text
+    assert '<aside class="side">' not in page
     form = p.get(f"/wow/quester/characters?edit={cid}").text
     assert "Edit Zanra" in form and f'name="character_id" value="{cid}"' in form
     assert 'value="Zanra"' in form and 'value="Skyborne (Windshaper)"' in form and 'value="Druid"' in form

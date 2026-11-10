@@ -375,7 +375,10 @@
   });
   // Pet pictures: if Blizzard doesn't send one, drop the empty box and keep the text.
   document.querySelectorAll("img[data-hide-broken]").forEach(function (img) {
-    var gone = function () { img.remove(); };
+    var gone = function () {
+      var fig = img.closest(".wq-figure");
+      if (fig) { fig.remove(); } else { img.remove(); }   // no empty stand for a missing picture
+    };
     if (img.complete && img.naturalWidth === 0 && img.getAttribute("src")) { gone(); }
     img.addEventListener("error", gone);
   });
@@ -397,6 +400,33 @@
     };
     if (img.complete && img.naturalWidth === 0) { miss(); } else { img.addEventListener("error", miss); }
   });
+  // My characters: the add/edit form is a dialog. Without this script it shows in the page when the
+  // address asks for it (?add=1 or ?edit=N), and the buttons are plain links to those addresses.
+  var dlg = document.querySelector("[data-character-dialog]");
+  if (dlg && typeof dlg.showModal === "function") {
+    var openDlg = function () {
+      if (!dlg.open) dlg.showModal();
+      var first = dlg.querySelector("input:not([type=hidden]):not([disabled]), select");
+      if (first) first.focus();
+    };
+    if (dlg.hasAttribute("open")) { dlg.removeAttribute("open"); dlg.classList.add("is-modal"); openDlg(); }
+    document.querySelectorAll("[data-open-character]").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        if (dlg.getAttribute("data-mode") !== "add") return;   // editing one: load a blank form instead
+        e.preventDefault();
+        dlg.classList.add("is-modal");
+        openDlg();
+      });
+    });
+    dlg.querySelectorAll("[data-close-dialog]").forEach(function (b) {
+      b.addEventListener("click", function (e) { e.preventDefault(); dlg.close(); });
+    });
+    dlg.addEventListener("close", function () {
+      if (/[?&](edit|add)=/.test(location.search) && history.replaceState) {
+        history.replaceState(null, "", location.pathname);
+      }
+    });
+  }
   // Pill tabs over a character's details: show one tab's sections at a time. Without this script the
   // tab bar stays hidden and every section shows. On a single character's page the tab follows #hash.
   var tabBars = document.querySelectorAll("[data-tabs]");

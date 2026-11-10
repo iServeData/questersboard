@@ -650,7 +650,7 @@ def router(cfg: Config) -> APIRouter:
     # ------------------------------------------------------------- characters
     @r.get(mp + "/characters")
     def characters(request: Request, edit: int = 0, saved: int = 0, removed: int = 0, bulk: str = "",
-                   n: int = 0, failed: int = 0):
+                   n: int = 0, failed: int = 0, add: int = 0):
         sess, a = session_or_login(request)
         w = W(request)
         with w.db.tx() as s:
@@ -691,7 +691,9 @@ def router(cfg: Config) -> APIRouter:
                                                    "guild_links": guild_links, "saved": saved,
                                                    "bulk": bulk if bulk in ("refreshed", "shared", "pick") else "",
                                                    "bulk_n": max(0, n), "bulk_failed": max(0, failed),
-                                                   "removed": removed})
+                                                   "removed": removed,
+                                                   # the add/edit dialog starts open (edit, ?add=1, or no characters yet)
+                                                   "adding": bool(add) or not chars})
 
     @r.post(mp + "/characters")
     async def add_character(request: Request):
@@ -872,7 +874,7 @@ def router(cfg: Config) -> APIRouter:
             raise NotFound("Blizzard didn't send this icon.")
         body, ctype = got
         if group == "pets":
-            body, ctype = profiles.trim_backdrop(body, ctype)      # the animal fills its tile
+            body, ctype = profiles.cut_backdrop(body, ctype)       # transparent, cropped to the animal
         return Response(body, media_type=ctype, headers={"Cache-Control": "private, max-age=86400"})
 
     def _roster_page(request, w, a, title, rows, scope, guild=None):

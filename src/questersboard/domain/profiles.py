@@ -456,19 +456,34 @@ def _regroup_by_block(pages: list) -> list:
         run.append(c)
     if run:
         blocks.append(run)
-    if len(blocks) != len(pages):
+    if len(blocks) < len(pages):
         return pages
     block_of = {c: b for b, run in enumerate(blocks) for c in run}
     members: list[list] = [[] for _ in blocks]
-    votes: list[dict] = [{} for _ in blocks]
     for key, n in seen.items():
-        b = block_of[n["display_col"]]
-        members[b].append(n)
-        votes[b][owner[key]] = votes[b].get(owner[key], 0) + 1
-    picks = [max(v, key=lambda i: (v[i], -i)) for v in votes]
-    if len(set(picks)) != len(picks):                  # two blocks claim the same page: keep Blizzard's
+        members[block_of[n["display_col"]]].append(n)
+    # Each page's home is the block holding most of its own talents. Two pages with the same home:
+    # keep Blizzard's grouping.
+    homes = []
+    for i, (_r, _b, raw) in enumerate(pages):
+        count: dict = {}
+        for n in raw:
+            count[block_of[n["display_col"]]] = count.get(block_of[n["display_col"]], 0) + 1
+        homes.append(max(count, key=lambda b: (count[b], -b)))
+    if len(set(homes)) != len(homes):
         return pages
-    return [(pages[p][0], pages[p][1], members[b]) for b, p in enumerate(picks)]
+    out = [list(members[h]) for h in homes]
+    # A block nobody calls home (a tree with an empty column inside it) stays with the page that sent
+    # most of its talents.
+    for b, ns in enumerate(members):
+        if b in homes:
+            continue
+        votes: dict = {}
+        for n in ns:
+            k = owner[n.get("id") if n.get("id") is not None else id(n)]
+            votes[k] = votes.get(k, 0) + 1
+        out[max(votes, key=lambda i: (votes[i], -i))].extend(ns)
+    return [(pages[i][0], pages[i][1], out[i]) for i in range(len(pages))]
 
 
 def _resolve_trees(s: Session, cfg: Config, bz, ed, ch, talents: dict) -> None:
@@ -650,38 +665,45 @@ def trim_render(body: bytes, ctype: str, margin: float = 0.04) -> tuple[bytes, s
         return body, ctype
 
 
-def trim_backdrop(body: bytes, ctype: str, margin: float = 0.06, threshold: int = 28) -> tuple[bytes, str]:
-    """Blizzard's creature pictures (pets) are JPEGs with the animal small on a plain backdrop. Crop to
-    whatever differs from the corner colour (plus a margin, kept square) so the animal fills its tile.
-    Anything that can't be read, or has no clear backdrop, is returned unchanged."""
+def cut_backdrop(body: bytes, ctype: str, threshold: int = 5, margin: float = 0.04,
+                 max_side: int = 420) -> tuple[bytes, str]:
+    """Blizzard's creature pictures (pets) are JPEGs with the animal on a flat backdrop. Make the
+    backdrop transparent (only the part connected to the edges, so dark patches inside the animal
+    stay) and crop to the animal, so it can stand on the page like the character does. Returns a
+    PNG; anything that can't be read, or has no clear backdrop, is returned unchanged."""
     if ctype not in ("image/jpeg", "image/png"):
         return body, ctype
     import io
 
-    from PIL import Image, ImageChops
+    from PIL import Image, ImageChops, ImageDraw, ImageFilter
     try:
         with Image.open(io.BytesIO(body)) as src:
             if src.width * src.height > TRIM_MAX_PIXELS:
                 return body, ctype
             im = src.convert("RGB")
-            w, h = im.size
-            corners = [im.getpixel(p) for p in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1))]
-            bg = tuple(sorted(c[i] for c in corners)[1] for i in range(3))
-            diff = ImageChops.difference(im, Image.new("RGB", im.size, bg)).convert("L")
-            box = diff.point(lambda v: 255 if v > threshold else 0).getbbox()
-            if not box or (box[2] - box[0]) * (box[3] - box[1]) > 0.85 * w * h:
-                return body, ctype
-            side = int(max(box[2] - box[0], box[3] - box[1]) * (1 + 2 * margin))
-            side = max(side, int(min(w, h) * 0.4))              # at most 2.5x zoom, so it stays sharp
-            cx, cy = (box[0] + box[2]) // 2, (box[1] + box[3]) // 2
-            # Keep the square inside the picture where it fits; pad with the backdrop where it doesn't.
-            left = max(0, min(w - side, cx - side // 2)) if side <= w else cx - side // 2
-            top = max(0, min(h - side, cy - side // 2)) if side <= h else cy - side // 2
-            crop = Image.new("RGB", (side, side), bg)
-            crop.paste(im, (-left, -top))
-            out = io.BytesIO()
-            crop.save(out, "JPEG", quality=88)
-            return out.getvalue(), "image/jpeg"
+        w, h = im.size
+        edge = ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1))
+        corners = [im.getpixel(p) for p in edge]
+        bg = tuple(sorted(c[i] for c in corners)[1] for i in range(3))
+        if max(abs(c[i] - bg[i]) for c in corners for i in range(3)) > 3 * threshold:
+            return body, ctype                                   # corners differ: no flat backdrop
+        diff = ImageChops.difference(im, Image.new("RGB", im.size, bg)).convert("L")
+        near = diff.point(lambda v: 255 if v <= threshold else 0)
+        for p in edge:
+            if near.getpixel(p) == 255:
+                ImageDraw.floodfill(near, p, 128)
+        alpha = near.point(lambda v: 0 if v == 128 else 255)
+        box = alpha.getbbox()
+        if not box or (box[2] - box[0]) * (box[3] - box[1]) > 0.9 * w * h:
+            return body, ctype
+        rgba = im.copy()
+        rgba.putalpha(alpha.filter(ImageFilter.GaussianBlur(1.2)))      # soft edge
+        pad = int(max(box[2] - box[0], box[3] - box[1]) * margin)
+        rgba = rgba.crop((max(0, box[0] - pad), max(0, box[1] - pad), min(w, box[2] + pad), min(h, box[3] + pad)))
+        rgba.thumbnail((max_side, max_side))
+        out = io.BytesIO()
+        rgba.save(out, "PNG", optimize=True)
+        return out.getvalue(), "image/png"
     except (OSError, ValueError, Image.DecompressionBombError):
         return body, ctype
 

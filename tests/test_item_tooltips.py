@@ -435,21 +435,25 @@ def test_talent_tree_columns_are_validated():
             validate(r)
 
 
-def test_pet_pictures_are_cropped_to_the_animal():
+def test_pet_pictures_get_a_transparent_backdrop():
     import io
 
     from PIL import Image, ImageDraw
-    im = Image.new("RGB", (400, 300), (20, 30, 50))
-    ImageDraw.Draw(im).ellipse((150, 120, 250, 220), fill=(200, 150, 90))
+    im = Image.new("RGB", (400, 300), (24, 24, 24))
+    d = ImageDraw.Draw(im)
+    d.ellipse((150, 100, 250, 220), fill=(200, 150, 90))
+    d.rectangle((190, 150, 210, 170), fill=(24, 24, 24))         # a dark patch inside the animal
     raw = io.BytesIO()
-    im.save(raw, "JPEG")
-    body, ctype = profiles.trim_backdrop(raw.getvalue(), "image/jpeg")
+    im.save(raw, "JPEG", quality=95)
+    body, ctype = profiles.cut_backdrop(raw.getvalue(), "image/jpeg")
     out = Image.open(io.BytesIO(body))
-    assert ctype == "image/jpeg" and out.width == out.height and 110 <= out.width <= 130
-    assert profiles.trim_backdrop(b"junk", "image/jpeg") == (b"junk", "image/jpeg")
+    assert ctype == "image/png" and out.mode == "RGBA" and 100 <= out.width <= 115
+    assert out.getpixel((0, 0))[3] == 0                                    # backdrop: transparent
+    assert out.getpixel((out.width // 2, out.height // 2))[3] == 255      # inside patch: kept
+    assert profiles.cut_backdrop(b"junk", "image/jpeg") == (b"junk", "image/jpeg")
     flat = io.BytesIO()
-    Image.new("RGB", (50, 50), (9, 9, 9)).save(flat, "JPEG")            # nothing to crop to
-    assert profiles.trim_backdrop(flat.getvalue(), "image/jpeg")[0] == flat.getvalue()
+    Image.new("RGB", (50, 50), (9, 9, 9)).save(flat, "JPEG")             # nothing to cut out
+    assert profiles.cut_backdrop(flat.getvalue(), "image/jpeg")[0] == flat.getvalue()
 
 
 def test_talents_are_placed_by_their_block_of_the_class_grid():
@@ -466,6 +470,9 @@ def test_talents_are_placed_by_their_block_of_the_class_grid():
     assert [r for r, _b, _n in out] == ["a", "b", "c"]
     for (_r, _b, ns), want in zip(out, (a, b, c)):
         assert sorted(n["id"] for n in ns) == sorted(n["id"] for n in want)
+    # A tree with an empty column inside it stays together.
+    gap = [("a", {}, [n for n in nodes(1) if n["display_col"] != 3]), ("b", {}, nodes(9))]
+    assert [len(ns) for _r, _b, ns in profiles._regroup_by_block(gap)] == [9, 12]
     # Blocks that don't line up with the pages: drawn as sent.
     odd = [("a", {}, nodes(1)), ("b", {}, nodes(5))]                           # columns 1-8, no gap
     assert profiles._regroup_by_block(odd) is odd
