@@ -293,3 +293,75 @@ def test_probe_character_follows_the_guild_and_shows_one_page_tree():
     assert "tree" not in rows["guild-roster"]                     # other players' names are never shown
     g = [r for r in calls if r.url.path.startswith("/data/wow/guild/")]
     assert all(r.url.params["namespace"] == "profile-forever-us" for r in g)
+
+
+# ---- probe-media (FIXTURE responses; what Forever really serves is unverified until run on the host)
+def _media_handler(icon_host="render.worldofwarcraft.com"):
+    def h(req):
+        p = req.url.path
+        if p.endswith("/equipment"):
+            return httpx.Response(200, json={"equipped_items": [
+                {"item": {"id": 101}, "slot": {"type": "HEAD", "name": "Head"}, "level": {"value": 9},
+                 "name": "Fixture Cap", "quality": {"type": "COMMON"}},
+                {"item": {"id": 202}, "slot": {"type": "CHEST", "name": "Chest"}, "level": {"value": 12},
+                 "name": "Fixture Vest", "quality": {"type": "UNCOMMON"},
+                 "stats": [{"type": {"type": "STAMINA"}, "value": 3, "display": {"display_string": "+3 Stamina"}}],
+                 "media": {"key": {"href": "https://us.api.blizzard.com/data/wow/media/item/202?namespace=static-fixture-us"},
+                           "id": 202}}]})
+        if p.endswith("/specializations"):
+            return httpx.Response(200, json={"character": {"name": "Zulmara Ashveil"}, "specialization_groups": [
+                {"is_active": True, "specializations": [{"specialization_name": "Fixture Tree", "talents": [
+                    {"talent": {"id": 55, "name": "Fixture Talent"}, "talent_rank": 2,
+                     "spell_tooltip": {"spell": {"id": 777, "name": "Fixture Spell"}, "description": "Does a thing."}}]}]}]})
+        if p == "/data/wow/item/202":
+            return httpx.Response(200, json={"id": 202, "name": "Fixture Vest", "preview_item": {"stats": []}})
+        if p == "/data/wow/media/item/202":
+            return httpx.Response(200, json={"assets": [{"key": "icon", "value": f"https://{icon_host}/us/icons/56/fixture.jpg"}]})
+        if p == "/data/wow/media/spell/777":
+            return httpx.Response(200, json={"assets": [{"key": "icon", "value": f"https://{icon_host}/us/icons/56/spell.jpg"}]})
+        if p == "/data/wow/spell/777":
+            return httpx.Response(200, json={"id": 777, "name": "Fixture Spell", "description": "Does a thing."})
+        if p.startswith("/us/icons/"):
+            return httpx.Response(200, content=b"\xff\xd8FIXTURE", headers={"content-type": "image/jpeg"})
+        return httpx.Response(404)
+    return h
+
+
+def test_probe_media_checks_items_spells_icons_and_trees_read_only():
+    b, calls = _bz(_media_handler())
+    rows = b.probe_media("forever", "us", "Zulmara Ashveil")
+    by = {r["check"].strip(): r for r in rows}
+    sns = b.cfg.edition("forever").namespace("static", "us")
+    assert "item id=202" in by["equipped-item"]["shape"]                 # highest item level picked
+    assert by["item"]["status"] == "200" and by["item"]["namespace"] == sns
+    assert by["item-media"]["status"] == "200" and by["item-media"]["namespace"] == "static-fixture-us"
+    assert by["spell"]["status"] == "200" and by["spell-media"]["status"] == "200"
+    icons = [r for r in rows if r["check"].strip() == "icon-image"]
+    assert len(icons) == 2 and all(r["status"] == "200" and "discarded" in r["shape"] for r in icons)
+    assert by["talent"]["status"] == "404" and by["talent-tree-index"]["status"] == "404"
+    assert "spell id=777" in by["talent-entry"]["shape"]
+    assert "display_string: '+3 Stamina'" in "\n".join(by["equipped-item"]["tree"])
+    assert all(r.method == "GET" for r in calls if r.url.path != "/token")
+    assert "Zulmara" not in "\n".join(line for r in rows for line in r.get("tree") or [])
+
+
+def test_probe_media_does_not_fetch_icons_from_unlisted_hosts():
+    b, calls = _bz(_media_handler(icon_host="cdn.example.org"))
+    rows = b.probe_media("forever", "us", "Zulmara Ashveil")
+    icons = [r for r in rows if r["check"].strip() == "icon-image"]
+    assert icons and all(r["status"] == "-" and "not in [blizzard] render_image_hosts" in r["shape"] for r in icons)
+    assert not [r for r in calls if r.url.host == "cdn.example.org"]
+
+
+def test_probe_media_reports_a_character_without_gear_or_talents():
+    b, _ = _bz(lambda r: httpx.Response(404))
+    by = {r["check"].strip(): r for r in b.probe_media("forever", "us", "Zulmara Ashveil")}
+    assert by["equipment"]["status"] == "404" and by["equipped-item"]["status"] == "-"
+    assert by["talent-entry"]["status"] == "-" and "item" not in by
+
+
+def test_probe_media_needs_a_realm_where_editions_use_realms():
+    b, calls = _bz(lambda r: httpx.Response(200, json={}))
+    with pytest.raises(blizzard.Unsupported):
+        b.probe_media("retail", "us", "Testchar")
+    assert not [r for r in calls if r.url.path != "/token"]

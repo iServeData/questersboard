@@ -418,6 +418,108 @@ class Blizzard:
                 out.append(row)
         return out
 
+    def probe_media(self, edition: str, region: str, name: str, realm: str | None = None) -> list[dict]:
+        """Read-only: can gear icons, item tooltips, talent icons and talent trees come straight from Blizzard?
+
+        Takes one equipped item and one talent from the character (equipment and specializations pages),
+        then checks the item, item media, spell, spell media and talent-tree answers in the edition's
+        static namespace (or the namespace Blizzard links to). The icon image itself is fetched once to
+        confirm its host, type and size, and is discarded. Uses the app token; saves nothing, uses no cache.
+        Each row: check, path, namespace, status, shape, and for answers a short structure as row["tree"]."""
+        if not self.bz.get("enabled"):
+            raise Unsupported("Blizzard API lookups are turned off in this installation.")
+        ed = self.cfg.edition(edition)
+        pns, sns = ed.namespace("profile", region), ed.namespace("static", region)
+        if not pns or not sns:
+            raise Unsupported(f"{ed.name} ({region.upper()}) needs both a profile and a static namespace.")
+        if ed.uses_realms:
+            if not realm:
+                raise Unsupported(f"{ed.name} uses realms: add --realm.")
+            base = f"/profile/wow/character/{quote(slug(realm))}/{quote(name.strip().lower())}"
+        else:
+            base = f"/profile/wow/character/{quote(char_slug(name))}"
+        out: list[dict] = []
+
+        def check(label: str, path: str, ns: str, tree: bool = True) -> dict:
+            row = {"check": label, "path": path, "namespace": ns}
+            body = self._probe_row(row, region, path, ns, label)
+            if tree and row["status"] == "200":
+                row["tree"] = _tree(body, max_depth=4)
+            out.append(row)
+            return body
+
+        def linked(ref, fallback_path: str) -> tuple[str, str]:
+            href = ((ref or {}).get("key") or {}).get("href") or "" if isinstance(ref, dict) else ""
+            u = urlsplit(href)
+            if u.path.startswith("/data/wow/"):
+                return u.path, dict(parse_qsl(u.query)).get("namespace") or sns
+            return fallback_path, sns
+
+        # One equipped item: the highest item level, so it is likely to carry stats.
+        eq = check("equipment", base + "/equipment", pns, tree=False)
+        items = [i for i in eq.get("equipped_items") or [] if isinstance(i, dict) and (i.get("item") or {}).get("id")]
+        item = max(items, key=lambda i: (i.get("level") or {}).get("value") or 0) if items else None
+        if item:
+            out.append({"check": "equipped-item", "path": "(from the equipment page)", "namespace": pns,
+                        "status": "200", "shape": f"slot={_label(item.get('slot'))}, item id={item['item']['id']}",
+                        "tree": _tree(item, max_depth=4)})
+            iid = int(item["item"]["id"])
+            check("item", f"/data/wow/item/{iid}", sns)
+            mpath, mns = linked(item.get("media"), f"/data/wow/media/item/{iid}")
+            media = check("item-media", mpath, mns)
+            self._probe_icon(out, media)
+        else:
+            out.append({"check": "equipped-item", "path": "", "namespace": pns, "status": "-",
+                        "shape": "no equipped item with an item id"})
+
+        # One talent: its spell (tooltip text and icon) and the talent itself.
+        sp = check("specializations", base + "/specializations", pns, tree=False)
+        talent = None
+        for g in sp.get("specialization_groups") or []:
+            for spec in g.get("specializations") or []:
+                for t in spec.get("talents") or []:
+                    if isinstance(t, dict) and ((t.get("spell_tooltip") or {}).get("spell") or {}).get("id"):
+                        talent = talent or t
+        if talent:
+            spell = talent["spell_tooltip"]["spell"]
+            out.append({"check": "talent-entry", "path": "(from the specializations page)", "namespace": pns,
+                        "status": "200", "shape": f"spell id={spell['id']}, talent id={(talent.get('talent') or {}).get('id')}",
+                        "tree": _tree(talent, max_depth=4)})
+            sid = int(spell["id"])
+            check("spell", f"/data/wow/spell/{sid}", sns)
+            spath, sp_ns = linked(None, f"/data/wow/media/spell/{sid}")
+            self._probe_icon(out, check("spell-media", spath, sp_ns))
+            tid = (talent.get("talent") or {}).get("id")
+            if isinstance(tid, int):
+                check("talent", f"/data/wow/talent/{tid}", sns)
+        else:
+            out.append({"check": "talent-entry", "path": "", "namespace": pns, "status": "-",
+                        "shape": "no talent with a spell id (no points spent yet?)"})
+
+        # Tree layouts: Retail-style talent trees, the older talent index, and the specialization list.
+        for label, path in (("talent-tree-index", "/data/wow/talent-tree/index"),
+                            ("talent-index", "/data/wow/talent/index"),
+                            ("spec-index", "/data/wow/playable-specialization/index")):
+            check(label, path, sns)
+        return out
+
+    def _probe_icon(self, out: list[dict], media: dict) -> None:
+        """For a media answer: is the icon on an allowed image host, and does it download as an image?"""
+        assets = [a for a in media.get("assets") or [] if isinstance(a, dict)]
+        icon = next((a for a in assets if a.get("key") == "icon"), assets[0] if assets else None)
+        if not icon or not isinstance(icon.get("value"), str):
+            return
+        u = urlsplit(icon["value"])
+        allowed = u.hostname in set(self.bz.get("render_image_hosts", ["render.worldofwarcraft.com"]))
+        row = {"check": "  icon-image", "path": u.path[-60:], "namespace": u.hostname or ""}
+        if not allowed:
+            row["status"], row["shape"] = "-", f"host {u.hostname} is not in [blizzard] render_image_hosts"
+        else:
+            got = self.fetch_image(icon["value"])
+            row["status"] = "200" if got else "error"
+            row["shape"] = f"{got[1]}, {len(got[0])} bytes (discarded)" if got else "not fetched as an image"
+        out.append(row)
+
     def _probe_row(self, row: dict, region: str, path: str, ns: str, page: str) -> dict:
         try:
             st, body = self.get(None, region, path, ns, 0)

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Media probe.** `questersboard-admin blizzard probe-media EDITION --name "First Last"` checks, read-only,
+  whether gear icons, item tooltips, talent icons and talent trees can come straight from Blizzard: it
+  takes one equipped item and one talent from the character and checks the item, item media, spell,
+  spell media, talent and talent-tree answers. Icons are fetched once from allowed image hosts only to
+  confirm type and size, then discarded. Nothing is saved.
+
 - **Link previews for member pages.** Links to My characters, guild rosters, character pages and other
   member-only pages used to preview as Discord's own card, because the preview fetcher followed the
   login redirect. Known preview fetchers (`[web] link_preview_agents`, optional) now get a small card

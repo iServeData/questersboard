@@ -41,6 +41,8 @@ EU is unverified.
 ## Phases
 
 1. **Probe** (done): `blizzard probe-character`, with `--detail PAGE` and guild/roster sizes.
+   **Media probe**: `blizzard probe-media` checks item, icon, spell and talent-tree answers before the
+   Armory-style gear icons, tooltips and talent trees are built.
 2. **Config** (done): Forever's comment records the US result; the status stays per edition.
 3. **Import with checkboxes and sharing choices** (done): on My characters, per character. Stored in
    `character_profiles` (migration 0009).
