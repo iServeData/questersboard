@@ -88,6 +88,17 @@ def test_login_state_is_single_use_and_bad_state_rejected(app):
     assert c2.get(f"/wow/quester/oauth/callback?code={fake_id(5)}&state={state}").status_code == 403
 
 
+def test_reused_login_link_while_signed_in_goes_to_quests(app):
+    c = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
+    state = re.search(r"state=([^&]+)", c.get("/wow/quester/login").headers["location"]).group(1)
+    url = f"/wow/quester/oauth/callback?code={fake_id(5)}&state={state}"
+    app.state.fake_rest.roles[fake_id(5)] = set()
+    assert c.get(url).status_code == 303
+    r = c.get(url)                                  # refresh / back button / second tab
+    assert r.status_code == 303 and r.headers["location"] == "/wow/quester/"
+    assert c.get("/wow/quester/me").status_code == 200
+
+
 def test_non_guild_member_cannot_log_in(app):
     c = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
     r = c.get("/wow/quester/login")

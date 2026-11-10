@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Reused login link.** Opening a Discord login link again while already signed in (refresh, back
+  button, a second tab) now goes to Quests instead of showing "That login link expired". The reused
+  code is ignored.
 - **Gear and talent icons and tooltips.** Imported gear shows in two columns like the in-game
   character panel, with weapons below; each item has its Blizzard icon, quality colour and a tooltip
   (binding, type, armour, stats, requirements, item level, transmog, sell price) with a "View on

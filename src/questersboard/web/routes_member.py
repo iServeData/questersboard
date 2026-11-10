@@ -228,7 +228,10 @@ def router(cfg: Config) -> APIRouter:
     def callback(request: Request, code: str = "", state: str = "", error: str = ""):
         w = W(request)
         pre = w.load_session(request)
-        if pre is None or pre.member_id is not None or not state or \
+        if pre is not None and pre.member_id is not None:
+            # Already signed in: a reloaded, reopened or duplicate login link. The code is never used.
+            return _redirect(_local_next("", mp))
+        if pre is None or not state or \
                 not pysecrets.compare_digest(state, pre.data.get("oauth_state", "")):
             raise PermissionDenied("That login link expired. Please try logging in again.")
         nxt = _local_next(pre.data.get("next", ""), mp)
