@@ -157,3 +157,59 @@ def test_ruleset_api_ids_validated():
     ok = copy.deepcopy(eds)
     ok[0]["static_namespace"] = "static-1.60.1_70399-forever-{region}"   # pinned game version
     assert make_cfg(editions=ok).edition("forever").namespace("static", "us") == "static-1.60.1_70399-forever-us"
+
+
+@needs_db
+def test_worker_applies_blizzard_30_day_limit(seeded, worker_db, cfg):
+    """Blizzard's API terms: no Blizzard data older than 30 days. The worker deletes Battle.net lists after
+    the pick window and clears unrefreshed Blizzard checks; the character itself stays, self-reported."""
+    from cryptography.fernet import Fernet
+
+    from wowquester.config import ConfigHolder
+    from wowquester.worker import Worker
+    with seeded.tx() as s:
+        old = char(s, cfg, actor(63), "Grimtusk Ironhide", level=20)
+        new = char(s, cfg, actor(63), "Zulmara Ashveil")
+        mid = old.member_id
+        s.execute(text("update characters set verification='ownership_verified', api_external_id='501', "
+                       "api_refreshed_at = now() - interval '31 days' where id=:i"), {"i": old.id})
+        s.execute(text("update characters set verification='api_matched', api_external_id='502', "
+                       "api_refreshed_at = now() - interval '2 days' where id=:i"), {"i": new.id})
+        blob = Fernet(Fernet.generate_key()).encrypt(b"{}")
+        s.execute(text("insert into battlenet_links (member_id, region, snapshot_enc, linked_at) "
+                       "values (:m, 'us', :b, now() - interval '2 hours'), (:m, 'eu', :b, now())"),
+                  {"m": mid, "b": blob})
+        s.execute(text("insert into api_cache (key, status, body, fetched_at, expires_at) values "
+                       "('k-old', 200, '{}', now() - interval '31 days', now() + interval '1 day'), "
+                       "('k-new', 200, '{}', now(), now() + interval '1 day')"))
+    Worker(ConfigHolder(cfg), worker_db, None).housekeeping()
+    with seeded.tx() as s:
+        rows = dict(s.execute(text("select name, verification || '|' || coalesce(api_external_id,'') || '|' || "
+                                   "coalesce(level::text,'') from characters where member_id=:m"), {"m": mid}).all())
+        links = [r for r, in s.execute(text("select region from battlenet_links where member_id=:m"), {"m": mid})]
+        cache = [k for k, in s.execute(text("select key from api_cache where key like 'k-%' order by key"))]
+    assert rows == {"Grimtusk Ironhide": "self_reported||20", "Zulmara Ashveil": "api_matched|502|"}
+    assert links == ["eu"] and cache == ["k-new"]
+
+
+@needs_db
+def test_worker_cannot_read_battlenet_lists():
+    import os
+
+    import psycopg
+    from test_db_hardening import _connect
+    with _connect("wowquester_worker", os.environ.get("WQT_WORKER_PW")) as c:
+        c.execute("select member_id, region, linked_at from battlenet_links")     # when, not what
+        c.rollback()
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            c.execute("select snapshot_enc from battlenet_links")
+        c.rollback()
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            c.execute("update characters set name = 'x' where false")
+        c.rollback()
+
+
+def test_data_ttl_capped_at_30_days():
+    with pytest.raises(ConfigError):
+        make_cfg(blizzard={"enabled": True, "data_ttl_days": 31})
+    assert make_cfg(blizzard={"enabled": True, "data_ttl_days": 7})["blizzard"]["data_ttl_days"] == 7

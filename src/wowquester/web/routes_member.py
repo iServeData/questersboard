@@ -658,7 +658,9 @@ def router(cfg: Config) -> APIRouter:
                 class_label = (m.get("classes") or {}).get(editing.class_key,
                                                            editing.class_key.replace("_", " ").title())
             from ..models import BattlenetLink
-            bn_linked = s.query(BattlenetLink.member_id).filter(BattlenetLink.member_id == a.member_id).first() is not None
+            # The Battle.net list itself is deleted soon after the login; "verified" characters still count.
+            bn_linked = (s.query(BattlenetLink.member_id).filter(BattlenetLink.member_id == a.member_id).first()
+                         is not None or any(c.verification == "ownership_verified" for c in chars))
         bz = w.cfg["blizzard"]
         return render(request, "characters.html", {"title": "Characters", "chars": chars, "race_map": race_map,
                                                    "editions": w.cfg.editions, "presets": w.cfg.role_presets,

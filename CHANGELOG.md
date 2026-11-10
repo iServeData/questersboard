@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+**Database migration 0008** (worker grants only; run `migrate up` before restarting).
+
+- **Blizzard API terms.** Blizzard data is kept no longer than `[blizzard] data_ttl_days` (30, the most
+  the terms allow): the worker deletes each Battle.net character list once the pick window
+  (`battlenet_import_minutes`) has passed, clears Blizzard checks (verified / API matched) that weren't
+  refreshed in time (the character stays, self-reported), and deletes cached API answers older than that.
+  Pages that show Blizzard data name Blizzard as the source and say WoWQuester isn't endorsed by it; the
+  privacy page adds the 30-day rule, "as is", Blizzard's privacy policy and that we never see Battle.net
+  passwords; the terms say WoWQuester isn't meant for anyone under 13. The worker can see when a list was
+  made, not what's in it.
+
 - **Battle.net character sync, including WoW: Forever.** Sync from Battle.net on My characters reads the
   account's character list once (user token used once, never stored). Characters already on WoWQuester
   are marked verified and get their level updated; the rest are listed to tick and add, verified, with

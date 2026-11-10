@@ -579,11 +579,30 @@ class Worker:
                       {"d": r["outbox_done_days"]})
             s.execute(text("DELETE FROM api_cache WHERE expires_at < now() - make_interval(days => :d)"),
                       {"d": r["api_cache_days"]})
+            self._blizzard_ttl(s)
             s.execute(text("DELETE FROM rate_buckets WHERE window_start < now() - interval '1 day'"))
             # guest voice links, guests and bans never outlive their event (End/Cancel already removes them)
             for tbl in ("event_voice_invites", "event_voice_guests", "event_voice_bans"):
                 s.execute(text(f"DELETE FROM {tbl} t USING events e WHERE e.id = t.event_id "
                                "AND e.state <> 'in_progress'"))
+
+    def _blizzard_ttl(self, s) -> None:
+        """Blizzard's API terms: data from their API is kept no longer than 30 days.
+        - Battle.net character lists are only needed while the member picks characters to add, so they go
+          once battlenet_import_minutes has passed.
+        - A Blizzard check (api_matched / ownership_verified) not refreshed within data_ttl_days is
+          cleared: the character stays on the roster as the member entered it, marked self-reported,
+          until they sync or check again.
+        - Cached API responses older than data_ttl_days are deleted whatever their cache time."""
+        bz = self.cfg["blizzard"]
+        days = min(int(bz.get("data_ttl_days", 30)), 30)
+        s.execute(text("DELETE FROM battlenet_links WHERE linked_at < now() - make_interval(mins => :m)"),
+                  {"m": int(bz.get("battlenet_import_minutes", 60))})
+        s.execute(text(
+            "UPDATE characters SET verification = 'self_reported', api_external_id = NULL, api_namespace = NULL, "
+            "api_refreshed_at = NULL, updated_at = now() WHERE verification <> 'self_reported' "
+            "AND (api_refreshed_at IS NULL OR api_refreshed_at < now() - make_interval(days => :d))"), {"d": days})
+        s.execute(text("DELETE FROM api_cache WHERE fetched_at < now() - make_interval(days => :d)"), {"d": days})
 
     def sync_policy(self) -> None:
         with self.db.tx() as s:

@@ -43,7 +43,7 @@ Notes:
 | `postgres` | local peer only | superuser; used only for `roles.sql` and restores |
 | `wowquester_admin` | scram, socket/localhost | owns the schema; runs migrations, backups, pruning; **not** a superuser, can't create roles or DBs |
 | `wowquester_app` (web, bot) | scram | DML on application tables; `audit_log` INSERT only; no `alembic_version` |
-| `wowquester_worker` | scram | read most tables (not `web_sessions`, `calendar_tokens`, `battlenet_links`); write outbox, reminders, projections, reservations, reference options; limited `events` columns |
+| `wowquester_worker` | scram | read most tables (not `web_sessions`, `calendar_tokens`, or `battlenet_links` beyond member, region and time; deletes expired Battle.net lists and resets Blizzard check columns on `characters` after `data_ttl_days`); write outbox, reminders, projections, reservations, reference options; limited `events` columns |
 | `wowquester_readonly` | scram, read-only transactions | `public_events`, `public_chronicle` only |
 
 `PUBLIC` has no rights on the database or schema. No role named `root` exists (the role script refuses
@@ -73,7 +73,7 @@ to run if one does).
 | API cache | `api_cache_days` (30) | worker housekeeping |
 | Withdrawn/rejected signups of past events | `withdrawn_signup_days` (365) | prune |
 | Audit log | `audit_days` (400) | prune, admin role only; services can only append |
-| Battle.net snapshot | until the member clicks "Forget my Battle.net link" | deleted; their ownership-verified characters revert to self-reported |
+| Battle.net snapshot | `battlenet_import_minutes` (60) after the login, or "Forget my Battle.net link" | deleted. Blizzard checks (verified, API matched) are cleared after `data_ttl_days` (30) without a refresh, or at once by "Forget my Battle.net link" |
 | Personal calendar token | until revoked | member or `wowquester-admin calendar-revoke` |
 | Chronicle text | indefinitely once published | unpublish; recognition removal and consent withdrawal apply immediately |
 | Backups | 30 days (`WOWQUESTER_BACKUP_KEEP_DAYS`) | rotated by `backup.sh` |

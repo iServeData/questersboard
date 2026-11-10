@@ -2,7 +2,7 @@
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
 <div class="section-head"><h1>Battle.net characters</h1></div>
-<p class="note">{{ ed.name }} · {{ region|upper }}. Read once from your Battle.net account; WoWQuester didn't keep your Battle.net login.</p>
+<p class="note">{{ ed.name }} · {{ region|upper }}. Read once from your Battle.net account; WoWQuester didn't keep your Battle.net login. Character data comes from Blizzard Entertainment's Battle.net API; WoWQuester isn't made, endorsed or supported by Blizzard.</p>
 {% if added %}
 <section class="panel">
   <h2 class="sub">Added</h2>
@@ -26,7 +26,7 @@
 <form method="post" class="wq-form panel" action="{{ mp }}/characters/battlenet/import">{{ csrf_field() }}
   <input type="hidden" name="region" value="{{ region }}">
   <h2 class="sub">Add from your account</h2>
-  <p class="note">Tick the characters to add. They're added as verified; you can set roles, spec and interests afterwards. This list works for {{ minutes }} minutes.</p>
+  <p class="note">Tick the characters to add. They're added as verified; you can set roles, spec and interests afterwards. This list works for {{ minutes }} minutes, then it's deleted.</p>
   <ul class="plain-list wq-bn-list">
   {% for r in rows %}{% set c = r.c %}
     <li>

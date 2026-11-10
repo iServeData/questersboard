@@ -471,6 +471,11 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     _req(bz, "enabled", bool, "blizzard")
     _positive(bz.get("max_retries", 3), "[blizzard] max_retries", 0)
     _positive(bz.get("battlenet_import_minutes", 60), "[blizzard] battlenet_import_minutes")
+    ttl = _positive(bz.get("data_ttl_days", 30), "[blizzard] data_ttl_days")
+    if ttl > 30:
+        raise ConfigError("[blizzard] data_ttl_days can't be more than 30 (Blizzard's API terms)")
+    if bz.get("battlenet_import_minutes", 60) > ttl * 24 * 60:
+        raise ConfigError("[blizzard] battlenet_import_minutes must fit within data_ttl_days")
     _positive(bz.get("battlenet_profile_lookups", 25), "[blizzard] battlenet_profile_lookups", 0)
 
     # editions

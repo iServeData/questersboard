@@ -213,6 +213,7 @@ cache_hours_static = 168
 cache_hours_profile = 6
 battlenet_link_enabled = false                # optional ownership verification (wow.profile scope)
 battlenet_import_minutes = 60                 # after a Battle.net login, how long the "Add these characters" list stays usable
+data_ttl_days = 30                            # Blizzard checks not refreshed for this long are cleared (API terms: 30 max)
 battlenet_profile_lookups = 25                # per login: max character-profile reads to fill in a missing ruleset (0 = none)
 
 # ---------------------------------------------------------------------------

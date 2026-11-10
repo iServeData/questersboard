@@ -36,7 +36,8 @@ Log in with Discord. WoWQuester only learns your Discord ID, username and displa
   have here show "verified as yours" and get their level updated; the others are listed so you can tick
   them and add them (also verified). For Forever, pick the ruleset where Blizzard didn't send it. The list
   works for `battlenet_import_minutes` (60) after the login. Sync again any time to refresh: WoWQuester
-  doesn't keep your Battle.net login. "Forget my Battle.net link" removes the stored list any time.
+  doesn't keep your Battle.net login; the list is deleted after an hour. The verified mark lasts 30 days
+  (Blizzard's rule), so sync again now and then. "Forget my Battle.net link" removes it any time.
 - Forever characters only appear on Battle.net from level 10, after you log out with them once, and the
   account list can trail the game by about 20 to 40 minutes. Blizzard hasn't documented the Forever API,
   so this can stop working if they change it; adding characters by hand always works.
