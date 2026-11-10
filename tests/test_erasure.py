@@ -6,9 +6,9 @@ from conftest import actor, at, needs_db
 from helpers import char, event
 from sqlalchemy import text
 
-from wowquester.domain import chronicle, erasure, events, signups
-from wowquester.domain.errors import NotFound
-from wowquester.models import ChronicleEntry, Member
+from questersboard.domain import chronicle, erasure, events, signups
+from questersboard.domain.errors import NotFound
+from questersboard.models import ChronicleEntry, Member
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator")

@@ -63,7 +63,7 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | Components | persistent buttons on the canonical event post (`wq:ev:<action>:<event_id>`), re-registered at startup |
 | Messages | worker only, via REST: one canonical post per event (edited in place, recreated if deleted); DMs for reminders, approvals, review results; `allowed_mentions` empty |
 | Event threads (off by default) | `POST /channels/{ch}/messages/{msg}/threads` (public) or `POST /channels/{ch}/threads` type 12 (private); `PUT`/`DELETE /channels/{thread}/thread-members/{user}`; `PATCH /channels/{thread}` `archived`+`locked`. Needs Create Public/Private Threads, Send Messages in Threads, Manage Threads. FIXTURE-tested; live unverified |
-| Registration | `wowquester-admin sync-commands` is a dry run unless `--yes` and `WOWQUESTER_APPROVED_CHANGE=sync-commands` |
+| Registration | `questersboard-admin sync-commands` is a dry run unless `--yes` and `QUESTERSBOARD_APPROVED_CHANGE=sync-commands` |
 
 ## Blizzard
 

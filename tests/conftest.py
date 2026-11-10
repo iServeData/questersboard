@@ -19,9 +19,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, text
 
-from wowquester.config import Config, _hashes, validate
-from wowquester.db import Database
-from wowquester.domain.actor import Actor
+from questersboard.config import Config, _hashes, validate
+from questersboard.db import Database
+from questersboard.domain.actor import Actor
 
 ROOT = Path(__file__).resolve().parent.parent
 HOST = os.environ.get("WQT_PG_HOST", "127.0.0.1")
@@ -40,12 +40,12 @@ ROLE = {cap: fake_id(900 + i) for i, cap in enumerate(
 
 def url(role: str) -> str:
     pw = os.environ.get(f"WQT_{role.split('_', 1)[1].upper()}_PW", "")
-    return f"postgresql+psycopg://{role}:{pw}@{HOST}:{PORT}/wowquester"  # sanitize: fixture (pw from env)
+    return f"postgresql+psycopg://{role}:{pw}@{HOST}:{PORT}/questersboard"  # sanitize: fixture (pw from env)
 
 
 def _reachable() -> bool:
     try:
-        e = create_engine(url("wowquester_admin"))
+        e = create_engine(url("questersboard_admin"))
         with e.connect() as c:
             c.execute(text("select 1"))
         e.dispose()
@@ -92,10 +92,10 @@ def admin_engine():
     from alembic import command
     from alembic.config import Config as AConfig
     ac = AConfig()
-    ac.set_main_option("script_location", str(ROOT / "src" / "wowquester" / "migrations"))
-    os.environ["WOWQUESTER_MIGRATE_URL"] = url("wowquester_admin")
+    ac.set_main_option("script_location", str(ROOT / "src" / "questersboard" / "migrations"))
+    os.environ["QUESTERSBOARD_MIGRATE_URL"] = url("questersboard_admin")
     command.upgrade(ac, "head")
-    e = create_engine(url("wowquester_admin"), isolation_level="AUTOCOMMIT")
+    e = create_engine(url("questersboard_admin"), isolation_level="AUTOCOMMIT")
     yield e
     e.dispose()
 
@@ -111,16 +111,16 @@ def db(admin_engine):
         c.execute(text("TRUNCATE " + ", ".join(n for n in names if n not in TABLES_KEEP) +
                        " RESTART IDENTITY CASCADE"))
         c.execute(text("UPDATE schedule_policy SET max_simultaneous = 1"))
-    from wowquester.db import make_engine
-    eng = make_engine(url("wowquester_app"), None, pool_size=10)
+    from questersboard.db import make_engine
+    eng = make_engine(url("questersboard_app"), None, pool_size=10)
     yield Database(eng)
     eng.dispose()
 
 
 @pytest.fixture
 def worker_db(admin_engine):
-    from wowquester.db import make_engine
-    eng = make_engine(url("wowquester_worker"), None)
+    from questersboard.db import make_engine
+    eng = make_engine(url("questersboard_worker"), None)
     yield Database(eng)
     eng.dispose()
 
@@ -132,7 +132,7 @@ def at(hours: float, base: datetime | None = None) -> datetime:
 
 @pytest.fixture
 def seeded(db, cfg):
-    from wowquester.domain import catalog
+    from questersboard.domain import catalog
     with db.tx() as s:
         catalog.seed_edition(s, cfg, "forever")
     return db

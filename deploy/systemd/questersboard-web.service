@@ -1,0 +1,75 @@
+# questersboard-web: web app (member pages, chronicle, feeds, calendars)
+# Same config (/etc/questersboard/config.toml) as the other two units; only the credentials differ.
+[Unit]
+Description=QuestersBoard web app (member pages, chronicle, feeds, calendars)
+Documentation=file:/opt/questersboard/current/README.md
+Wants=network-online.target
+After=network-online.target time-sync.target postgresql.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+Requires=questersboard-web.socket
+After=questersboard-web.socket
+[Service]
+Type=exec
+User=questersboard
+Group=questersboard
+Environment=PYTHONUNBUFFERED=1 QUESTERSBOARD_CONFIG=/etc/questersboard/config.toml
+# Host-key encrypted credentials from /etc/credstore.encrypted/questersboard.<name>; least privilege per unit.
+ImportCredential=questersboard.db-app-password
+ImportCredential=questersboard.discord-client-secret
+ImportCredential=questersboard.discord-bot-token
+ImportCredential=questersboard.field-key
+ImportCredential=questersboard.blizzard-client-id
+ImportCredential=questersboard.blizzard-client-secret
+ExecStartPre=/opt/questersboard/current/venv/bin/questersboard-admin check-config --quiet
+ExecStart=/opt/questersboard/current/venv/bin/python -E -s -B -m questersboard.web.app
+WorkingDirectory=/var/lib/questersboard
+StateDirectory=questersboard
+StateDirectoryMode=0750
+Restart=on-failure
+RestartPreventExitStatus=78
+RestartSec=10
+RestartSteps=6
+RestartMaxDelaySec=300
+TimeoutStopSec=30
+
+ReadOnlyPaths=/etc/questersboard
+# Other services on the host: hide their config/state with a drop-in (docs/install.md, "Isolation drop-in").
+InaccessiblePaths=-/etc/credstore.encrypted -/srv -/root
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateIPC=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+ProcSubset=pid
+RemoveIPC=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+UMask=0077
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @mount @debug @cpu-emulation @obsolete @raw-io @reboot @swap
+SystemCallErrorNumber=EPERM
+DevicePolicy=closed
+LimitNOFILE=1024
+MemoryMax=384M
+TasksMax=64
+CPUQuota=80%
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target

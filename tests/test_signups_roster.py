@@ -5,8 +5,8 @@ from conftest import actor, needs_db
 from helpers import char, event
 from sqlalchemy import text
 
-from wowquester.domain import events, roster, signups
-from wowquester.domain.errors import Conflict, Invalid, PermissionDenied
+from questersboard.domain import events, roster, signups
+from questersboard.domain.errors import Conflict, Invalid, PermissionDenied
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator")
@@ -59,8 +59,8 @@ def test_labels_and_typed_entries_are_accepted(seeded, cfg):
 
 
 def test_skyborne_labels_follow_blizzard_and_seed_updates_labels(seeded, cfg):
-    from wowquester.domain import catalog
-    from wowquester.models import ReferenceOption
+    from questersboard.domain import catalog
+    from questersboard.models import ReferenceOption
     with seeded.tx() as s:
         m = catalog.race_class_map(s, "forever")
         labels = {f: {r["key"]: r["label"] for r in rs} for f, rs in m["factions"].items()}
@@ -162,7 +162,7 @@ def test_seed_catalog_reports_rows_added_then_zero(db, cfg):
     """seed-catalog output must be a real count (it printed -75 on the first production run)."""
     from sqlalchemy import text as _t
 
-    from wowquester.domain import catalog
+    from questersboard.domain import catalog
     with db.tx() as s:
         first = catalog.seed_edition(s, cfg, "forever")
         total = s.execute(_t("select count(*) from reference_options where edition='forever'")).scalar()
@@ -190,8 +190,8 @@ def test_fit_problems_explain_why_a_character_cant_join(seeded, cfg):
     """Regression: a Forever PVP druid got only "you don't have a character that fits" for an RP event."""
     from helpers import char, event
     from conftest import actor
-    from wowquester.bot.client import _fitting, no_fit_text
-    from wowquester.domain import signups as sg
+    from questersboard.bot.client import _fitting, no_fit_text
+    from questersboard.domain import signups as sg
     host, p = actor(60, "event_creator"), actor(61)
     with seeded.tx() as s:
         ev = event(s, cfg, host, start=30, ruleset="rp", title="Test2")
@@ -212,7 +212,7 @@ def test_name_rule_explains_blizzards_policy(seeded, cfg):
     import pytest
     from helpers import char
     from conftest import actor
-    from wowquester.domain.errors import Invalid
+    from questersboard.domain.errors import Invalid
     with seeded.tx() as s:
         with pytest.raises(Invalid, match="Blizzard doesn't allow numbers"):
             char(s, cfg, actor(62), "Zanra3")
@@ -225,8 +225,8 @@ def test_character_edit_cant_strand_its_signups(seeded, cfg):
     import pytest
     from helpers import char, event
     from conftest import actor
-    from wowquester.domain import roster as rs, signups as sg
-    from wowquester.domain.errors import Invalid
+    from questersboard.domain import roster as rs, signups as sg
+    from questersboard.domain.errors import Invalid
     host, p = actor(63, "event_creator"), actor(64)
     with seeded.tx() as s:
         ev = event(s, cfg, host, start=40, title="Test")

@@ -2,14 +2,14 @@
 # Go live: serve QuestersBoard on the public site instead of the prototype (docs/production_rollout.md, steps 5-6, 8).
 #   sudo ./deploy/go_live.sh --url https://LIVE_HOST --site-file /etc/nginx/sites-available/SITE \
 #                            --after 'include /etc/nginx/snippets/SOME_EXISTING_INCLUDE.conf;'
-#   sudo ./deploy/go_live.sh --rollback /root/wowquester_go_live_STAMP.tgz
+#   sudo ./deploy/go_live.sh --rollback /root/questersboard_go_live_STAMP.tgz
 #
 # What it does, in order (nothing changes until step 3):
 #   1. Checks: run as root; Discord redirect confirmed; config, Nginx snippet and live site file present; the
 #      --after line appears exactly once in the live site file; nginx -t passes; services installed.
 #   2. Backs up the live site file and config.toml to /root (mode 600).
-#   3. Sets [community] public_base_url to --url (config.toml stays root:wowquester 0640) and validates it.
-#   4. Adds `include /etc/nginx/snippets/wowquester_location[s].conf;` after the --after line, nginx -t
+#   3. Sets [community] public_base_url to --url (config.toml stays root:questersboard 0640) and validates it.
+#   4. Adds `include /etc/nginx/snippets/questersboard_location[s].conf;` after the --after line, nginx -t
 #      (everything is put back if it fails), reload.
 #   5. Restarts web, bot and worker; runs deploy/health.sh.
 #   6. Checks the live host: status.json answers JSON without sign-in, the login redirect names the live
@@ -18,13 +18,13 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # (WQ_* overrides exist only for tests/test_go_live.sh's stand-ins.)
-ETC="${WQ_ETC:-/etc/wowquester}"
+ETC="${WQ_ETC:-/etc/questersboard}"
 CONF="$ETC/config.toml"
-SNIP="${WQ_SNIP:-/etc/nginx/snippets/wowquester_locations.conf}"
-ADMIN="${WQ_ADMIN:-/usr/local/sbin/wowquester-admin}"
+SNIP="${WQ_SNIP:-/etc/nginx/snippets/questersboard_locations.conf}"
+ADMIN="${WQ_ADMIN:-/usr/local/sbin/questersboard-admin}"
 HEALTH="${WQ_HEALTH:-$HERE/health.sh}"
-LINE='include /etc/nginx/snippets/wowquester_location[s].conf;'
-SERVICES=(wowquester-web wowquester-bot wowquester-worker)
+LINE='include /etc/nginx/snippets/questersboard_location[s].conf;'
+SERVICES=(questersboard-web questersboard-bot questersboard-worker)
 STAMP="$(date +%Y%m%d_%H%M%S)"
 say()  { printf '\n== %s\n' "$*"; }
 stop() { printf '\nSTOPPED: %s\n' "$*" >&2; exit 1; }
@@ -62,7 +62,7 @@ fi
 [ -n "$URL" ] && [ -n "$SITE" ] && [ -n "$AFTER" ] || stop "needs --url, --site-file and --after (see the top of this file)."
 case "$URL" in https://*) ;; *) stop "--url must start with https://";; esac
 HOST="${URL#https://}"; HOST="${HOST%%/*}"
-BACKUP="${WQ_BACKUP_DIR:-/root}/wowquester_go_live_${STAMP}.tgz"
+BACKUP="${WQ_BACKUP_DIR:-/root}/questersboard_go_live_${STAMP}.tgz"
 
 say "1/6 Checks (nothing is changed yet)"
 [ -f "$CONF" ] || stop "$CONF not found."

@@ -1,4 +1,4 @@
-"""wowquester-admin against a temp config and the local test cluster (FIXTURE IDs, passwords from env)."""
+"""questersboard-admin against a temp config and the local test cluster (FIXTURE IDs, passwords from env)."""
 from __future__ import annotations
 
 import json
@@ -8,7 +8,7 @@ import pytest
 from conftest import HOST, PORT, ROOT, fake_id, needs_db
 from sqlalchemy import text
 
-from wowquester import cli
+from questersboard import cli
 
 
 @pytest.fixture
@@ -17,17 +17,17 @@ def cfg_file(tmp_path, monkeypatch):
     t = t.replace('guild_id = ""', f'guild_id = "{fake_id(1)}"', 1)
     t = t.replace('application_id = ""', f'application_id = "{fake_id(2)}"', 1)
     t = t.replace("127.0.0.1:5432", f"{HOST}:{PORT}")
-    t = t.replace('"/var/lib/wowquester/uploads"', f'"{tmp_path}"')
+    t = t.replace('"/var/lib/questersboard/uploads"', f'"{tmp_path}"')
     p = tmp_path / "config.toml"
     p.write_text(t)
     for role in ("admin", "app", "worker"):
-        monkeypatch.setenv(f"WOWQUESTER_SECRET_DB_{role.upper()}_PASSWORD", os.environ.get(f"WQT_{role.upper()}_PW", ""))
-    monkeypatch.delenv("WOWQUESTER_APPROVED_CHANGE", raising=False)
+        monkeypatch.setenv(f"QUESTERSBOARD_SECRET_DB_{role.upper()}_PASSWORD", os.environ.get(f"WQT_{role.upper()}_PW", ""))
+    monkeypatch.delenv("QUESTERSBOARD_APPROVED_CHANGE", raising=False)
     return str(p)
 
 
 def test_check_config_never_prints_secret_values(cfg_file, capsys, monkeypatch):
-    monkeypatch.setenv("WOWQUESTER_SECRET_DISCORD_BOT_TOKEN", "FIXTURE-not-a-real-token-123")
+    monkeypatch.setenv("QUESTERSBOARD_SECRET_DISCORD_BOT_TOKEN", "FIXTURE-not-a-real-token-123")
     assert cli.main(["--config", cfg_file, "check-config"]) == 0
     out = capsys.readouterr().out
     assert "FIXTURE-not-a-real-token-123" not in out and "discord-bot-token" in out and "fp=" in out
@@ -43,7 +43,7 @@ def test_invalid_config_exits_78(tmp_path, capsys):
 
 def test_sync_commands_is_dry_run_without_approval(cfg_file, capsys, monkeypatch):
     called = []
-    monkeypatch.setattr("wowquester.integrations.discord_rest.DiscordRest.put_commands",
+    monkeypatch.setattr("questersboard.integrations.discord_rest.DiscordRest.put_commands",
                         lambda *a, **k: called.append(a) or [])
     assert cli.main(["--config", cfg_file, "sync-commands"]) == 0
     out = capsys.readouterr()
@@ -94,23 +94,23 @@ def test_erase_member_is_dry_run_unless_yes(cfg_file, db, capsys):
 
 
 def test_deploy_scripts_health_check_loads_the_db_credential():
-    """Regression: a bare `wowquester-admin health` has no DB password (credentials are only given to
+    """Regression: a bare `questersboard-admin health` has no DB password (credentials are only given to
     the units), so install.sh rolled back a healthy upgrade. Both scripts must use deploy/health.sh."""
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent / "deploy"
     h = (root / "health.sh").read_text()
-    assert "LoadCredentialEncrypted=wowquester.db-app-password:" in h and "--socket" in h
+    assert "LoadCredentialEncrypted=questersboard.db-app-password:" in h and "--socket" in h
     for name in ("install.sh", "rollback.sh"):
         body = (root / name).read_text()
         assert "health.sh" in body
-        assert "wowquester-admin health" not in body and '"$ADMIN_WRAPPER" health' not in body
+        assert "questersboard-admin health" not in body and '"$ADMIN_WRAPPER" health' not in body
 
 
 @needs_db
 def test_worker_heartbeat_failure_does_not_block_the_loop(cfg, worker_db, monkeypatch):
-    from wowquester.config import ConfigHolder
-    from wowquester.domain import status
-    from wowquester.worker import Worker
+    from questersboard.config import ConfigHolder
+    from questersboard.domain import status
+    from questersboard.worker import Worker
 
     def boom(*a, **kw):
         raise RuntimeError("relation service_heartbeats does not exist")

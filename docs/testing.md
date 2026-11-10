@@ -25,7 +25,7 @@ sudo -u postgres psql -h /tmp/pgt -p 5433 -v ON_ERROR_STOP=1 -v admin_pw="$WQT_A
      -v worker_pw="$WQT_WORKER_PW" -v readonly_pw="$WQT_READONLY_PW" -f deploy/postgres/roles.sql
 ```
 
-The harness migrates the schema as `wowquester_admin`, then truncates application tables before each
+The harness migrates the schema as `questersboard_admin`, then truncates application tables before each
 test. Environment: `WQT_PG_HOST` (127.0.0.1), `WQT_PG_PORT` (5433), `WQT_PG_SOCKET` (/tmp/pgt) and the
 four `WQT_*_PW` passwords. If the cluster isn't reachable, database tests are **skipped**, not passed:
 check the summary line.
@@ -34,10 +34,10 @@ check the summary line.
 
 ```sh
 set -a; . /path/to/test_pw.env; set +a
-WOWQUESTER_DENYLIST=/path/to/private/denylist.txt .venv/bin/python -m pytest -q tests
+QUESTERSBOARD_DENYLIST=/path/to/private/denylist.txt .venv/bin/python -m pytest -q tests
 ```
 
-`WOWQUESTER_DENYLIST` points at a private, one-term-per-line list (community names, domains, account
+`QUESTERSBOARD_DENYLIST` points at a private, one-term-per-line list (community names, domains, account
 names) that must never appear in the repository; `tests/test_sanitized.py` also scans for Discord IDs,
 tokens, private keys and passwords in URLs. Without the denylist the generic checks still run.
 

@@ -6,9 +6,9 @@ from datetime import timedelta
 from conftest import actor, needs_db
 from helpers import char, event
 
-from wowquester.domain import recommendations, recurrence
-from wowquester.domain.timeutil import as_local, now
-from wowquester.models import Event
+from questersboard.domain import recommendations, recurrence
+from questersboard.domain.timeutil import as_local, now
+from questersboard.models import Event
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator")
@@ -47,7 +47,7 @@ def test_recommendations_explain_fit_and_skip_mismatches(seeded, cfg):
         fit = event(s, cfg, ORG, 1, 2, title="Needs a tank", roles=[{"key": "tank", "quantity": 1}])
         event(s, cfg, ORG, 10, 2, title="Alliance only", faction="alliance")
         event(s, cfg, ORG, 20, 2, title="RP ruleset", ruleset="rp")
-        from wowquester.models import Member
+        from questersboard.models import Member
         member_id = s.query(Member.id).filter(Member.discord_id == me.discord_id).scalar()
         sugs = recommendations.for_member(s, cfg, member_id)
     titles = [x.title for x in sugs if x.kind == "event"]

@@ -4,8 +4,8 @@ from __future__ import annotations
 import pytest
 from conftest import actor, needs_db
 from helpers import char, event
-from wowquester.domain import signups
-from wowquester.domain.errors import Conflict
+from questersboard.domain import signups
+from questersboard.domain.errors import Conflict
 
 pytestmark = needs_db
 

@@ -6,9 +6,9 @@ Runs the real web app against a local test database with:
   * Seed data: a few events (upcoming, approval-required, draft) and one published chronicle story.
 Everything is labelled FIXTURE. All IDs are synthetic.
 
-  WOWQUESTER_PREVIEW_DB=postgresql+psycopg://wowquester_app:${WQT_APP_PW}@127.0.0.1:5433/wowquester \
-  WOWQUESTER_PREVIEW_ADMIN_DB=postgresql+psycopg://wowquester_admin:${WQT_ADMIN_PW}@127.0.0.1:5433/wowquester \
-  WOWQUESTER_PREVIEW_ASSETS=/path/to/site/assets   # optional: host site's /assets for real styling
+  QUESTERSBOARD_PREVIEW_DB=postgresql+psycopg://questersboard_app:${WQT_APP_PW}@127.0.0.1:5433/questersboard \
+  QUESTERSBOARD_PREVIEW_ADMIN_DB=postgresql+psycopg://questersboard_admin:${WQT_ADMIN_PW}@127.0.0.1:5433/questersboard \
+  QUESTERSBOARD_PREVIEW_ASSETS=/path/to/site/assets   # optional: host site's /assets for real styling
   python tools/preview_server.py --port 8740 --reset
 """
 
@@ -28,9 +28,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from PIL import Image  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 
-from wowquester.config import Config, ConfigHolder, _hashes, validate  # noqa: E402
-from wowquester.db import Database, make_engine  # noqa: E402
-from wowquester.domain.actor import Actor  # noqa: E402
+from questersboard.config import Config, ConfigHolder, _hashes, validate  # noqa: E402
+from questersboard.db import Database, make_engine  # noqa: E402
+from questersboard.domain.actor import Actor  # noqa: E402
 
 
 def fid(n: int) -> str:
@@ -67,13 +67,13 @@ def cfg_for(uploads: str) -> Config:
     raw["uploads"]["storage_dir"] = uploads
     raw["web"]["cookie_secure"] = False
     raw["web"]["bind"] = "127.0.0.1:8740"
-    if not os.environ.get("WOWQUESTER_PREVIEW_ASSETS"):
+    if not os.environ.get("QUESTERSBOARD_PREVIEW_ASSETS"):
         raw["branding"]["stylesheet"] = ""
     import copy
     data = copy.deepcopy(raw)
     v = validate(raw)
     # Preview only: point links/OAuth redirect at the local server (validation requires https in production).
-    v["community"]["public_base_url"] = os.environ.get("WOWQUESTER_PREVIEW_BASE", "http://127.0.0.1:8740")
+    v["community"]["public_base_url"] = os.environ.get("QUESTERSBOARD_PREVIEW_BASE", "http://127.0.0.1:8740")
     return Config(raw=v, path="preview", section_hashes=_hashes(data))
 
 
@@ -83,13 +83,13 @@ def actor(n: int, *caps, name: str | None = None) -> Actor:
 
 
 def seed(db: Database, cfg: Config) -> None:
-    from wowquester.domain import catalog, chronicle, events, signups, roster
-    from wowquester import domain
+    from questersboard.domain import catalog, chronicle, events, signups, roster
+    from questersboard import domain
     import importlib
     org = actor(1, *CAPS, name="PreviewOrganizer")
     rev = actor(2, "chronicle_reviewer", name="ReviewerFixture")
     members = [actor(10 + i, name=f"Player{i}") for i in range(6)]
-    mods = [importlib.import_module(f"wowquester.domain.{m}") for m in
+    mods = [importlib.import_module(f"questersboard.domain.{m}") for m in
             ("events", "signups", "scheduling", "chronicle", "projections", "roster", "recurrence", "outbox")]
     real_now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
 
@@ -187,7 +187,7 @@ def seed(db: Database, cfg: Config) -> None:
             description="FIXTURE: draft, not yet published."))
     for m in mods:
         if hasattr(m, "now"):
-            from wowquester.domain import timeutil
+            from questersboard.domain import timeutil
             m.now = timeutil.now
 
 
@@ -208,22 +208,22 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8740)
     ap.add_argument("--reset", action="store_true", help="TRUNCATE the preview database and reseed")
-    ap.add_argument("--uploads", default="/tmp/wowquester_preview_uploads")
+    ap.add_argument("--uploads", default="/tmp/questersboard_preview_uploads")
     a = ap.parse_args()
-    url, admin = os.environ["WOWQUESTER_PREVIEW_DB"], os.environ.get("WOWQUESTER_PREVIEW_ADMIN_DB")
+    url, admin = os.environ["QUESTERSBOARD_PREVIEW_DB"], os.environ.get("QUESTERSBOARD_PREVIEW_ADMIN_DB")
     Path(a.uploads).mkdir(parents=True, exist_ok=True)
     cfg = cfg_for(a.uploads)
-    db = Database(make_engine(url, None, 5, "wowquester-preview"))
+    db = Database(make_engine(url, None, 5, "questersboard-preview"))
     if a.reset:
         reset(admin or url)
         seed(db, cfg)
-    from wowquester.web.app import create_app
+    from questersboard.web.app import create_app
     app = create_app(ConfigHolder(cfg), db, FakeOAuth(), FakeRest())
-    assets = os.environ.get("WOWQUESTER_PREVIEW_ASSETS")
+    assets = os.environ.get("QUESTERSBOARD_PREVIEW_ASSETS")
     if assets:
         from fastapi.staticfiles import StaticFiles
         app.mount("/assets", StaticFiles(directory=assets), name="site_assets")
-    site = os.environ.get("WOWQUESTER_PREVIEW_SITE")      # optional: serve a static /wow/ page for the widget
+    site = os.environ.get("QUESTERSBOARD_PREVIEW_SITE")      # optional: serve a static /wow/ page for the widget
     if site:
         from fastapi.responses import FileResponse
 

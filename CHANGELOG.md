@@ -4,9 +4,17 @@
 
 - **Renamed to QuestersBoard.** The app was called WoWQuester; Blizzard's API terms don't allow its
   trademarks in an application's name. Pages, messages, docs and the repository now say QuestersBoard.
-  Internal names (the `wowquester` Python package, database, roles, services, folders, credential names
-  and `WOWQUESTER_*` variables) and the web addresses are unchanged, so upgrading needs nothing extra.
   Entries below keep the old name.
+
+- **Internal names renamed to questersboard** (web addresses under `/wow/quester/` are unchanged). The
+  Python package and commands (`questersboard-admin`), services (`questersboard-web/bot/worker`, socket
+  `/run/questersboard-web.sock`, backup timer), Linux account, folders (`/etc`, `/opt`, `/var/lib`,
+  `/var/backups`), PostgreSQL database and roles (`questersboard_*`), credential names
+  (`questersboard.<name>`), the Nginx snippet and `QUESTERSBOARD_*` variables. For one release the old
+  `WOWQUESTER_*` variables and `wowquester.<name>` credentials are still read if the new ones are missing.
+  Existing hosts run `deploy/rename_host.sh` once (dry run by default, `--apply`, then `--nginx --apply`;
+  `--rollback` undoes it); see docs/install.md. Discord button IDs (`wq:`), page CSS classes and the site
+  widget file name are unchanged, so existing posts keep working.
 
 - **Battle.net sync: placeholder names.** Characters Battle.net lists under a temporary name (letters plus
   a code, e.g. awaiting a forced rename) are shown but can't be ticked, with a note to rename them in game

@@ -1,4 +1,4 @@
-# Build-time only: setuptools for installing the wowquester package itself. Regenerate with
+# Build-time only: setuptools for installing the questersboard package itself. Regenerate with
 #   uv pip compile build.in --generate-hashes --python-version 3.12   (build.in: setuptools>=69)
 setuptools==84.2.1 \
     --hash=sha256:3ff8b3b5492a0aa66960f4419365a86b84e013070d4313e4d4a6894f5d64d6bc \

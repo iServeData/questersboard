@@ -9,10 +9,10 @@ import pytest
 from conftest import ROLE, fake_id, needs_db
 from sqlalchemy import select
 
-from wowquester.bot import client as bc
-from wowquester.config import ConfigHolder
-from wowquester.domain import catalog
-from wowquester.models import Character
+from questersboard.bot import client as bc
+from questersboard.config import ConfigHolder
+from questersboard.domain import catalog
+from questersboard.models import Character
 
 pytestmark = needs_db
 
@@ -129,7 +129,7 @@ def test_full_line_saves_straight_away(bot):
 def test_join_role_picker_shows_fill_like_the_web(bot, cfg):
     from conftest import actor
     from helpers import char, event
-    from wowquester.domain import signups
+    from questersboard.domain import signups
     host, p2 = actor(1, "event_creator"), actor(2)
     with bot.tx() as s:
         ev = event(s, cfg, host, start=48, roles=[{"key": "tank", "label": "Tank", "quantity": 1},
@@ -164,9 +164,9 @@ def test_character_list_uses_catalog_names_and_ruleset_labels(bot, cfg):
 
 def test_create_form_time_zone_defaults_to_saved_zone_and_accepts_cities(bot, cfg):
     from conftest import actor
-    from wowquester.domain import roster
-    from wowquester.domain.errors import Invalid
-    from wowquester.domain.timeutil import find_zone
+    from questersboard.domain import roster
+    from questersboard.domain.errors import Invalid
+    from questersboard.domain.timeutil import find_zone
     log = []
     cmd = bc.build_tree(discord.Client(intents=discord.Intents.none())).get_command("quest").get_command("create")
     asyncio.run(cmd.callback(_inter(log)))

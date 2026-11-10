@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for helping. QuestersBoard is a self-hosted Discord + web companion for one World of Warcraft
-community; everything deployment-specific lives in that community's `/etc/wowquester/config.toml`, so the
+community; everything deployment-specific lives in that community's `/etc/questersboard/config.toml`, so the
 repository itself works for any community.
 
 ## Get it running

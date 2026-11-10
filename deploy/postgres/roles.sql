@@ -24,36 +24,36 @@ BEGIN
 END $$;
 
 -- Schema owner + migrations. Not a superuser, cannot create roles or databases.
-SELECT format('CREATE ROLE wowquester_admin LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', :'admin_pw')
- WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'wowquester_admin') \gexec
+SELECT format('CREATE ROLE questersboard_admin LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', :'admin_pw')
+ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'questersboard_admin') \gexec
 -- web + bot: DML only
-SELECT format('CREATE ROLE wowquester_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD %L', :'app_pw')
- WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'wowquester_app') \gexec
+SELECT format('CREATE ROLE questersboard_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD %L', :'app_pw')
+ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'questersboard_app') \gexec
 -- worker: outbox, reminders, projections, reference import
-SELECT format('CREATE ROLE wowquester_worker LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD %L', :'worker_pw')
- WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'wowquester_worker') \gexec
+SELECT format('CREATE ROLE questersboard_worker LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD %L', :'worker_pw')
+ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'questersboard_worker') \gexec
 -- readonly: public projections only (reporting / feeds tooling)
-SELECT format('CREATE ROLE wowquester_readonly LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD %L', :'readonly_pw')
- WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'wowquester_readonly') \gexec
+SELECT format('CREATE ROLE questersboard_readonly LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD %L', :'readonly_pw')
+ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'questersboard_readonly') \gexec
 
-ALTER ROLE wowquester_app SET statement_timeout = '15s';
-ALTER ROLE wowquester_worker SET statement_timeout = '60s';
-ALTER ROLE wowquester_readonly SET default_transaction_read_only = on;
+ALTER ROLE questersboard_app SET statement_timeout = '15s';
+ALTER ROLE questersboard_worker SET statement_timeout = '60s';
+ALTER ROLE questersboard_readonly SET default_transaction_read_only = on;
 
-SELECT 'CREATE DATABASE wowquester OWNER wowquester_admin ENCODING ''UTF8'' TEMPLATE template0'
- WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'wowquester') \gexec
+SELECT 'CREATE DATABASE questersboard OWNER questersboard_admin ENCODING ''UTF8'' TEMPLATE template0'
+ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'questersboard') \gexec
 
-REVOKE ALL ON DATABASE wowquester FROM PUBLIC;
-GRANT CONNECT, TEMPORARY ON DATABASE wowquester TO wowquester_admin;
-GRANT CONNECT ON DATABASE wowquester TO wowquester_app, wowquester_worker, wowquester_readonly;
+REVOKE ALL ON DATABASE questersboard FROM PUBLIC;
+GRANT CONNECT, TEMPORARY ON DATABASE questersboard TO questersboard_admin;
+GRANT CONNECT ON DATABASE questersboard TO questersboard_app, questersboard_worker, questersboard_readonly;
 
-\connect wowquester
+\connect questersboard
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
-ALTER SCHEMA public OWNER TO wowquester_admin;
-GRANT USAGE ON SCHEMA public TO wowquester_app, wowquester_worker, wowquester_readonly;
+ALTER SCHEMA public OWNER TO questersboard_admin;
+GRANT USAGE ON SCHEMA public TO questersboard_app, questersboard_worker, questersboard_readonly;
 -- btree_gist is needed for the member-overlap exclusion constraint. Creating an
 -- extension needs superuser (it isn't "trusted"), so it is done here, once.
 CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
 -- Table grants are applied by the migration itself (0001) and by default privileges:
-ALTER DEFAULT PRIVILEGES FOR ROLE wowquester_admin IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC;
-ALTER DEFAULT PRIVILEGES FOR ROLE wowquester_admin IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE questersboard_admin IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE questersboard_admin IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM PUBLIC;

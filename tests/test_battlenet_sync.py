@@ -12,8 +12,8 @@ from conftest import actor, make_cfg, needs_db
 from helpers import char
 from sqlalchemy import text
 
-from wowquester.config import ConfigError
-from wowquester.integrations.blizzard import char_slug, ruleset_key
+from questersboard.config import ConfigError
+from questersboard.integrations.blizzard import char_slug, ruleset_key
 
 ACCOUNT = {"wow_accounts": [{"characters": [
     {"id": 501, "name": "Grimtusk", "surname": "Ironhide", "level": 22,
@@ -170,8 +170,8 @@ def test_worker_applies_blizzard_30_day_limit(seeded, worker_db, cfg):
     the pick window and clears unrefreshed Blizzard checks; the character itself stays, self-reported."""
     from cryptography.fernet import Fernet
 
-    from wowquester.config import ConfigHolder
-    from wowquester.worker import Worker
+    from questersboard.config import ConfigHolder
+    from questersboard.worker import Worker
     with seeded.tx() as s:
         old = char(s, cfg, actor(63), "Grimtusk Ironhide", level=20)
         new = char(s, cfg, actor(63), "Zulmara Ashveil")
@@ -203,7 +203,7 @@ def test_worker_cannot_read_battlenet_lists():
 
     import psycopg
     from test_db_hardening import _connect
-    with _connect("wowquester_worker", os.environ.get("WQT_WORKER_PW")) as c:
+    with _connect("questersboard_worker", os.environ.get("WQT_WORKER_PW")) as c:
         c.execute("select member_id, region, linked_at from battlenet_links")     # when, not what
         c.rollback()
         with pytest.raises(psycopg.errors.InsufficientPrivilege):

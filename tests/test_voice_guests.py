@@ -12,13 +12,13 @@ from helpers import char, event
 from sqlalchemy import func, select
 from test_event_voice import CAT, CH, GUILD, ORG, _drain, _ev
 
-from wowquester.config import ConfigError, ConfigHolder
-from wowquester.domain import events, signups, voice
-from wowquester.domain.errors import DomainError, Invalid, NotFound, PermissionDenied
-from wowquester.integrations import discord_audit
-from wowquester.models import AuditLog, EventVoiceBan, EventVoiceGuest, EventVoiceInvite, Outbox
-from wowquester.web.app import create_app
-from wowquester.worker import Worker
+from questersboard.config import ConfigError, ConfigHolder
+from questersboard.domain import events, signups, voice
+from questersboard.domain.errors import DomainError, Invalid, NotFound, PermissionDenied
+from questersboard.integrations import discord_audit
+from questersboard.models import AuditLog, EventVoiceBan, EventVoiceGuest, EventVoiceInvite, Outbox
+from questersboard.web.app import create_app
+from questersboard.worker import Worker
 
 pytestmark = needs_db
 ADMINS, OFFICERS = fake_id(93), fake_id(94)
@@ -206,7 +206,7 @@ def test_voice_slash_commands(seeded, worker_db, monkeypatch):
     import discord
     from test_event_voice import _click
 
-    from wowquester.bot import client as bc
+    from questersboard.bot import client as bc
     cfg, fake, w, eid, vid = _setup(seeded, worker_db, monkeypatch)
     bc.Ctx.holder, bc.Ctx.db, bc.Ctx.rest = ConfigHolder(cfg), seeded, None
     tree = bc.build_tree(discord.Client(intents=discord.Intents.none()))

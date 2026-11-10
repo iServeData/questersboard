@@ -8,9 +8,9 @@ from helpers import char, event
 from PIL import Image
 from sqlalchemy import text
 
-from wowquester.domain import chronicle, events, signups
-from wowquester.domain.errors import Invalid, PermissionDenied
-from wowquester.models import ChronicleEntry, Member
+from questersboard.domain import chronicle, events, signups
+from questersboard.domain.errors import Invalid, PermissionDenied
+from questersboard.models import ChronicleEntry, Member
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator")

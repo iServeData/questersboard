@@ -8,8 +8,8 @@ from conftest import actor, at, make_cfg, needs_db
 from helpers import char, event
 from sqlalchemy import text
 
-from wowquester.domain import events, scheduling, signups
-from wowquester.domain.errors import Conflict, InvalidTransition, PermissionDenied
+from questersboard.domain import events, scheduling, signups
+from questersboard.domain.errors import Conflict, InvalidTransition, PermissionDenied
 
 pytestmark = needs_db
 A = actor(1, "event_creator")

@@ -12,9 +12,9 @@ from helpers import char, event
 from sqlalchemy import select
 from test_web import app, csrf, login, wcfg  # noqa: F401  (fixtures)
 
-from wowquester.domain import events, signups
-from wowquester.domain.errors import Invalid
-from wowquester.models import Character, Outbox, Signup
+from questersboard.domain import events, signups
+from questersboard.domain.errors import Invalid
+from questersboard.models import Character, Outbox, Signup
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator", name="HostOne")
@@ -141,8 +141,8 @@ def test_web_warns_before_saving_and_misfit_repicks(app, seeded, wcfg):  # noqa:
 def test_worker_dms_repick_and_notice(seeded, worker_db, cfg):
     from fake_discord import FakeDiscord
 
-    from wowquester.config import ConfigHolder
-    from wowquester.worker import Worker
+    from questersboard.config import ConfigHolder
+    from questersboard.worker import Worker
     fake = FakeDiscord()
     w = Worker(ConfigHolder(cfg), worker_db, fake.client())
     p1, p2 = actor(50), actor(51)

@@ -15,7 +15,7 @@ upcoming events from a small JSON endpoint with a static fallback.
 
 | Path | What it is |
 | --- | --- |
-| `src/wowquester/` | Application (domain logic, web app, bot, worker, admin CLI) |
+| `src/questersboard/` | Application (domain logic, web app, bot, worker, admin CLI) |
 | `deploy/` | Example config, systemd units, Nginx snippet, PostgreSQL roles/hardening, backup scripts |
 | `site_widget/` | Drop-in script for the site's WoW page schedule |
 | `docs/` | Plan, configuration, install, operations, guides, matrices, test results |
@@ -30,8 +30,8 @@ Changes: [`CHANGELOG.md`](CHANGELOG.md). Security: [`SECURITY.md`](SECURITY.md).
 ```sh
 uv venv -p 3.12 .venv && uv pip install -r requirements.lock && uv pip install -e . --no-deps
 # a disposable PostgreSQL with the four roles (docs/testing.md), then:
-WOWQUESTER_PREVIEW_DB=postgresql+psycopg://wowquester_app:${WQT_APP_PW}@127.0.0.1:5433/wowquester \
-WOWQUESTER_PREVIEW_ADMIN_DB=postgresql+psycopg://wowquester_admin:${WQT_ADMIN_PW}@127.0.0.1:5433/wowquester \
+QUESTERSBOARD_PREVIEW_DB=postgresql+psycopg://questersboard_app:${WQT_APP_PW}@127.0.0.1:5433/questersboard \
+QUESTERSBOARD_PREVIEW_ADMIN_DB=postgresql+psycopg://questersboard_admin:${WQT_ADMIN_PW}@127.0.0.1:5433/questersboard \
 .venv/bin/python tools/preview_server.py --port 8740 --reset
 ```
 
@@ -40,7 +40,7 @@ Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Ground rules baked in
 
 - No secrets in the repository or in `config.toml`; secrets are systemd credentials.
-- Community-specific names, IDs and URLs live only in the host's `/etc/wowquester/config.toml`.
+- Community-specific names, IDs and URLs live only in the host's `/etc/questersboard/config.toml`.
 - WoW: Forever has no published Blizzard API namespace yet. QuestersBoard says so instead of
   falling back to Retail or Classic data, and never uses `classic-ptr` namespaces.
 - A Blizzard lookup proves a character exists, not that a member owns it. Ownership needs the

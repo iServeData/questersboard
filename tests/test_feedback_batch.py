@@ -8,11 +8,11 @@ from fake_discord import FakeDiscord
 from helpers import char, event
 from sqlalchemy import select, text
 
-from wowquester.config import ConfigHolder
-from wowquester.domain import catalog, chronicle, events, people, roster, signups
-from wowquester.domain.errors import Invalid, PermissionDenied
-from wowquester.models import Attendance, ChronicleEntry, ChronicleRevision, Member, PublicChronicle, Signup
-from wowquester.worker import SUPPRESS_EMBEDS, Worker
+from questersboard.config import ConfigHolder
+from questersboard.domain import catalog, chronicle, events, people, roster, signups
+from questersboard.domain.errors import Invalid, PermissionDenied
+from questersboard.models import Attendance, ChronicleEntry, ChronicleRevision, Member, PublicChronicle, Signup
+from questersboard.worker import SUPPRESS_EMBEDS, Worker
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator", name="HostOne")

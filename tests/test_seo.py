@@ -12,10 +12,10 @@ from helpers import char, event
 from PIL import Image
 from test_web import FakeOAuth, FakeRest, csrf, login
 
-from wowquester.config import ConfigError, ConfigHolder
-from wowquester.domain import chronicle, events, signups
-from wowquester.models import ChronicleEntry
-from wowquester.web.app import create_app
+from questersboard.config import ConfigError, ConfigHolder
+from questersboard.domain import chronicle, events, signups
+from questersboard.models import ChronicleEntry
+from questersboard.web.app import create_app
 
 pytestmark = needs_db
 BASE = "https://community.example.org"

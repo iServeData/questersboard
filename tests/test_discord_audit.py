@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from conftest import ROLE, fake_id, make_cfg
 
-from wowquester.integrations import discord_audit as da
+from questersboard.integrations import discord_audit as da
 
 G = fake_id(1)
 CAT, EVENTS, CHAT, BOTCH, REVIEW = (fake_id(n) for n in (501, 502, 503, 504, 505))

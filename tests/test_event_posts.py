@@ -16,12 +16,12 @@ from PIL import Image
 from sqlalchemy import select, text
 from test_web import _form_defaults, app, csrf, login, wcfg  # noqa: F401  (fixtures)
 
-from wowquester.bot import render
-from wowquester.config import ConfigError, ConfigHolder
-from wowquester.domain import chronicle, covers, events, signups
-from wowquester.domain.errors import Invalid
-from wowquester.models import ChronicleEntry, ChronicleRevision, Event, Outbox, PublicChronicle
-from wowquester.worker import Worker
+from questersboard.bot import render
+from questersboard.config import ConfigError, ConfigHolder
+from questersboard.domain import chronicle, covers, events, signups
+from questersboard.domain.errors import Invalid
+from questersboard.models import ChronicleEntry, ChronicleRevision, Event, Outbox, PublicChronicle
+from questersboard.worker import Worker
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator", name="HostOne")
@@ -235,7 +235,7 @@ def test_reminder_also_posted_in_thread_once(seeded, worker_db, monkeypatch):
         a = actor(82)
         signups.join(s, cfg, a, ev.id, char(s, cfg, a, "Elspeth").id)
     _drain(w)
-    import wowquester.worker as wm
+    import questersboard.worker as wm
     monkeypatch.setattr(wm, "now", lambda: at(-1))
     w.scan_reminders()
     w.scan_reminders()
@@ -247,9 +247,9 @@ def test_reminder_also_posted_in_thread_once(seeded, worker_db, monkeypatch):
 
 # ------------------------------------------------------------------ Blizzard instance details (FIXTURE)
 def test_blizzard_instance_details_fixture(monkeypatch):
-    from wowquester.integrations import blizzard
-    monkeypatch.setenv("WOWQUESTER_SECRET_BLIZZARD_CLIENT_ID", "FIXTURE-id")
-    monkeypatch.setenv("WOWQUESTER_SECRET_BLIZZARD_CLIENT_SECRET", "FIXTURE-secret")
+    from questersboard.integrations import blizzard
+    monkeypatch.setenv("QUESTERSBOARD_SECRET_BLIZZARD_CLIENT_ID", "FIXTURE-id")
+    monkeypatch.setenv("QUESTERSBOARD_SECRET_BLIZZARD_CLIENT_SECRET", "FIXTURE-secret")
 
     def h(req):
         if req.url.path == "/token":

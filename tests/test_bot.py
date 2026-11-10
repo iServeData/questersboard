@@ -8,9 +8,9 @@ from types import SimpleNamespace
 
 from conftest import ROLE, fake_id, make_cfg
 
-from wowquester.bot import client as bc
-from wowquester.bot.render import cid
-from wowquester.config import ConfigHolder
+from questersboard.bot import client as bc
+from questersboard.bot.render import cid
+from questersboard.config import ConfigHolder
 
 
 def test_command_payload_shape():

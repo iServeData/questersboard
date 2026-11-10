@@ -8,8 +8,8 @@ from helpers import char, event
 from sqlalchemy import select, text
 from test_web import app, csrf, login, wcfg  # noqa: F401  (fixtures)
 
-from wowquester.domain import chronicle, events, signups
-from wowquester.models import ChronicleEntry, EventCohost, Member
+from questersboard.domain import chronicle, events, signups
+from questersboard.models import ChronicleEntry, EventCohost, Member
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator", name="HostOne")

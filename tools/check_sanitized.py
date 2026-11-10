@@ -2,10 +2,10 @@
 """Refuse to commit deployment-specific or secret material.
 
 Checks every tracked/staged text file for:
-  * Discord snowflake IDs (17-20 digit numbers)      -> IDs belong in /etc/wowquester/config.toml
+  * Discord snowflake IDs (17-20 digit numbers)      -> IDs belong in /etc/questersboard/config.toml
   * Discord bot tokens, Bearer tokens, private keys, AWS-style keys
   * Passwords inside URLs
-  * Optional deny-list words from $WOWQUESTER_DENYLIST (a file OUTSIDE the repo,
+  * Optional deny-list words from $QUESTERSBOARD_DENYLIST (a file OUTSIDE the repo,
     one word per line), e.g. community names, domains, host names.
 
 Run: python tools/check_sanitized.py   (also run by the test suite)
@@ -44,7 +44,7 @@ def files() -> list[Path]:
 
 def main() -> int:
     deny = []
-    dl = os.environ.get("WOWQUESTER_DENYLIST")
+    dl = os.environ.get("QUESTERSBOARD_DENYLIST") or os.environ.get("WOWQUESTER_DENYLIST")
     if dl and Path(dl).is_file():
         deny = [w.strip().lower() for w in Path(dl).read_text().splitlines() if w.strip() and not w.startswith("#")]
     problems = []

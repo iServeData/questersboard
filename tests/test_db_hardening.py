@@ -1,5 +1,5 @@
 """Database hardening checks, run against the test cluster configured with
-deploy/postgres/pg_hba.conf, postgresql_wowquester.conf and roles.sql."""
+deploy/postgres/pg_hba.conf, postgresql_questersboard.conf and roles.sql."""
 from __future__ import annotations
 
 import os
@@ -14,12 +14,12 @@ pytestmark = needs_db
 SOCK = os.environ.get("WQT_PG_SOCKET", "/tmp/pgt")
 
 
-def _connect(user, password="x", host=HOST, dbname="wowquester"):
+def _connect(user, password="x", host=HOST, dbname="questersboard"):
     return psycopg.connect(host=host, port=PORT, user=user, password=password, dbname=dbname, connect_timeout=5)
 
 
 @pytest.mark.parametrize("user", ["postgres", "root"])
-@pytest.mark.parametrize("dbname", ["wowquester", "postgres"])
+@pytest.mark.parametrize("dbname", ["questersboard", "postgres"])
 def test_superuser_and_root_password_login_rejected_over_tcp(user, dbname):
     with pytest.raises(psycopg.OperationalError) as e:
         _connect(user, "any-password", dbname=dbname)
@@ -48,14 +48,14 @@ def test_no_role_named_root_and_no_extra_superusers(admin_engine):
         supers = [r[0] for r in c.execute(text("select rolname from pg_roles where rolsuper"))]
         assert supers == ["postgres"]
         attrs = c.execute(text("select rolsuper, rolcreaterole, rolcreatedb from pg_roles "
-                               "where rolname like 'wowquester_%'")).all()
+                               "where rolname like 'questersboard_%'")).all()
         assert all(a == (False, False, False) for a in attrs)
         assert c.execute(text("show password_encryption")).scalar() == "scram-sha-256"
-        assert c.execute(text("select bool_or(has_database_privilege('public', 'wowquester', 'CONNECT'))"
+        assert c.execute(text("select bool_or(has_database_privilege('public', 'questersboard', 'CONNECT'))"
                               )).scalar() is False
 
 
-@pytest.mark.parametrize("role", ["wowquester_app", "wowquester_worker", "wowquester_readonly"])
+@pytest.mark.parametrize("role", ["questersboard_app", "questersboard_worker", "questersboard_readonly"])
 @pytest.mark.parametrize("ddl", ["CREATE TABLE evil (id int)", "ALTER TABLE events ADD COLUMN x int",
                                  "DROP TABLE signups", "CREATE ROLE evil", "TRUNCATE audit_log"])
 def test_service_roles_cannot_run_ddl(role, ddl):
@@ -66,13 +66,13 @@ def test_service_roles_cannot_run_ddl(role, ddl):
 
 
 def test_app_cannot_rewrite_audit_log():
-    with _connect("wowquester_app", os.environ.get("WQT_APP_PW")) as c:
+    with _connect("questersboard_app", os.environ.get("WQT_APP_PW")) as c:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             c.execute("UPDATE audit_log SET action='x'")
 
 
 def test_readonly_sees_only_projections():
-    with _connect("wowquester_readonly", os.environ.get("WQT_READONLY_PW")) as c:
+    with _connect("questersboard_readonly", os.environ.get("WQT_READONLY_PW")) as c:
         c.execute("select count(*) from public_chronicle")
         c.execute("select count(*) from public_events")
         c.execute("select count(*) from service_heartbeats")
@@ -84,7 +84,7 @@ def test_readonly_sees_only_projections():
 
 
 def test_worker_cannot_read_sessions_or_tokens():
-    with _connect("wowquester_worker", os.environ.get("WQT_WORKER_PW")) as c:
+    with _connect("questersboard_worker", os.environ.get("WQT_WORKER_PW")) as c:
         for t in ("web_sessions", "calendar_tokens", "battlenet_links"):
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 c.execute(f"select * from {t}")
@@ -93,7 +93,7 @@ def test_worker_cannot_read_sessions_or_tokens():
 
 def test_admin_role_can_migrate_down_and_up(db):
     env = dict(os.environ, PGPASSWORD=os.environ.get("WQT_ADMIN_PW", ""), PYTHONPATH=str(ROOT / "src"),
-               WOWQUESTER_MIGRATE_URL=f"postgresql+psycopg://wowquester_admin@{HOST}:{PORT}/wowquester")
+               QUESTERSBOARD_MIGRATE_URL=f"postgresql+psycopg://questersboard_admin@{HOST}:{PORT}/questersboard")
     alembic = [sys.executable, "-m", "alembic", "-c", str(ROOT / "alembic.ini")]
     for args in (["downgrade", "base"], ["upgrade", "head"], ["current"]):
         r = subprocess.run(alembic + args, cwd=ROOT, env=env, capture_output=True, text=True)
@@ -103,7 +103,7 @@ def test_admin_role_can_migrate_down_and_up(db):
 
 def test_worker_heartbeat_grants_are_narrow():
     """The worker may record its own check-in but never write voice counts or touch other columns."""
-    with _connect("wowquester_worker", os.environ.get("WQT_WORKER_PW")) as c:
+    with _connect("questersboard_worker", os.environ.get("WQT_WORKER_PW")) as c:
         c.execute("select count(*) from service_heartbeats")
         c.execute("select count(*) from public_event_voice")
         for sql in ("INSERT INTO public_event_voice (public_id, in_voice) VALUES (gen_random_uuid(), 1)",

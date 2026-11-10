@@ -143,5 +143,5 @@ class FakeDiscord:
         return httpx.Response(404, json={})
 
     def client(self):
-        from wowquester.integrations.discord_rest import DiscordRest
+        from questersboard.integrations.discord_rest import DiscordRest
         return DiscordRest(http=httpx.Client(transport=httpx.MockTransport(self.handler)), token="fixture-token")

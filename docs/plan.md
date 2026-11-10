@@ -37,24 +37,24 @@ Status: implemented and tested locally. Nothing has been deployed. Every product
 Consequence: every edition has `api_status` per capability (`verified | unverified | unsupported`)
 and per-namespace config. Forever ships as `unsupported` everywhere; the UI says "no Blizzard API for
 this edition yet" and the code makes zero requests. When Blizzard publishes namespaces, an admin runs
-`wowquester-admin blizzard probe forever --region us`, fills the namespaces and flips the status: no code change.
+`questersboard-admin blizzard probe forever --region us`, fills the namespaces and flips the status: no code change.
 
 ## Architecture
 
 ```
-Discord ──interactions──> wowquester-bot ─┐            (gateway; Guilds intent only)
-                                          │ SQL (wowquester_app)
-Browser ──Nginx /wow/quester/, /wow/chronicle/ ──unix socket──> wowquester-web ─┤
+Discord ──interactions──> questersboard-bot ─┐            (gateway; Guilds intent only)
+                                          │ SQL (questersboard_app)
+Browser ──Nginx /wow/quester/, /wow/chronicle/ ──unix socket──> questersboard-web ─┤
                                           │                     (FastAPI + Jinja2, minimal JS)
                                           ▼
-                                   PostgreSQL "wowquester"
+                                   PostgreSQL "questersboard"
                                           ▲  outbox rows written in the same transaction
-                                          │ SQL (wowquester_worker)
-Discord REST <── posts, edits, DMs ── wowquester-worker  (reminders, overrun nudges, retention)
+                                          │ SQL (questersboard_worker)
+Discord REST <── posts, edits, DMs ── questersboard-worker  (reminders, overrun nudges, retention)
 Blizzard API <── lookups (web), reference import (worker/CLI)
 ```
 
-- **One codebase, three units**, one config (`/etc/wowquester/config.toml`), per-unit credentials.
+- **One codebase, three units**, one config (`/etc/questersboard/config.toml`), per-unit credentials.
 - **Outbox**: every side effect (event post, DM) is an outbox row committed with the change that
   caused it. The worker delivers at least once with idempotency keys; event posts are one canonical
   message per event, edited in place and recreated if deleted.

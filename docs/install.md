@@ -31,15 +31,15 @@ Review `docs/db_hardening_checklist.md` first. On the host, from a checkout of t
 
 ```sh
 ORG=your-github-org     # the GitHub organization that hosts this repository
-git clone -b prototype "https://github.com/$ORG/questersboard.git" ~/wowquester   # folder keeps the internal name
-cd ~/wowquester
-less deploy/postgres/apply_hardening.sh deploy/postgres/pg_hba.conf deploy/postgres/postgresql_wowquester.conf
+git clone -b prototype "https://github.com/$ORG/questersboard.git" ~/questersboard   # folder keeps the internal name
+cd ~/questersboard
+less deploy/postgres/apply_hardening.sh deploy/postgres/pg_hba.conf deploy/postgres/postgresql_questersboard.conf
 sudo deploy/postgres/apply_hardening.sh
 ```
 
-The script backs up the existing `pg_hba.conf` (as `pg_hba.conf.pre_wowquester`), installs the proposed
-`pg_hba.conf` and `conf.d/50-wowquester.conf`, restarts `postgresql@16-main`, generates four random
-passwords in `/root/wowquester_db/` (0700, until step 4), creates the roles and the `wowquester` database
+The script backs up the existing `pg_hba.conf` (as `pg_hba.conf.pre_questersboard`), installs the proposed
+`pg_hba.conf` and `conf.d/50-questersboard.conf`, restarts `postgresql@16-main`, generates four random
+passwords in `/root/questersboard_db/` (0700, until step 4), creates the roles and the `questersboard` database
 with statement logging off for that session, and finishes with a read-only verification. Re-run the
 verification any time with `sudo deploy/postgres/apply_hardening.sh --check`. Undo instructions are at the
 top of the script.
@@ -48,18 +48,18 @@ top of the script.
 
 ```sh
 sudo ./deploy/install.sh --dry-run    # review
-sudo ./deploy/install.sh              # builds /opt/wowquester/releases/<version>-<stamp>, links current
+sudo ./deploy/install.sh              # builds /opt/questersboard/releases/<version>-<stamp>, links current
 ```
 
-It creates the `wowquester` system user, `/etc/wowquester/` (installs the example config only if none
-exists), the release venv from `requirements.lock` with `--require-hashes`, `/usr/local/sbin/wowquester-admin`,
+It creates the `questersboard` system user, `/etc/questersboard/` (installs the example config only if none
+exists), the release venv from `requirements.lock` with `--require-hashes`, `/usr/local/sbin/questersboard-admin`,
 and the four units. It does **not** enable or start them, migrate, touch Nginx, or register commands.
 
 Host-specific isolation drop-in (keeps QuestersBoard away from other services' files; kept outside the repo):
 
 ```sh
 for u in web bot worker; do
-  sudo install -D -m 0644 10-isolation.conf /etc/systemd/system/wowquester-$u.service.d/10-isolation.conf
+  sudo install -D -m 0644 10-isolation.conf /etc/systemd/system/questersboard-$u.service.d/10-isolation.conf
 done
 sudo systemctl daemon-reload
 ```
@@ -70,35 +70,35 @@ The host has no usable TPM (`systemd-creds has-tpm2` → partial), so credential
 `/var/lib/systemd/credential.secret` (`--with-key=host`). They can't be decrypted on another machine, which is
 why the plain values must also be kept offline with the backup key.
 
-Edit `/etc/wowquester/config.toml`: guild, application and channel IDs, role IDs, `public_base_url`,
+Edit `/etc/questersboard/config.toml`: guild, application and channel IDs, role IDs, `public_base_url`,
 branding. Then install credentials (see `configuration.md` for the list):
 
 ```sh
 # 4a. Field key (generated on the host, never displayed) and database passwords from step 2
-sudo install -m 0600 /dev/null /root/wowquester_db/field-key
-sudo sh -c '/opt/wowquester/current/venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" > /root/wowquester_db/field-key'
-sudo systemd-creds encrypt --with-key=host --name=wowquester.field-key /root/wowquester_db/field-key /etc/credstore.encrypted/wowquester.field-key
+sudo install -m 0600 /dev/null /root/questersboard_db/field-key
+sudo sh -c '/opt/questersboard/current/venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" > /root/questersboard_db/field-key'
+sudo systemd-creds encrypt --with-key=host --name=questersboard.field-key /root/questersboard_db/field-key /etc/credstore.encrypted/questersboard.field-key
 for r in admin app worker; do
-  sudo systemd-creds encrypt --with-key=host --name=wowquester.db-$r-password /root/wowquester_db/$r /etc/credstore.encrypted/wowquester.db-$r-password
+  sudo systemd-creds encrypt --with-key=host --name=questersboard.db-$r-password /root/questersboard_db/$r /etc/credstore.encrypted/questersboard.db-$r-password
 done
 
 # 4b. Discord secrets, typed into a hidden prompt (not echoed, not in shell history)
 sudo -v
 for n in discord-bot-token discord-client-secret; do
   read -rsp "$n: " v; echo
-  printf '%s' "$v" | sudo systemd-creds encrypt --with-key=host --name=wowquester.$n - /etc/credstore.encrypted/wowquester.$n
+  printf '%s' "$v" | sudo systemd-creds encrypt --with-key=host --name=questersboard.$n - /etc/credstore.encrypted/questersboard.$n
   unset v
 done
 
 # 4c. Match the other credentials' mode, then check each decrypts (prints lengths only)
 # (globs run inside sudo sh -c: the directory is root-only, so your own shell can't expand them)
-sudo sh -c 'chmod 600 /etc/credstore.encrypted/wowquester.*'
-sudo sh -c 'for f in /etc/credstore.encrypted/wowquester.*; do n=${f##*/}; printf "%s: " "$n"; systemd-creds decrypt --name="$n" "$f" - 2>/dev/null | wc -c; done'
+sudo sh -c 'chmod 600 /etc/credstore.encrypted/questersboard.*'
+sudo sh -c 'for f in /etc/credstore.encrypted/questersboard.*; do n=${f##*/}; printf "%s: " "$n"; systemd-creds decrypt --name="$n" "$f" - 2>/dev/null | wc -c; done'
 # expected: field-key 45, db-*-password 65 each; Discord values: bot token ~70, client secret 32
 
 # 4d. Keep an offline copy of the field key and all four database passwords (backup_restore.md), then:
-sudo sh -c 'shred -u /root/wowquester_db/* && rmdir /root/wowquester_db'
-sudo -u wowquester wowquester-admin check-config
+sudo sh -c 'shred -u /root/questersboard_db/* && rmdir /root/questersboard_db'
+sudo -u questersboard questersboard-admin check-config
 ```
 
 `systemd-creds` warns that `/var/lib/systemd/credential.secret` "is not located on encrypted media". That is
@@ -120,34 +120,34 @@ https://develop.battle.net/access/clients, register `<public_base_url>/wow/quest
 as its redirect URL, install its ID and secret as the `blizzard-client-id` and `blizzard-client-secret`
 credentials (plus `field-key` for the encrypted list), then set `[blizzard] enabled = true` and
 `battlenet_link_enabled = true`. For WoW: Forever the edition also needs the `forever` namespaces and
-`api_status` from `deploy/config.example.toml`; check them with `wowquester-admin blizzard probe forever --region us`.
+`api_status` from `deploy/config.example.toml`; check them with `questersboard-admin blizzard probe forever --region us`.
 
 ## 6. Schema migration (approval: production database migration)
 
 ```sh
-sudo -u wowquester wowquester-admin migrate up --sql | less        # review the exact SQL
-sudo systemd-run --pipe --wait -p User=wowquester \
-  -p LoadCredentialEncrypted=wowquester.db-admin-password:/etc/credstore.encrypted/wowquester.db-admin-password \
-  /usr/local/sbin/wowquester-admin migrate up
-sudo systemd-run --pipe --wait -p User=wowquester \
-  -p LoadCredentialEncrypted=wowquester.db-app-password:/etc/credstore.encrypted/wowquester.db-app-password \
-  /usr/local/sbin/wowquester-admin seed-catalog          # race/class catalog, as the app role
+sudo -u questersboard questersboard-admin migrate up --sql | less        # review the exact SQL
+sudo systemd-run --pipe --wait -p User=questersboard \
+  -p LoadCredentialEncrypted=questersboard.db-admin-password:/etc/credstore.encrypted/questersboard.db-admin-password \
+  /usr/local/sbin/questersboard-admin migrate up
+sudo systemd-run --pipe --wait -p User=questersboard \
+  -p LoadCredentialEncrypted=questersboard.db-app-password:/etc/credstore.encrypted/questersboard.db-app-password \
+  /usr/local/sbin/questersboard-admin seed-catalog          # race/class catalog, as the app role
 ```
 
 ## 7. Start services (approval: services)
 
 ```sh
-sudo systemctl enable --now wowquester-web.socket wowquester-worker.service wowquester-bot.service
-sudo curl -s --unix-socket /run/wowquester-web.sock http://wowquester/healthz; echo   # first request starts the web service
-systemctl is-active wowquester-web.service wowquester-worker.service wowquester-bot.service
+sudo systemctl enable --now questersboard-web.socket questersboard-worker.service questersboard-bot.service
+sudo curl -s --unix-socket /run/questersboard-web.sock http://questersboard/healthz; echo   # first request starts the web service
+systemctl is-active questersboard-web.service questersboard-worker.service questersboard-bot.service
 # full check (DB + outbox + web), with the app credential loaded for this one run:
 sudo ./deploy/health.sh        # systemd-run with LoadCredentialEncrypted, as install.sh and rollback.sh use
-sudo journalctl -u wowquester-bot -u wowquester-worker -u wowquester-web --since "5 min ago" --no-pager | tail -30
+sudo journalctl -u questersboard-bot -u questersboard-worker -u questersboard-web --since "5 min ago" --no-pager | tail -30
 ```
 
 The bot logs in with its token but does nothing visible until it is invited to the server; it never
 registers slash commands on its own (that is step 9). Backups are a separate step once the backup key exists:
-`install.sh` does not install `deploy/backup/wowquester-backup.{service,timer}`; see `backup_restore.md`.
+`install.sh` does not install `deploy/backup/questersboard-backup.{service,timer}`; see `backup_restore.md`.
 
 ## 8. Nginx: prototype first (approval: Nginx)
 
@@ -157,9 +157,9 @@ Discord portal (keep the live one). The prototype server block is already behind
 server-level `auth_request` is inherited by the QuestersBoard locations.
 
 ```sh
-sudo install -m 0644 -o root -g root deploy/nginx/wowquester_locations.conf /etc/nginx/snippets/wowquester_locations.conf
+sudo install -m 0644 -o root -g root deploy/nginx/questersboard_locations.conf /etc/nginx/snippets/questersboard_locations.conf
 # in the prototype server block (and in the template that generates it, if any):
-#     include /etc/nginx/snippets/wowquester_location[s].conf;
+#     include /etc/nginx/snippets/questersboard_location[s].conf;
 # the [s] glob keeps `nginx -t` passing on hosts without the snippet.
 sudo nginx -t && sudo systemctl reload nginx
 ```
@@ -175,19 +175,40 @@ after signing in it returns JSON, and `/wow/chronicle/` shows the archive. The l
 before restarting the services:
 
 ```sh
-sudo -u wowquester wowquester-admin migrate up 0001:0002 --sql | less   # review, no password needed
+sudo -u questersboard questersboard-admin migrate up 0001:0002 --sql | less   # review, no password needed
 # then the step 6 migrate command (approval: production database migration)
-sudo systemctl restart wowquester-web.service wowquester-worker.service wowquester-bot.service
-sudo curl -s --unix-socket /run/wowquester-web.sock http://wowquester/wow/quester/status.json; echo
+sudo systemctl restart questersboard-web.service questersboard-worker.service questersboard-bot.service
+sudo curl -s --unix-socket /run/questersboard-web.sock http://questersboard/wow/quester/status.json; echo
 ```
 
 `[status]` in config.toml is optional; the defaults are in `deploy/config.example.toml`.
 
+## 8c. Hosts installed under the old name (wowquester)
+
+Hosts installed before the rename run `deploy/rename_host.sh` once, from the checkout, after a backup,
+with the services stopped. It renames the database and roles (SCRAM passwords survive a rename), the
+pg_hba.conf lines, the Linux account, `/etc`, `/var/lib` and `/var/backups` folders and config.toml paths,
+re-encrypts each `wowquester.<name>` credential as `questersboard.<name>`, swaps the units and admin
+wrapper, and runs `install.sh` (new release in `/opt/questersboard`). Web addresses don't change.
+
+```sh
+sudo ./deploy/rename_host.sh                 # dry run: every step plus the config.toml diff
+sudo systemctl stop wowquester-web.socket wowquester-web wowquester-bot wowquester-worker
+sudo ./deploy/rename_host.sh --apply         # approval: database + services
+sudo systemctl start questersboard-web.socket questersboard-web questersboard-worker questersboard-bot
+sudo ./deploy/rename_host.sh --nginx --apply # approval: Nginx (new snippet, include line, nginx -t, reload)
+sudo ./deploy/health.sh
+```
+
+Until the Nginx step, the site returns 502 (Nginx still points at the old socket), so run them back to
+back. `sudo ./deploy/rename_host.sh --rollback` undoes everything; the old release in `/opt/wowquester`
+and the old credential files are kept for that. Remove them once the rename has run for a while.
+
 ## 9. Slash commands (approval: register live Discord commands)
 
 ```sh
-sudo -u wowquester wowquester-admin sync-commands            # dry-run: prints what would change
-sudo -u wowquester env WOWQUESTER_APPROVED_CHANGE=sync-commands wowquester-admin sync-commands --yes
+sudo -u questersboard questersboard-admin sync-commands            # dry-run: prints what would change
+sudo -u questersboard env QUESTERSBOARD_APPROVED_CHANGE=sync-commands questersboard-admin sync-commands --yes
 ```
 
 ## 10. WoW page schedule (approval: site change, through the site's prototype → main flow)

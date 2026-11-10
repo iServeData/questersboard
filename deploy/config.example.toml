@@ -1,4 +1,4 @@
-# /etc/wowquester/config.toml   (owner root:wowquester, mode 0640)
+# /etc/questersboard/config.toml   (owner root:questersboard, mode 0640)
 #
 # QuestersBoard settings. NO SECRETS in this file. Tokens, client secrets and
 # database passwords are systemd credentials (see docs/configuration.md).
@@ -6,7 +6,7 @@
 #
 # Reload behaviour: sections marked [live] are re-read about every 30 seconds
 # when the file changes AND the whole file still validates. Every other
-# section needs `sudo systemctl restart wowquester-*.service`.
+# section needs `sudo systemctl restart questersboard-*.service`.
 # All three services (web, bot, worker) read this same file.
 
 [community]                                   # restart
@@ -94,7 +94,7 @@ social_image_height = 0
 sitemap = true                                 # serves PUBLIC_PATH/sitemap.xml (archive + published stories)
 
 [uploads]                                     # restart
-storage_dir = "/var/lib/wowquester/uploads"
+storage_dir = "/var/lib/questersboard/uploads"
 max_bytes = 5_000_000
 allowed_types = ["image/png", "image/jpeg", "image/webp"]
 max_per_entry = 6
@@ -103,7 +103,7 @@ max_per_entry = 6
 # Accent bar colour by the event's faction ("any" = open to both).
 faction_colors = { horde = "#C41E3A", alliance = "#1F6FD8", any = "#C9A227" }
 # Cover art when an organizer doesn't upload one: a file in <[uploads] storage_dir>/covers.
-# Install it with: sudo -u wowquester wowquester-admin default-cover /path/to/art.png
+# Install it with: sudo -u questersboard questersboard-admin default-cover /path/to/art.png
 # A missing file is skipped (the post just has no image).
 default_cover = "default_cover.webp"
 activity_covers = {}                          # optional per type, e.g. { raid = "raid_cover.webp" }
@@ -156,7 +156,7 @@ public_enabled = true
 horizon_days = 90
 
 [web]                                         # restart
-bind = "fd:3"                                 # fd:3 = socket from wowquester-web.socket; or "127.0.0.1:8740" for local dev
+bind = "fd:3"                                 # fd:3 = socket from questersboard-web.socket; or "127.0.0.1:8740" for local dev
 member_path = "/wow/quester"
 session_hours = 72
 cookie_secure = true
@@ -181,7 +181,7 @@ cache_seconds = 15                            # Cache-Control max-age for status
 [retention]                                   # restart
 outbox_done_days = 14                         # finished background jobs
 api_cache_days = 30
-audit_days = 400                              # pruned by `wowquester-admin prune` (admin role), never by services
+audit_days = 400                              # pruned by `questersboard-admin prune` (admin role), never by services
 withdrawn_signup_days = 365                   # withdrawn/rejected signups of past events
 session_days_after_expiry = 1
 
@@ -189,7 +189,7 @@ session_days_after_expiry = 1
 operator = ""                                 # who runs this install; empty = the [community] name
 contact = "Message an organiser in the community Discord server."
 effective_date = ""                           # YYYY-MM-DD shown as "Last updated"; empty = hidden
-backup_keep_days = 30                         # keep in step with WOWQUESTER_BACKUP_KEEP_DAYS
+backup_keep_days = 30                         # keep in step with QUESTERSBOARD_BACKUP_KEEP_DAYS
 
 [rate_limits]                                 # [live]
 web_requests_per_minute = 120
@@ -197,9 +197,9 @@ actions_per_minute = 30
 
 [database]                                    # restart
 # No password here. App/worker passwords come from credentials db-app-password / db-worker-password.
-app_url = "postgresql+psycopg://wowquester_app@127.0.0.1:5432/wowquester"
-worker_url = "postgresql+psycopg://wowquester_worker@127.0.0.1:5432/wowquester"
-admin_url = "postgresql+psycopg://wowquester_admin@127.0.0.1:5432/wowquester"   # migrations + admin CLI only (credential db-admin-password)
+app_url = "postgresql+psycopg://questersboard_app@127.0.0.1:5432/questersboard"
+worker_url = "postgresql+psycopg://questersboard_worker@127.0.0.1:5432/questersboard"
+admin_url = "postgresql+psycopg://questersboard_admin@127.0.0.1:5432/questersboard"   # migrations + admin CLI only (credential db-admin-password)
 pool_size = 5
 
 [blizzard]                                    # restart
@@ -236,9 +236,9 @@ factions = ["horde", "alliance"]
 default_faction = "horde"
 max_level = 60
 difficulties = ["Normal"]      # optional; the event form's Difficulty list (default: Normal only)
-catalog = "forever"                           # packaged race/class seed (src/wowquester/catalog/forever.toml)
+catalog = "forever"                           # packaged race/class seed (src/questersboard/catalog/forever.toml)
 # Forever namespaces aren't documented by Blizzard; these come from community testing after
-# launch (Nov 2026) and may change. Check with: wowquester-admin blizzard probe forever --region us
+# launch (Nov 2026) and may change. Check with: questersboard-admin blizzard probe forever --region us
 # The static namespace can be pinned to a game version, e.g. "static-1.60.1_70399-forever-{region}".
 static_namespace = "static-forever-{region}"
 dynamic_namespace = "dynamic-forever-{region}"
@@ -263,7 +263,7 @@ factions = ["horde", "alliance"]
 default_faction = "horde"
 max_level = 90
 difficulties = ["Normal", "Heroic", "Mythic", "Mythic+", "Raid Finder"]
-catalog = "retail"                            # packaged race/class seed; dungeons and raids come from a Blizzard import (wowquester-admin blizzard import-reference retail)
+catalog = "retail"                            # packaged race/class seed; dungeons and raids come from a Blizzard import (questersboard-admin blizzard import-reference retail)
 static_namespace = "static-{region}"
 dynamic_namespace = "dynamic-{region}"
 profile_namespace = "profile-{region}"

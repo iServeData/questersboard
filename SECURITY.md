@@ -4,7 +4,7 @@
 
 Please don't open a public issue for a security problem. Use **Report a vulnerability** on the
 repository's Security tab, which reaches the maintainers privately. Include what you found, how to reproduce it, and the release or commit you're running
-(`git -C ~/wowquester log -1 --oneline` on the host).
+(`git -C ~/questersboard log -1 --oneline` on the host).
 
 ## What QuestersBoard protects
 
@@ -16,13 +16,13 @@ repository's Security tab, which reaches the maintainers privately. Include what
   `docs/permissions_data_model.md`.
 - **Members**: Discord login asks only for `identify`; nobody is named in a public Chronicle story
   without opting in; members can remove themselves (Remove me) and organizers can do it for them
-  (`wowquester-admin erase-member`).
+  (`questersboard-admin erase-member`).
 - **The web app**: CSRF tokens on every form, a strict Content-Security-Policy (no inline script),
   rate limits on writes, and uploads re-encoded with metadata stripped.
 
 ## Deployment checklist
 
-- Keep the systemd sandboxing in `deploy/systemd/` (`systemd-analyze security wowquester-web`).
+- Keep the systemd sandboxing in `deploy/systemd/` (`systemd-analyze security questersboard-web`).
 - Keep code and the virtualenv root-owned; the service user can't modify them (`deploy/install.sh`).
 - Install libraries only with `--require-hashes` (the installer and CI do).
 - Never commit real config, tokens, Discord IDs, host names or community names; CI runs

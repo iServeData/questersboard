@@ -61,7 +61,7 @@ jobs:
         run: |
           if [ -n "$DENYLIST" ]; then
             printf '%s\n' "$DENYLIST" > "$RUNNER_TEMP/denylist.txt"
-            echo "WOWQUESTER_DENYLIST=$RUNNER_TEMP/denylist.txt" >> "$GITHUB_ENV"
+            echo "QUESTERSBOARD_DENYLIST=$RUNNER_TEMP/denylist.txt" >> "$GITHUB_ENV"
           fi
 
       - name: Tests (database tests must run, not skip)

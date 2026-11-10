@@ -11,10 +11,10 @@ from helpers import char, event
 from PIL import Image
 from sqlalchemy import text
 
-from wowquester.config import ConfigHolder
-from wowquester.domain import chronicle, events, signups
-from wowquester.models import ChronicleEntry
-from wowquester.web.app import create_app
+from questersboard.config import ConfigHolder
+from questersboard.domain import chronicle, events, signups
+from questersboard.models import ChronicleEntry
+from questersboard.web.app import create_app
 
 pytestmark = needs_db
 
@@ -38,7 +38,7 @@ class FakeRest:
         self.calls = 0
 
     def member(self, guild_id, user_id):
-        from wowquester.integrations.discord_rest import MemberInfo
+        from questersboard.integrations.discord_rest import MemberInfo
         self.calls += 1
         if user_id not in self.roles:
             return MemberInfo(False, frozenset(), "")
@@ -189,7 +189,7 @@ def test_exclusive_checkbox_needs_role(app, seeded):
 
 
 def test_removed_role_stops_privileged_action(app, seeded, wcfg, monkeypatch):
-    import wowquester.web.app as wa
+    import questersboard.web.app as wa
     org = login(app, 24, "event_creator")
     tok = csrf(org)
     app.state.fake_rest.roles[fake_id(24)] = set()          # role removed in Discord
@@ -281,10 +281,10 @@ def _bz_app(seeded, tmp_path, monkeypatch, handler):
     import httpx
     from cryptography.fernet import Fernet
 
-    from wowquester.integrations.blizzard import Blizzard
-    monkeypatch.setenv("WOWQUESTER_SECRET_BLIZZARD_CLIENT_ID", "FIXTURE-id")
-    monkeypatch.setenv("WOWQUESTER_SECRET_BLIZZARD_CLIENT_SECRET", "FIXTURE-secret")
-    monkeypatch.setenv("WOWQUESTER_SECRET_FIELD_KEY", Fernet.generate_key().decode())
+    from questersboard.integrations.blizzard import Blizzard
+    monkeypatch.setenv("QUESTERSBOARD_SECRET_BLIZZARD_CLIENT_ID", "FIXTURE-id")
+    monkeypatch.setenv("QUESTERSBOARD_SECRET_BLIZZARD_CLIENT_SECRET", "FIXTURE-secret")
+    monkeypatch.setenv("QUESTERSBOARD_SECRET_FIELD_KEY", Fernet.generate_key().decode())
     cfg = make_cfg(tmp_path, web={"cookie_secure": False},
                    blizzard={"enabled": True, "battlenet_link_enabled": True})
     calls = []
@@ -428,7 +428,7 @@ def test_privacy_and_terms_have_a_table_of_contents_with_remove_me(app):
 
 
 def test_legal_config_validation(tmp_path):
-    from wowquester.config import ConfigError
+    from questersboard.config import ConfigError
     with pytest.raises(ConfigError):
         make_cfg(tmp_path, legal={"effective_date": "Nov 4"})
     with pytest.raises(ConfigError):
@@ -608,7 +608,7 @@ def test_naming_checkbox_has_help_popup_linking_privacy(app, seeded):
 def test_copy_and_edit_forms_are_filled_with_the_events_time(app, seeded):
     from datetime import datetime as _dt
     from zoneinfo import ZoneInfo
-    from wowquester.web.routes_member import copy_suggestion
+    from questersboard.web.routes_member import copy_suggestion
     LA = ZoneInfo("America/Los_Angeles")
 
     class E:   # a past event: the copy suggestion moves forward in whole weeks until it's ahead
@@ -657,7 +657,7 @@ def test_copy_and_edit_forms_are_filled_with_the_events_time(app, seeded):
 
 
 def test_copied_draft_explains_publishing_and_edit_can_publish(app, seeded):
-    from wowquester.models import Outbox as OutboxJob
+    from questersboard.models import Outbox as OutboxJob
     org = login(app, 102, "event_creator")
     tok = csrf(org)
     start = at(6).astimezone(__import__("zoneinfo").ZoneInfo("America/Los_Angeles"))
@@ -831,9 +831,9 @@ def test_phone_menu_button_and_logged_out_login_button(app):
     home = c.get("/wow/quester/").text
     assert '<button class="menu-btn" type="button" aria-expanded="false" aria-controls="menu">' in home
     assert home.count('href="/wow/quester/login?next=/wow/quester/"') == 2
-    assert 'wowquester.js?v=' in home and 'wowquester.css?v=' in home
+    assert 'questersboard.js?v=' in home and 'questersboard.css?v=' in home
     assert 'class="menu-btn"' in c.get("/wow/quester/privacy").text
-    js = c.get("/wow/quester/static/wowquester.js").text
+    js = c.get("/wow/quester/static/questersboard.js").text
     assert 'querySelector(".menu-btn")' in js and 'classList.toggle("open"' in js
 
 
@@ -868,7 +868,7 @@ def test_cancel_on_the_authorize_screen_explains_and_offers_retry(app):
 
 
 def test_real_authorize_url_prompts():
-    from wowquester.web.app import DiscordOAuth
+    from questersboard.web.app import DiscordOAuth
     o = DiscordOAuth("1", "FIXTURE-secret")
     assert "prompt=none" in o.authorize_url("https://community.example.org/cb", "s")
     assert "prompt=consent" in o.authorize_url("https://community.example.org/cb", "s", prompt="consent")

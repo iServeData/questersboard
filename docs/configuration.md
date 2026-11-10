@@ -1,21 +1,21 @@
 # Configuration
 
-All three services (`wowquester-web`, `wowquester-bot`, `wowquester-worker`) and the admin CLI read
-one file: `/etc/wowquester/config.toml` (override with `WOWQUESTER_CONFIG`). Start from
+All three services (`questersboard-web`, `questersboard-bot`, `questersboard-worker`) and the admin CLI read
+one file: `/etc/questersboard/config.toml` (override with `QUESTERSBOARD_CONFIG`). Start from
 `deploy/config.example.toml`; every key is commented there.
 
 ```
-/etc/wowquester/                 root:wowquester  0750
-├── config.toml                  root:wowquester  0640   settings, no secrets
+/etc/questersboard/                 root:questersboard  0750
+├── config.toml                  root:questersboard  0640   settings, no secrets
 ├── backup_recipient             root:root        0644   GnuPG public-key fingerprint (backups)
-└── secrets.env                  root:wowquester  0640   ONLY if systemd credentials are unavailable
+└── secrets.env                  root:questersboard  0640   ONLY if systemd credentials are unavailable
 /etc/credstore.encrypted/
-└── wowquester.<name>            root:root        0600   host-key encrypted credentials
+└── questersboard.<name>            root:root        0600   host-key encrypted credentials
 ```
 
 ## Validation
 
-Every service runs `wowquester-admin check-config --quiet` before starting (`ExecStartPre=`). On any
+Every service runs `questersboard-admin check-config --quiet` before starting (`ExecStartPre=`). On any
 problem it prints what is wrong (section and key, never a value) and exits **78**; systemd's
 `RestartPreventExitStatus=78` stops a restart loop. Checks include: required sections, quoted Discord
 IDs, IANA time zones, positive limits and retention windows, `[web] bind` (`fd:N`, `unix:/path` or a
@@ -25,7 +25,7 @@ credential stops the service that needs it when it starts, with the credential's
 Run it by hand after editing (without `--quiet` it also lists which credentials are present, by fingerprint):
 
 ```sh
-sudo -u wowquester /opt/wowquester/current/venv/bin/wowquester-admin check-config
+sudo -u questersboard /opt/questersboard/current/venv/bin/questersboard-admin check-config
 ```
 
 ## Live vs restart
@@ -33,7 +33,7 @@ sudo -u wowquester /opt/wowquester/current/venv/bin/wowquester-admin check-confi
 | Section | Applies |
 | --- | --- |
 | `[roles]`, `[scheduling]`, `[signups]`, `[reminders]`, `[chronicle]`, `[rate_limits]`, `[event_posts]` | **Live**: re-read about every 30 s when the file changes, only if the whole file validates. A bad edit is logged and the old settings stay in force. |
-| everything else (`[community]`, `[discord]`, `[web]`, `[database]`, `[blizzard]`, `[ai]`, `[uploads]`, `[feeds]`, `[calendar]`, `[branding]`, `[retention]`, `[event_threads]`, `[voice]`, `[[editions]]`, presets, activities) | **Restart**: `sudo systemctl restart wowquester-web wowquester-bot wowquester-worker`. The services log which changed sections still need a restart. |
+| everything else (`[community]`, `[discord]`, `[web]`, `[database]`, `[blizzard]`, `[ai]`, `[uploads]`, `[feeds]`, `[calendar]`, `[branding]`, `[retention]`, `[event_threads]`, `[voice]`, `[[editions]]`, presets, activities) | **Restart**: `sudo systemctl restart questersboard-web questersboard-bot questersboard-worker`. The services log which changed sections still need a restart. |
 
 Each applied change is recorded in `config_changes` (section hashes, not values).
 
@@ -52,13 +52,13 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
 - **Editions** (`[[editions]]`): name, `uses_realms`, rulesets, regions, factions, max level, catalog,
   Blizzard namespaces with `{region}`, and `api_status` per capability. Forever ships realmless with
   empty namespaces and every capability `unsupported`. When Blizzard publishes Forever namespaces:
-  `wowquester-admin blizzard probe forever --region us`, fill the namespaces, set statuses, restart.
+  `questersboard-admin blizzard probe forever --region us`, fill the namespaces, set statuses, restart.
   Forever rulesets are `normal`, `pvp`, `rp`, `rp_pvp` (add `hardcore` when it opens). Ruleset labels
   come from `ruleset_labels` (optional) or built-ins (`rp_pvp` shows as RP-PvP).
   The example also has three Classic editions that use realms: `classic_era` (Era, Hardcore, Season of
   Discovery; level 60, `classic1x` namespaces), `classic_anniversary` (Burning Crusade Anniversary; 70,
   `classicann`) and `mists_classic` (90, `classic`). Their race/class and "Where" lists are packaged seeds
-  marked unverified: after adding an edition run `wowquester-admin seed-catalog`. Editions load at restart.
+  marked unverified: after adding an edition run `questersboard-admin seed-catalog`. Editions load at restart.
   Retail uses `catalog = "retail"` (packaged race/class seed, unverified); a Blizzard import adds
   dungeons and raids once the API is enabled.
 - **Difficulties** (`[[editions]] difficulties`): the event form's Difficulty list per edition, e.g.
@@ -67,19 +67,19 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
 - **Event posts** (`[event_posts]`, live): `faction_colors` (hex per `horde`, `alliance`, `any`),
   `field_spacing` (default true: a blank line between the post's headings),
   `default_cover` (a file in `<[uploads] storage_dir>/covers`, installed with
-  `wowquester-admin default-cover FILE`) and optional `activity_covers` per activity type. A missing file
+  `questersboard-admin default-cover FILE`) and optional `activity_covers` per activity type. A missing file
   just means no image.
 - **Event chat threads** (`[event_threads]`, restart): `enabled` (default false), `private` (invite-only
   threads), `archive_after_hours` (24), `reminders_in_thread` (true), `name_suffix`. The bot needs Create
   Public (or Private) Threads, Send Messages in Threads and Manage Threads in the event channel; run
-  `wowquester-admin discord-permissions` to check.
+  `questersboard-admin discord-permissions` to check.
 - **Event voice channels** (`[voice]`, restart): `enabled` (default false), `category_id`, `name_template`
   (`{title}`, `{id}`), `user_limit` (0 = no cap), `empty_teardown_minutes` (5), `member_states`
   (confirmed, tentative), `moderators_can_join` (true), `staff_role_ids` (more server roles, such as admins,
   that can join every event voice channel), `remove_on_leave` (false: someone who leaves the event may stay
   while connected but can't rejoin; true disconnects them). The bot needs, on that category only:
   Manage Channels, Manage Permissions, Move Members, View Channel, Connect, Speak, Video, Use Voice Activity,
-  Send Messages and Read Message History. `wowquester-admin discord-permissions` checks them.
+  Send Messages and Read Message History. `questersboard-admin discord-permissions` checks them.
   Guest links and host moderation: `guest_invites` (true; `/voice invite`), `max_guests_per_invite` (5, 1-25),
   `invite_dm` (`off` | `hosts` | `everyone`: DM guest links on Start), `guest_link_template` (empty = the
   site's `/v/{code}` page under member_path; e.g. `https://short.example.org/v/{code}` with the `/v/` Nginx
@@ -103,16 +103,16 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
 | `discord-bot-token` | web, bot, worker | gateway (bot), REST posts/DMs (worker), guild-member checks (web) |
 | `discord-client-secret` | web | Discord login (OAuth `identify` scope) |
 | `field-key` | web, bot, worker | Fernet key for encrypted fields |
-| `db-app-password` | web, bot | `wowquester_app` |
-| `db-worker-password` | worker | `wowquester_worker` |
-| `db-admin-password` | admin CLI, backup | `wowquester_admin` (migrations; never loaded by a service) |
+| `db-app-password` | web, bot | `questersboard_app` |
+| `db-worker-password` | worker | `questersboard_worker` |
+| `db-admin-password` | admin CLI, backup | `questersboard_admin` (migrations; never loaded by a service) |
 | `blizzard-client-id`, `blizzard-client-secret` | web, worker | Blizzard API (optional) |
 | `ai-api-key` | worker | AI wording (optional) |
 
 Install each one without it touching the command line or shell history:
 
 ```sh
-sudo systemd-creds encrypt --with-key=host --name=wowquester.<name> - /etc/credstore.encrypted/wowquester.<name>
+sudo systemd-creds encrypt --with-key=host --name=questersboard.<name> - /etc/credstore.encrypted/questersboard.<name>
 # type or paste the value, then Ctrl-D
 ```
 
@@ -121,9 +121,9 @@ Generate the field key with
 Lose it and the encrypted fields (Battle.net snapshots) can't be read; keep an offline copy with the
 backup private key (see `backup_restore.md`).
 
-Fallback: if `systemd-creds` isn't available, put `WOWQUESTER_SECRET_<NAME>=` lines (names in
-`deploy/secrets.env.example`) in `/etc/wowquester/secrets.env` and add
-`EnvironmentFile=/etc/wowquester/secrets.env` via a drop-in. That is weaker (every unit sees every
+Fallback: if `systemd-creds` isn't available, put `QUESTERSBOARD_SECRET_<NAME>=` lines (names in
+`deploy/secrets.env.example`) in `/etc/questersboard/secrets.env` and add
+`EnvironmentFile=/etc/questersboard/secrets.env` via a drop-in. That is weaker (every unit sees every
 secret), so it is a fallback only.
 
 For local development, `.env.example` lists the same variables with empty values.

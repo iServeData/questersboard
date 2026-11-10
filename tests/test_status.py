@@ -14,12 +14,12 @@ from fastapi.testclient import TestClient
 from helpers import char, event
 from sqlalchemy import text
 
-from wowquester.config import ConfigError, ConfigHolder
-from wowquester.domain import events, signups, status
-from wowquester.domain.timeutil import now
-from wowquester.models import PublicEventVoice
-from wowquester.web.app import create_app
-from wowquester.worker import Worker
+from questersboard.config import ConfigError, ConfigHolder
+from questersboard.domain import events, signups, status
+from questersboard.domain.timeutil import now
+from questersboard.models import PublicEventVoice
+from questersboard.web.app import create_app
+from questersboard.worker import Worker
 
 ORG = actor(1, "event_creator")
 BASE = "https://community.example.org"
@@ -31,7 +31,7 @@ def test_status_section_is_optional_with_defaults():
     cfg = make_cfg(status={})
     assert cfg["status"] == {"starting_soon_minutes": 15, "heartbeat_seconds": 30, "stale_after_seconds": 120,
                              "voice_stale_after_seconds": 180, "cache_seconds": 15}
-    assert "status" in __import__("wowquester.config", fromlist=["x"]).LIVE_SECTIONS
+    assert "status" in __import__("questersboard.config", fromlist=["x"]).LIVE_SECTIONS
 
 
 @pytest.mark.parametrize("bad", [{"heartbeat_seconds": 2}, {"stale_after_seconds": 40},
@@ -99,7 +99,7 @@ def test_heartbeats_from_the_service_roles(client, seeded, worker_db, cfg, admin
 
 @needs_db
 def test_bot_heartbeat_writes_through_run_tx(seeded):
-    from wowquester.bot import client as bc
+    from questersboard.bot import client as bc
     bc.Ctx.db = seeded
     bot = bc.Bot()
     assert bot.gateway_state() == "disconnected"     # never logged in: no gateway

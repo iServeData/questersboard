@@ -10,11 +10,11 @@ from helpers import char
 from sqlalchemy import select
 from test_web import app, csrf, login, wcfg  # noqa: F401  (fixtures)
 
-from wowquester.config import ConfigError, validate
-from wowquester.domain import catalog
-from wowquester.domain.errors import Invalid
-from wowquester.domain.timeutil import tz_choices, tz_label
-from wowquester.models import Member
+from questersboard.config import ConfigError, validate
+from questersboard.domain import catalog
+from questersboard.domain.errors import Invalid
+from questersboard.domain.timeutil import tz_choices, tz_label
+from questersboard.models import Member
 
 
 def test_tz_choices_are_iana_region_city_names_with_offsets():

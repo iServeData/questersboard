@@ -13,13 +13,13 @@ from fake_discord import FakeDiscord
 from helpers import char, event
 from sqlalchemy import select, text
 
-from wowquester.bot import render
-from wowquester.config import ConfigError, ConfigHolder
-from wowquester.domain import events, outbox, signups, voice
-from wowquester.domain.errors import DomainError
-from wowquester.integrations import discord_audit
-from wowquester.models import Event, Outbox, PublicEventVoice
-from wowquester.worker import Worker
+from questersboard.bot import render
+from questersboard.config import ConfigError, ConfigHolder
+from questersboard.domain import events, outbox, signups, voice
+from questersboard.domain.errors import DomainError
+from questersboard.integrations import discord_audit
+from questersboard.models import Event, Outbox, PublicEventVoice
+from questersboard.worker import Worker
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator", name="HostOne")
@@ -284,7 +284,7 @@ def _labels(view):
 def test_organizer_and_join_voice_buttons(seeded, monkeypatch):
     import asyncio
 
-    from wowquester.bot import client as bc
+    from questersboard.bot import client as bc
     cfg = _cfg()
     bc.Ctx.holder, bc.Ctx.db, bc.Ctx.rest = ConfigHolder(cfg), seeded, None
     host = actor(1, "event_creator")

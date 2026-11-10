@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from conftest import at
 
-from wowquester.domain import events, roster
+from questersboard.domain import events, roster
 
 ORC_WAR = dict(edition="forever", ruleset="pvp", faction="horde", race_key="orc", class_key="warrior",
                eligible_roles=["tank", "damage"], preferred_role="tank")

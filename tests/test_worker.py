@@ -8,9 +8,9 @@ from fake_discord import FakeDiscord
 from helpers import char, event
 from sqlalchemy import text
 
-from wowquester.config import ConfigHolder
-from wowquester.domain import events, signups
-from wowquester.worker import Worker
+from questersboard.config import ConfigHolder
+from questersboard.domain import events, signups
+from questersboard.worker import Worker
 
 pytestmark = needs_db
 ORG = actor(1, "event_creator")
@@ -80,7 +80,7 @@ def test_reminders_once_and_rescheduled_again(seeded, worker_db, cfg, monkeypatc
         a = actor(10)
         signups.join(s, cfg, a, ev.id, char(s, cfg, a, "Aaa").id)
         eid = ev.id
-    import wowquester.worker as wm
+    import questersboard.worker as wm
     monkeypatch.setattr(wm, "now", lambda: at(-1))       # 60 minutes before start
     assert w.scan_reminders() == 2                       # participant + organizer
     assert w.scan_reminders() == 0                       # idempotent
@@ -100,7 +100,7 @@ def test_overrun_nudged_once_and_not_auto_extended(seeded, worker_db, cfg, monke
         ev = event(s, cfg, ORG, 0, 2)
         monkeypatch.setattr(events, "now", lambda: at(0))
         events.start(s, cfg, ORG, ev.id)
-    import wowquester.worker as wm
+    import questersboard.worker as wm
     monkeypatch.setattr(wm, "now", lambda: at(3))
     assert w.scan_overruns() == 1 and w.scan_overruns() == 0
     _drain(w)

@@ -17,7 +17,7 @@ Test file names refer to `tests/`.
 | Python, discord.py, FastAPI, Jinja2 + minimal JS, PostgreSQL, SQLAlchemy + Alembic, outbox worker, systemd, pytest | Done, tested | `pyproject.toml`, `requirements.lock` (hash-pinned) |
 | No React/Redis/Celery/Kubernetes/microservices | Done | one package, three systemd units |
 | One config for all three services, validated at startup, refuse to start, never print secrets | Done, tested | `test_cli.py::test_invalid_config_exits_78`, `test_check_config_never_prints_secret_values` |
-| Config at `/etc/wowquester/config.toml` (root:wowquester 0640); secrets as systemd credentials, `secrets.env` fallback | Done (files and units) / Externally unverified on host | `deploy/config.example.toml`, `deploy/secrets.env.example`, units use `ImportCredential=` |
+| Config at `/etc/questersboard/config.toml` (root:questersboard 0640); secrets as systemd credentials, `secrets.env` fallback | Done (files and units) / Externally unverified on host | `deploy/config.example.toml`, `deploy/secrets.env.example`, units use `ImportCredential=` |
 | Lowercase underscore filenames, no spaces | Done | systemd unit names keep systemd's hyphen convention |
 | Repository sanitized (no community names, IDs, tokens, keys) | Done, tested | `test_sanitized.py` + private denylist |
 
@@ -33,7 +33,7 @@ Test file names refer to `tests/`.
 | Optional Battle.net ownership link (state single-use, user token never stored, snapshot encrypted) | Done, fixture-tested | `test_battlenet_link_state_single_use_and_marks_owned` |
 | Battle.net character sync incl. WoW: Forever (realmless names, ruleset IDs, add ticked characters, list expires) | Done, fixture-tested; live sign-in unverified | `test_forever_sync_verifies_offers_and_imports`, `test_forever_sync_other_member_and_expiry` |
 | Retries, 429 handling, caching, rate limiting | Done, fixture-tested | `test_retail_404_is_not_found_and_5xx_exhausts_to_api_error` |
-| Live Blizzard Retail API | Externally unverified | needs a Blizzard API client; run `wowquester-admin blizzard probe retail --region us` |
+| Live Blizzard Retail API | Externally unverified | needs a Blizzard API client; run `questersboard-admin blizzard probe retail --region us` |
 | Forever API data | **Blocked** | Blizzard hasn't published Forever namespaces (see `plan.md`); ships as `unsupported` |
 
 ## Scheduling
@@ -96,7 +96,7 @@ Test file names refer to `tests/`.
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
-| Blizzard reference data import (race/class/quests/locations) | Done, fixture-tested / Externally unverified live | `wowquester-admin blizzard import-reference`; Forever uses the packaged catalog |
+| Blizzard reference data import (race/class/quests/locations) | Done, fixture-tested / Externally unverified live | `questersboard-admin blizzard import-reference`; Forever uses the packaged catalog |
 | Autocomplete with free-text fallback | Done, tested | `test_autocomplete_options_and_free_text` |
 | Recurring templates: edit one vs this-and-future | Done, tested | `test_series_recommendations.py::test_edit_one_detaches_and_edit_future_skips_detached` |
 | Private revocable calendar + public calendar (ICS) | Done, tested | `test_personal_calendar_token_and_revocation`, `test_ics_escapes_folds_and_uses_utc`, `test_calendar_revoke_is_audited` |
@@ -115,7 +115,7 @@ Test file names refer to `tests/`.
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
-| Outbox, idempotency, coalescing, retries, dead letters | Done, tested | `test_worker.py` (all), `test_coalescing_keeps_one_pending_job`, `wowquester-admin outbox` |
+| Outbox, idempotency, coalescing, retries, dead letters | Done, tested | `test_worker.py` (all), `test_coalescing_keeps_one_pending_job`, `questersboard-admin outbox` |
 | Reminders exactly once per offset; again after reschedule | Done, tested | `test_reminders_once_and_rescheduled_again` |
 | Secure sessions (hashed IDs, HttpOnly, Secure, SameSite=Lax) | Done, tested | `test_session_cookie_flags_and_hash_only` |
 | OAuth state single-use; guild membership required | Done, tested | `test_login_state_is_single_use_and_bad_state_rejected`, `test_non_guild_member_cannot_log_in` |
@@ -125,7 +125,7 @@ Test file names refer to `tests/`.
 | Field encryption (Battle.net snapshot), encrypted backups | Done, tested / manual check | Fernet `field-key`; GnuPG backup drill below |
 | Retention and pruning | Done, tested | `test_prune_and_outbox_status`, `test_retention_and_review_channel_validation` |
 | Structured logs without secrets | Done | journald via systemd; secrets wrapped so `repr` never shows values |
-| Health checks | Done, tested | `/healthz`, `wowquester-admin health`; `test_security_headers_and_health` |
+| Health checks | Done, tested | `/healthz`, `questersboard-admin health`; `test_security_headers_and_health` |
 | Reversible migrations | Done, tested | `test_admin_role_can_migrate_down_and_up` |
 | Backup, restore drill, rollback | Done, manual check | encrypt → decrypt → checksum → restore into scratch DB with grants → drop (sandbox) |
 | systemd sandboxing | Done, manual check | `systemd-analyze verify` clean on all units |

@@ -77,7 +77,7 @@ The footer of every QuestersBoard page links to **Privacy** (`/wow/quester/priva
 The privacy page is built from the live configuration: retention periods, upload limits and the
 login session length come from config, and Blizzard and AI sections appear only when those
 integrations are switched on. Set `[legal] contact`, `operator` and `effective_date` for your
-community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
+community, and keep `backup_keep_days` equal to `QUESTERSBOARD_BACKUP_KEEP_DAYS`.
 
 ## For hosts (event creators and co-hosts)
 
@@ -156,7 +156,7 @@ Co-hosts can run the event but aren't chronicle co-authors unless the author add
 
 ## For admins
 
-- All settings live in `/etc/wowquester/config.toml` (see `configuration.md`). Discord role IDs per
+- All settings live in `/etc/questersboard/config.toml` (see `configuration.md`). Discord role IDs per
   capability are in `[roles]` and apply within about 30 seconds.
 - Day-to-day commands are in `operations.md`. Installation and every production change are in `install.md`.
 - When Blizzard publishes a Forever API, run the probe, fill the namespaces, set the statuses, restart.

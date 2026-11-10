@@ -1,0 +1,15 @@
+# Unix socket for the QuestersBoard web app. Owned by systemd so Nginx (www-data) can connect
+# without being added to the questersboard group (which can read /etc/questersboard).
+[Unit]
+Description=QuestersBoard web socket
+PartOf=questersboard-web.service
+
+[Socket]
+ListenStream=/run/questersboard-web.sock
+SocketUser=root
+SocketGroup=www-data
+SocketMode=0660
+Accept=no
+
+[Install]
+WantedBy=sockets.target

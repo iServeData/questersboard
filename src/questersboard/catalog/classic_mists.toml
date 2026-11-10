@@ -1,0 +1,39 @@
+# Mists of Pandaria Classic: all races and classes up to Mists of Pandaria.
+# source = "seed", verification = "unverified" (recorded 2026-11-02). Replaced by a Blizzard import
+# (questersboard-admin blizzard import-reference mists_classic) once its namespace is verified.
+
+source_url = "https://worldofwarcraft.blizzard.com/en-us/classic"
+locations = ["locations_vanilla", "locations_outland", "locations_pandaria"]
+
+classes = ["druid", "hunter", "mage", "paladin", "priest", "rogue", "shaman", "warlock", "warrior", "death_knight", "monk"]
+
+[class_labels]
+druid = "Druid"
+hunter = "Hunter"
+mage = "Mage"
+paladin = "Paladin"
+priest = "Priest"
+rogue = "Rogue"
+shaman = "Shaman"
+warlock = "Warlock"
+warrior = "Warrior"
+death_knight = "Death Knight"
+monk = "Monk"
+
+[races.horde]
+orc = { label = "Orc", classes = ["warrior", "hunter", "rogue", "death_knight", "shaman", "mage", "warlock", "monk"] }
+undead = { label = "Undead", classes = ["warrior", "hunter", "rogue", "priest", "death_knight", "mage", "warlock", "monk"] }
+tauren = { label = "Tauren", classes = ["warrior", "paladin", "hunter", "priest", "death_knight", "shaman", "druid", "monk"] }
+troll = { label = "Troll", classes = ["warrior", "hunter", "rogue", "priest", "death_knight", "shaman", "mage", "warlock", "druid", "monk"] }
+blood_elf = { label = "Blood Elf", classes = ["warrior", "paladin", "hunter", "rogue", "priest", "death_knight", "mage", "warlock", "monk"] }
+goblin = { label = "Goblin", classes = ["warrior", "hunter", "rogue", "priest", "death_knight", "shaman", "mage", "warlock"] }
+pandaren = { label = "Pandaren", classes = ["warrior", "hunter", "rogue", "priest", "shaman", "mage", "monk"] }
+
+[races.alliance]
+human = { label = "Human", classes = ["warrior", "paladin", "hunter", "rogue", "priest", "death_knight", "mage", "warlock", "monk"] }
+dwarf = { label = "Dwarf", classes = ["warrior", "paladin", "hunter", "rogue", "priest", "death_knight", "shaman", "mage", "warlock", "monk"] }
+night_elf = { label = "Night Elf", classes = ["warrior", "hunter", "rogue", "priest", "death_knight", "mage", "druid", "monk"] }
+gnome = { label = "Gnome", classes = ["warrior", "rogue", "priest", "death_knight", "mage", "warlock", "monk"] }
+draenei = { label = "Draenei", classes = ["warrior", "paladin", "hunter", "priest", "death_knight", "shaman", "mage", "monk"] }
+worgen = { label = "Worgen", classes = ["warrior", "hunter", "rogue", "priest", "death_knight", "mage", "warlock", "druid"] }
+pandaren = { label = "Pandaren", classes = ["warrior", "hunter", "rogue", "priest", "shaman", "mage", "monk"] }

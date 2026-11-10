@@ -5,8 +5,8 @@
 # --deploy (used by install.sh/rollback.sh): dead outbox jobs are reported but don't fail the check,
 # because a Discord delivery that gave up says nothing about whether the new release works.
 set -euo pipefail
-CRED=/etc/credstore.encrypted/wowquester.db-app-password
-SOCK=/run/wowquester-web.sock
+CRED=/etc/credstore.encrypted/questersboard.db-app-password
+SOCK=/run/questersboard-web.sock
 [[ $EUID -eq 0 ]] || { echo "run with sudo" >&2; exit 1; }
 quiet=0; extra=()
 for a in "$@"; do
@@ -17,6 +17,6 @@ for a in "$@"; do
   esac
 done
 args=(systemd-run --quiet --pipe --wait --collect
-      -p "LoadCredentialEncrypted=wowquester.db-app-password:$CRED"
-      /usr/local/sbin/wowquester-admin health --socket "$SOCK" "${extra[@]}")
+      -p "LoadCredentialEncrypted=questersboard.db-app-password:$CRED"
+      /usr/local/sbin/questersboard-admin health --socket "$SOCK" "${extra[@]}")
 if (( quiet )); then "${args[@]}" >/dev/null 2>&1; else "${args[@]}"; fi

@@ -9,11 +9,11 @@ import httpx
 import pytest
 from conftest import fake_id, make_cfg
 
-from wowquester.config import ConfigError, validate
-from wowquester.domain import calendar, privacy, recurrence
-from wowquester.domain.errors import Invalid
-from wowquester.integrations import ai, blizzard
-from wowquester.integrations import discord_rest as dr
+from questersboard.config import ConfigError, validate
+from questersboard.domain import calendar, privacy, recurrence
+from questersboard.domain.errors import Invalid
+from questersboard.integrations import ai, blizzard
+from questersboard.integrations import discord_rest as dr
 
 
 # ------------------------------------------------------------------ Blizzard
@@ -32,8 +32,8 @@ def _bz(handler, **over):
 
 @pytest.fixture(autouse=True)
 def _bz_creds(monkeypatch):
-    monkeypatch.setenv("WOWQUESTER_SECRET_BLIZZARD_CLIENT_ID", "FIXTURE-id")
-    monkeypatch.setenv("WOWQUESTER_SECRET_BLIZZARD_CLIENT_SECRET", "FIXTURE-secret")
+    monkeypatch.setenv("QUESTERSBOARD_SECRET_BLIZZARD_CLIENT_ID", "FIXTURE-id")
+    monkeypatch.setenv("QUESTERSBOARD_SECRET_BLIZZARD_CLIENT_SECRET", "FIXTURE-secret")
 
 
 def ch(**kw):

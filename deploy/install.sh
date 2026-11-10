@@ -8,19 +8,19 @@
 # and rolled back automatically if health fails.
 set -euo pipefail
 
-APP=wowquester
-USER_NAME=wowquester
-BASE=/opt/wowquester
-ETC=/etc/wowquester
-UNITS=(wowquester-web.socket wowquester-web.service wowquester-bot.service wowquester-worker.service)
-SERVICES=(wowquester-web wowquester-bot wowquester-worker)
-ADMIN_WRAPPER=/usr/local/sbin/wowquester-admin
+APP=questersboard
+USER_NAME=questersboard
+BASE=/opt/questersboard
+ETC=/etc/questersboard
+UNITS=(questersboard-web.socket questersboard-web.service questersboard-bot.service questersboard-worker.service)
+SERVICES=(questersboard-web questersboard-bot questersboard-worker)
+ADMIN_WRAPPER=/usr/local/sbin/questersboard-admin
 PY=python3.12
 DRY=0
 [[ "${1:-}" == "--dry-run" ]] && DRY=1
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$REPO/src/wowquester/__init__.py")"
+VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$REPO/src/questersboard/__init__.py")"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 REL="$BASE/releases/${VERSION}-${STAMP}"
 
@@ -34,7 +34,7 @@ $PY -c 'import ensurepip' 2>/dev/null || die "python3.12-venv is not installed (
 command -v systemd-creds >/dev/null || die "systemd-creds not found"
 [[ "$(systemctl --version | awk 'NR==1{print $2}')" -ge 254 ]] || die "systemd >= 254 required (ImportCredential=)"
 
-echo "== wowquester $VERSION -> $REL"
+echo "== questersboard $VERSION -> $REL"
 
 # 1. One service account for the three units (no login, no home, no other groups).
 if ! id -u "$USER_NAME" >/dev/null 2>&1; then
@@ -42,7 +42,7 @@ if ! id -u "$USER_NAME" >/dev/null 2>&1; then
       --comment "QuestersBoard" "$USER_NAME"
 fi
 
-# 2. Directories. Config root:wowquester 0640; credentials live in /etc/credstore.encrypted (root 0700).
+# 2. Directories. Config root:questersboard 0640; credentials live in /etc/credstore.encrypted (root 0700).
 run install -d -o root -g root -m 0755 "$BASE" "$BASE/releases"
 run install -d -o root -g "$USER_NAME" -m 0750 "$ETC"
 # /etc/credstore.encrypted is shared with other services: create it if missing, never re-own or re-mode it.
@@ -64,10 +64,10 @@ run $PY -m venv "$REL/venv"
 run "$REL/venv/bin/pip" install --quiet --disable-pip-version-check --no-cache-dir --require-hashes --no-deps -r "$REL/requirements.lock"
 run "$REL/venv/bin/pip" install --quiet --disable-pip-version-check --no-cache-dir --require-hashes --no-deps -r "$REL/deploy/build_requirements.lock"
 run "$REL/venv/bin/pip" install --quiet --disable-pip-version-check --no-cache-dir --no-deps --no-build-isolation "$REL"
-run rm -rf "$REL/src/wowquester.egg-info" "$REL/build"
+run rm -rf "$REL/src/questersboard.egg-info" "$REL/build"
 run chown -R root:root "$REL"
 run chmod -R go-w "$REL"
-run "$REL/venv/bin/wowquester-admin" --config "$ETC/config.toml" check-config --quiet
+run "$REL/venv/bin/questersboard-admin" --config "$ETC/config.toml" check-config --quiet
 
 trap - ERR
 
@@ -82,8 +82,8 @@ run mv -T "$BASE/current.new" "$BASE/current"
 WRAP="$(mktemp)"
 cat > "$WRAP" <<EOF2
 #!/bin/sh
-export WOWQUESTER_CONFIG=\${WOWQUESTER_CONFIG:-$ETC/config.toml}
-exec $BASE/current/venv/bin/wowquester-admin "\$@"
+export QUESTERSBOARD_CONFIG=\${QUESTERSBOARD_CONFIG:-$ETC/config.toml}
+exec $BASE/current/venv/bin/questersboard-admin "\$@"
 EOF2
 run install -o root -g root -m 0755 "$WRAP" "$ADMIN_WRAPPER"
 rm -f "$WRAP"

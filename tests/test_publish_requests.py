@@ -12,12 +12,12 @@ from helpers import event
 from sqlalchemy import select
 from test_event_voice import _drain
 
-from wowquester.config import ConfigHolder
-from wowquester.domain import events
-from wowquester.domain.timeutil import now
-from wowquester.domain.errors import Invalid, InvalidTransition, PermissionDenied
-from wowquester.models import AuditLog, Event
-from wowquester.worker import Worker
+from questersboard.config import ConfigHolder
+from questersboard.domain import events
+from questersboard.domain.timeutil import now
+from questersboard.domain.errors import Invalid, InvalidTransition, PermissionDenied
+from questersboard.models import AuditLog, Event
+from questersboard.worker import Worker
 
 pytestmark = needs_db
 STAFF_CH, EVENT_CH = fake_id(88), fake_id(89)
@@ -83,7 +83,7 @@ def test_web_send_for_publishing_and_moderator_list(seeded):
     from fastapi.testclient import TestClient  # noqa: F401
     from test_web import FakeOAuth, FakeRest, csrf, login
 
-    from wowquester.web.app import create_app
+    from questersboard.web.app import create_app
     cfg = _cfg()
     cfg.raw["web"]["cookie_secure"] = False
     rest = FakeRest()
@@ -122,8 +122,8 @@ def _member(n, days, *caps):
 
 
 def test_everyone_publishes_after_probation():
-    from wowquester.config import ConfigError
-    from wowquester.domain import permissions as perm
+    from questersboard.config import ConfigError
+    from questersboard.domain import permissions as perm
     cfg = make_cfg()
     assert cfg["publishing"] == {"open_to_all": True, "probation_days": 7}
     assert perm.has(cfg, _member(50, 30), "event_creator")                 # older member: may publish
@@ -156,7 +156,7 @@ def test_new_member_is_told_and_can_send_for_publishing(seeded):
 def test_web_probation_message_and_open_publish(seeded):
     from test_web import FakeOAuth, FakeRest, login
 
-    from wowquester.web.app import create_app
+    from questersboard.web.app import create_app
     cfg = _cfg()
     cfg.raw["web"]["cookie_secure"] = False
     rest = FakeRest()

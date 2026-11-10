@@ -1,0 +1,150 @@
+/* QuestersBoard page styles. Layered on top of the host site's stylesheet ([branding] stylesheet).
+   .wq-fallback supplies a minimal dark theme when no host stylesheet is configured. */
+[hidden]{display:none!important}
+.wq-fallback{--bg:#111213;--panel:rgba(26,27,29,.92);--panel-solid:#1a1b1d;--text:#e1e4e8;--muted:#a3a9b1;--dim:#6d737a;
+  --line:rgba(225,228,232,.12);--line-strong:rgba(225,228,232,.24);--sand:#c9b98f;--radius:2px;--wrap:1180px;--nav-h:64px;
+  --font-head:system-ui,sans-serif;--font-mono:ui-monospace,Menlo,Consolas,monospace;
+  margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,sans-serif}
+.wq-fallback a{color:var(--text)}
+.wq-fallback .wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+.wq-fallback .nav{border-bottom:1px solid var(--line);min-height:var(--nav-h);display:flex;align-items:center}
+.wq-fallback .nav .wrap{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;width:100%}
+.wq-fallback .nav ul{display:flex;flex-wrap:wrap;gap:6px 18px;list-style:none;margin:0;padding:0}
+.wq-fallback .nav a{text-decoration:none}
+.wq-fallback .menu-btn{display:none}
+.wq .caveat > p:last-child{margin-bottom:0}
+@media (max-width:760px){.wq .nav ul a.btn{display:flex;justify-content:center}}
+.wq-fallback .wordmark{font-weight:700;letter-spacing:.06em}
+.wq-fallback .panel{background:var(--panel);border:1px solid var(--line);padding:22px;border-radius:var(--radius)}
+.wq-fallback .btn{display:inline-flex;padding:10px 16px;border:1px solid var(--text);background:var(--text);color:#121212;font:600 .78rem/1 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;text-decoration:none;cursor:pointer;border-radius:var(--radius)}
+.wq-fallback .btn.ghost{background:transparent;color:var(--text);border-color:var(--line-strong)}
+.wq-fallback .btns{display:flex;flex-wrap:wrap;gap:10px}
+.wq-fallback .label,.wq-fallback .crumb{font:500 .74rem/1.2 var(--font-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.wq-fallback .section-head{border-bottom:1px solid var(--line);margin-bottom:22px;padding-bottom:10px}
+.wq-fallback .note{color:var(--muted);font-size:.92rem}
+.wq-fallback .facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));list-style:none;padding:0;border:1px solid var(--line)}
+.wq-fallback .facts li{padding:12px 14px;border:1px solid var(--line)}.wq-fallback .facts span{display:block;font:500 .7rem var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.wq-fallback .caveat{border:1px solid var(--line);border-left:3px solid var(--sand);padding:12px 16px;margin:16px 0}
+.wq-fallback .status-chip,.wq-fallback .sched-kind{display:inline-block;font:600 .68rem var(--font-mono);letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--line-strong);padding:4px 8px;margin-right:8px}
+.wq-fallback .chips{display:flex;flex-wrap:wrap;gap:6px 14px;list-style:none;padding:0}
+.wq-fallback .skip{position:absolute;left:-999px}
+.wq-fallback .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+
+/* shared */
+.wq-main{padding-top:calc(var(--nav-h,58px) + 28px);padding-bottom:60px}
+.wq-main h1{margin:.2em 0}
+.wq-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:30px;align-items:start}
+.wq-list{list-style:none;padding:0;margin:0;display:grid;gap:14px}
+.wq-card{display:block;padding:18px 20px}
+.wq-list>li{border-bottom:0}
+.side .panel+.panel{margin-top:0}
+.wq-card h3,.wq-h{margin:.35em 0 .2em;font-size:1.2rem}
+.wq-card h3 a,.wq-h a{text-decoration:none}
+.wq-thumb{float:right;width:120px;height:72px;object-fit:cover;margin:0 0 8px 12px;border:1px solid var(--line)}
+.wq-form{display:grid;gap:12px}
+.wq-form fieldset{border:1px solid var(--line);padding:14px 16px;margin:0;display:grid;gap:12px}
+.wq-form legend{font:600 .72rem var(--font-mono,monospace);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding:0 6px}
+.wq-form label{display:grid;gap:4px}
+.wq-form label:has(> input[type=checkbox]),.wq-form label:has(> input[type=radio]),.wq-check{display:block}
+.wq-form label > input[type=checkbox],.wq-form label > input[type=radio],.wq-check > input{margin:0 8px 0 0;vertical-align:baseline}
+.wq-grid .facts,.wq-grid > section > .facts:first-child{margin-top:0}
+.wq-form input:not([type=checkbox]):not([type=radio]),.wq-form select,.wq-form textarea,.wq-table input{
+  width:100%;box-sizing:border-box;font:inherit;color:var(--text);background:rgba(225,228,232,.06);border:1px solid var(--line-strong);border-radius:var(--radius,2px);padding:9px 10px}
+/* Text boxes grow downwards only, so dragging the corner can't push them over the side column. */
+textarea{resize:vertical;max-width:100%;min-height:3.2em}
+.wq-grid > *{min-width:0}
+.wq-form select option{background:#1a1b1d;color:#e1e4e8}
+.wq-form input:focus-visible,.wq-form select:focus-visible,.wq-form textarea:focus-visible,.btn:focus-visible,.linkish:focus-visible{outline:2px solid var(--accent,#c9b98f);outline-offset:2px}
+.wq-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.wq-table{width:100%;border-collapse:collapse}
+.wq-table th,.wq-table td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.wq-table th{font:500 .7rem var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.wq-roster{list-style:none;padding:0;margin:0 0 14px;display:flex;flex-wrap:wrap;gap:6px 16px}
+.wq-role{margin:16px 0 6px;font-size:1rem}
+.wq-rec{padding:8px 0;border-bottom:1px solid var(--line)}
+.wq-rec:last-child{border-bottom:0}
+.wq-desc{white-space:pre-line;margin-top:18px}
+.wq-inline{display:inline}
+.linkish{background:none;border:0;padding:0;color:var(--text);text-decoration:underline;cursor:pointer;font:inherit}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.wq-story{max-width:none}  /* published chronicle: full page width, same margins as the rest of the page */
+.wq-body{font-size:1.06rem}
+.wq-body img{max-width:100%}
+.wq-tale+.wq-tale{margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--line)}
+.wq-tale>:last-child{margin-bottom:0}
+.wq-story-by{font-size:.95rem;letter-spacing:.08em;color:var(--sand);margin:0 0 .4rem}
+.wq-checks{display:grid;gap:.35rem;border:0;padding:0;margin:0 0 .75rem}
+.wq-checks label{display:flex;gap:.5rem;align-items:center}
+.shot img,.wq-story img{max-width:100%;height:auto;display:block}
+.wq-foot{padding:30px 24px 50px;border-top:1px solid var(--line)}
+.wq-foot a{white-space:nowrap}
+.wq .nav{position:relative}
+.wq-state-in_progress{border-color:var(--accent,#c4493c)}
+.wq-state-cancelled{opacity:.8;text-decoration:line-through}
+.wq details summary{cursor:pointer;margin:10px 0}
+@media (max-width:900px){.wq-grid{grid-template-columns:1fr}.wq-thumb{float:none;width:100%;height:auto;margin:0 0 8px}}
+.wq-meta{margin-top:16px}
+.wq-grid > section{padding:0}
+/* privacy / terms */
+.wq-legal{max-width:72ch}
+.wq-legal h2.sub{margin-top:1.6em}
+.wq-legal ul{padding-left:1.2em}
+.wq-legal li{margin:.35em 0}
+/* refused form: message shown above the restored form */
+.wq-form-error{border-left:3px solid #c0392b;background:rgba(192,57,43,.12);padding:.6em .8em;margin:0 0 1em}
+.wq-form ::placeholder,.wq-table input::placeholder{color:var(--dim,#6d737a);opacity:1;font-style:italic}
+.wq-form :focus::placeholder,.wq-table input:focus::placeholder{color:transparent}
+tr[hidden]{display:none}
+.wq-info{display:inline-flex;align-items:center;justify-content:center;width:1.35em;height:1.35em;margin-left:6px;padding:0;vertical-align:.05em;
+  border:1px solid var(--accent,#c4493c);border-radius:50%;background:transparent;color:var(--accent,#c4493c);font:700 .78rem/1 var(--font-mono,monospace);cursor:pointer}
+.wq-info:hover,.wq-info:focus-visible{background:var(--accent,#c4493c);color:#111;outline:none}
+.wq-pop{max-width:min(420px,calc(100vw - 32px));padding:18px 20px;border:1px solid var(--line-strong,rgba(225,228,232,.24));border-left:3px solid var(--accent,#c4493c);
+  background:var(--panel-solid,#1a1b1d);color:var(--text,#e1e4e8);font-size:.95rem;line-height:1.55;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.wq-pop::backdrop{background:rgba(0,0,0,.45)}
+.wq-pop p{margin:0 0 10px}.wq-pop a{color:var(--text,#e1e4e8)}
+.wq-pop-title{font:600 .74rem var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--muted,#a3a9b1)}
+.wq-char-link{color:inherit;text-decoration:none;border-bottom:1px dashed var(--line-strong,rgba(225,228,232,.24))}
+.wq-char-link:hover,.wq-char-link:focus-visible{border-bottom-color:currentColor}
+.wq-editing{border-color:var(--accent,#c4493c);box-shadow:inset 3px 0 0 var(--accent,#c4493c)}
+.wq-card-actions{margin:6px 0 0}
+/* remove me */
+.btn.danger{background:#a5281c;border-color:#a5281c;color:#fff}
+.btn.danger:hover,.btn.danger:focus-visible{background:#c0392b;border-color:#c0392b}
+.btn.ghost.danger{background:transparent;color:#e0796d;border-color:#a5281c}
+.btn.ghost.danger:hover,.btn.ghost.danger:focus-visible{background:rgba(192,57,43,.16);color:#f0a198}
+.wq-danger-note{border-left:3px solid #c0392b;background:rgba(192,57,43,.12);padding:.7em .9em}
+.wq-remove ul ul{margin:.3em 0 .5em}
+.wq-remove-form{margin-top:1.4em;max-width:32rem}
+.wq-phrase{font-family:var(--mono,monospace);font-weight:700;background:rgba(255,255,255,.08);padding:.05em .4em;border-radius:3px;display:inline}
+.wq-remove-form label[for=confirm]{display:block}
+.wq-legal-layout{display:grid;grid-template-columns:15.5rem minmax(0,72ch);gap:30px;align-items:start}
+.wq-toc{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow:auto;padding:16px 18px;box-sizing:border-box}
+.wq-toc .label{margin:0 0 10px}
+.wq-toc ol{list-style:none;margin:0;padding:0}
+.wq-toc ol ol{margin:2px 0 4px 12px}
+.wq-toc li{margin:0}
+.wq-toc a{display:block;padding:5px 0 5px 10px;border-left:2px solid transparent;color:var(--muted);text-decoration:none;font-size:.92rem;line-height:1.35}
+.wq-toc a:hover{color:var(--text)}
+.wq-toc a[aria-current]{color:var(--text);border-left-color:var(--accent,#c9b98f)}
+.wq-toc-other{margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line);font-size:.88rem}
+.wq-toc-other a{padding-left:0;border:0;color:var(--text);text-decoration:underline}
+.wq-legal [id]{scroll-margin-top:20px}
+.wq-legal li:target{outline:1px solid var(--accent,#c9b98f);outline-offset:6px}
+@media (max-width:900px){.wq-legal-layout{grid-template-columns:1fr}.wq-toc{position:static;max-height:none}}
+/* Back to top: same as the host site's (styles.css "Back to top"); questersboard.js adds it */
+.to-top{position:fixed;right:clamp(18px,3vw,32px);bottom:clamp(18px,3vw,32px);z-index:55;display:inline-flex;align-items:center;gap:.45em;padding:.6rem .9rem;font:500 .76rem var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--text);background:rgba(16,17,18,.82);border:1px solid var(--line-strong);border-radius:var(--radius,2px);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);text-decoration:none;opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .2s ease,transform .2s ease,border-color .2s ease}
+.to-top.is-shown{opacity:1;transform:none;pointer-events:auto}
+.to-top:hover{border-color:var(--accent,var(--sand))}
+.to-top:focus-visible{outline:2px solid var(--accent,var(--sand));outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.to-top{transition:none;transform:none}}
+@media print{.to-top,.wq-toc{display:none}.wq-legal-layout{display:block}}
+.wq-form label[hidden]{display:none}
+.note.wq-warn{color:#e8a33d}
+/* Event cover art: a banner with the faction colour along the left, like the Discord post. */
+.wq-cover{margin:0 0 18px;border-left:4px solid #C9A227;border-radius:6px;overflow:hidden;max-height:320px}
+.wq-cover-horde{border-left-color:#C41E3A}.wq-cover-alliance{border-left-color:#1F6FD8}
+.wq-cover img{display:block;width:100%;height:auto;max-height:320px;object-fit:cover}
+.wq-cover-thumb{border-radius:4px;max-width:100%;height:auto}
+.wq-difficulty{margin-left:8px}
+.wq-banner{margin:0 0 20px;border-radius:6px;overflow:hidden;max-height:360px}
+.wq-banner img{display:block;width:100%;height:auto;max-height:360px;object-fit:cover}

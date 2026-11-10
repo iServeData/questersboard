@@ -1,7 +1,7 @@
 """After login people only ever go back to a page inside the member area (no open redirect)."""
 import pytest
 
-from wowquester.web.routes_member import _local_next
+from questersboard.web.routes_member import _local_next
 
 MP = "/wow/quester"
 

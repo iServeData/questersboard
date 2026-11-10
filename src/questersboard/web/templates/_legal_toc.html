@@ -1,0 +1,16 @@
+{# Table of contents for the privacy and terms pages: [(id, label, [(sub id, sub label), ...]), ...].
+   Sticky beside the text on wide screens, a plain list above it on narrow ones. questersboard.js marks
+   the section being read (aria-current); without the script it is still an ordinary list of links. #}
+{% macro legal_toc(items, other_url, other_label) %}
+<nav class="wq-toc panel" aria-label="On this page" data-toc>
+  <p class="label">On this page</p>
+  <ol>
+    {% for id, label, subs in items %}
+    <li><a href="#{{ id }}">{{ label }}</a>
+      {% if subs %}<ol>{% for sid, slabel in subs %}<li><a href="#{{ sid }}">{{ slabel }}</a></li>{% endfor %}</ol>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  <p class="wq-toc-other"><a href="{{ other_url }}">{{ other_label }}</a></p>
+</nav>
+{% endmacro %}
