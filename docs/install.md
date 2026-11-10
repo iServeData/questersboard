@@ -31,7 +31,7 @@ Review `docs/db_hardening_checklist.md` first. On the host, from a checkout of t
 
 ```sh
 ORG=your-github-org     # the GitHub organization that hosts this repository
-git clone -b prototype "https://github.com/$ORG/wowquester.git" ~/wowquester   # private: uses your GitHub login
+git clone -b prototype "https://github.com/$ORG/questersboard.git" ~/wowquester   # folder keeps the internal name
 cd ~/wowquester
 less deploy/postgres/apply_hardening.sh deploy/postgres/pg_hba.conf deploy/postgres/postgresql_wowquester.conf
 sudo deploy/postgres/apply_hardening.sh
