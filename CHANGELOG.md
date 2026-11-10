@@ -11,7 +11,7 @@
   `talent_tree_columns`), so talents past the old block edge are no longer dropped. Ranks are matched
   by talent id, then by spell id, then by name.
 - **Figurine stand.** The full-body render is transparent, so the grey box behind it is gone and the
-  character stands on a lit round base. Other picture types (bust, avatar) show without the base.
+  character stands on a faint round base. Other picture types (bust, avatar) show without the base.
 - **Bigger pet pictures.** Pet pictures are cropped to the animal (Blizzard's creature pictures have it
   small on a plain backdrop) and shown as 160px cards with the name and family underneath.
 

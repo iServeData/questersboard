@@ -188,8 +188,8 @@ tr[hidden]{display:none}
 .wq-figure{position:relative;display:block;max-width:100%;padding-bottom:6px}
 .wq-gear-portrait{position:relative;z-index:1;display:block;max-width:100%;max-height:440px;width:auto;height:auto;object-fit:contain}
 .wq-on-stand{padding-bottom:22px}
-.wq-on-stand::before{content:"";position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:min(240px,92%);aspect-ratio:4/1;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.55));box-shadow:0 8px 18px rgba(0,0,0,.55)}
-.wq-on-stand::after{content:"";position:absolute;left:50%;bottom:10px;transform:translateX(-50%);width:min(224px,86%);aspect-ratio:4/1;border-radius:50%;background:radial-gradient(ellipse at 50% 45%,rgba(236,240,245,.34),rgba(200,208,218,.16) 55%,rgba(160,170,182,.08) 75%);border:1px solid rgba(255,255,255,.28)}
+.wq-on-stand::before{content:"";position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:min(240px,92%);aspect-ratio:4/1;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(0,0,0,.3));box-shadow:0 6px 14px rgba(0,0,0,.35)}
+.wq-on-stand::after{content:"";position:absolute;left:50%;bottom:10px;transform:translateX(-50%);width:min(224px,86%);aspect-ratio:4/1;border-radius:50%;background:radial-gradient(ellipse at 50% 45%,rgba(236,240,245,.12),rgba(200,208,218,.05) 60%,transparent 80%);border:1px solid rgba(255,255,255,.08)}
 /* Pill tabs over a character's sections (shown by the script). */
 .wq-tabs{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;margin:4px 0 12px;border:1px solid var(--line-strong,rgba(255,255,255,.2));border-radius:999px;background:rgba(0,0,0,.3)}
 .wq-tab{appearance:none;margin:0;padding:6px 16px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;opacity:.75}
