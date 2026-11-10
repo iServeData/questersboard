@@ -1,4 +1,4 @@
-# WoWQuester guide
+# QuestersBoard guide
 
 ## For members
 
@@ -15,7 +15,7 @@
 | Edit, start, end events; attendance; Chronicle; privacy; calendar link; Remove me | web only |
 
 **Getting in.** Open the WoW page and choose "Sign up / my events", or use `/quest list` in Discord.
-Log in with Discord. WoWQuester only learns your Discord ID, username and display name.
+Log in with Discord. QuestersBoard only learns your Discord ID, username and display name.
 
 **Your characters** (My characters).
 - WoW: Forever characters have a ruleset (no realm). Retail characters need a realm.
@@ -24,7 +24,7 @@ Log in with Discord. WoWQuester only learns your Discord ID, username and displa
   any Blizzard check. The edition can only change before the character has been in an event; changes that
   would stop it fitting events it is signed up for list those events with one "Leave these events and save"
   button. If the edition is locked, "Add it as a new character" keeps the original and adds the new one.
-- Pick race and class from the suggestions or type your own. Suggestions follow the edition, faction and race you choose. WoWQuester only refuses a pairing its catalog rules out (for example a Gnome on the Horde, or a Tauren Mage in Forever) and tells you which options are valid. Anything not in the catalog is saved as typed.
+- Pick race and class from the suggestions or type your own. Suggestions follow the edition, faction and race you choose. QuestersBoard only refuses a pairing its catalog rules out (for example a Gnome on the Horde, or a Tauren Mage in Forever) and tells you which options are valid. Anything not in the catalog is saved as typed.
 - In Discord, `/character add` reads "Race and class" as one line ("orc warrior", "night elf druid", even
   "warrior orc"). If you type only one of them, or a pairing that can't exist, nothing is lost: the reply
   offers a picker for the missing or valid choice and saves as soon as you pick. Any other problem (a name
@@ -35,7 +35,7 @@ Log in with Discord. WoWQuester only learns your Discord ID, username and displa
 - "Sync from Battle.net" (if your community turned it on): log in with Battle.net. Characters you already
   have here show "verified as yours" and get their level updated; the others are listed so you can tick
   them and add them (also verified). For Forever, pick the ruleset where Blizzard didn't send it. The list
-  works for `battlenet_import_minutes` (60) after the login. Sync again any time to refresh: WoWQuester
+  works for `battlenet_import_minutes` (60) after the login. Sync again any time to refresh: QuestersBoard
   doesn't keep your Battle.net login; the list is deleted after an hour. The verified mark lasts 30 days
   (Blizzard's rule), so sync again now and then. "Forget my Battle.net link" removes it any time.
 - Forever characters only appear on Battle.net from level 10, after you log out with them once, and the
@@ -64,7 +64,7 @@ phone or desktop calendar. It is shown once. "Turn off my links" revokes it imme
 My events → Privacy, and per event when you join. If you opt out, stories describe you neutrally
 ("a healer"). On a published story, "Stop naming me in this story" takes effect immediately.
 
-**Remove me.** My settings → "Remove me from WoWQuester…" lists exactly what will happen, then asks
+**Remove me.** My settings → "Remove me from QuestersBoard…" lists exactly what will happen, then asks
 you to type `remove me`. Confirming withdraws you from every event, cancels upcoming events you host
 (the people signed up are told), deletes your characters, replaces your names in Chronicle stories
 with a neutral description, and disconnects your Discord login. A receipt shows what was done. It is
@@ -72,7 +72,7 @@ immediate and can't be undone; logging in again starts an empty profile.
 
 ### Privacy and terms
 
-The footer of every WoWQuester page links to **Privacy** (`/wow/quester/privacy`) and **Terms**
+The footer of every QuestersBoard page links to **Privacy** (`/wow/quester/privacy`) and **Terms**
 (`/wow/quester/terms`). Both are public, so they can also be given to the Discord Developer Portal.
 The privacy page is built from the live configuration: retention periods, upload limits and the
 login session length come from config, and Blizzard and AI sections appear only when those
@@ -89,8 +89,8 @@ community, and keep `backup_keep_days` equal to `WOWQUESTER_BACKUP_KEEP_DAYS`.
    dungeon or arena holds 5, a raid or battleground 40, and the role counts can't add up to more than the
    participant limit. **Co-hosts** are typed as Discord usernames separated by commas
    (`@questgiver, @healbot`); a numeric Discord ID also works. A name is found if that person has signed in
-   to WoWQuester once (or, when the bot can search the server, from Discord).
-2. **Publish**: WoWQuester checks the community limit (by default only one WoW event at a time) and that
+   to QuestersBoard once (or, when the bot can search the server, from Discord).
+2. **Publish**: QuestersBoard checks the community limit (by default only one WoW event at a time) and that
    you aren't already in another event then. If it clashes, it says with what. On publish, one post appears
    in the event channel with Join / Tentative / Leave buttons; it updates itself. Its side colour is
    the event's faction. When the community turns on event chat, a thread opens for the people signed up;
@@ -138,7 +138,7 @@ Co-hosts can run the event but aren't chronicle co-authors unless the author add
   get a DM inviting their own story ("Write your story" on the event page; anyone marked absent can't).
   Each story is reviewed on its own. The event has **one** chronicle page and card: the host's story
   first, then co-hosts', then everyone else's in the order they were published.
-- The host chooses the **outcome** (Completed, Partly completed, Not completed, Social): WoWQuester never
+- The host chooses the **outcome** (Completed, Partly completed, Not completed, Social): QuestersBoard never
   guesses it. Other stories need at least "What happened" or a written story.
 - The guided answers become the sections of the story: **The plan**, **What happened** (also the summary
   on the chronicle card), **Best moments**, then **The story** if you write one.

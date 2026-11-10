@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "wowquester"
 dynamic = ["version"]
-description = "WoWQuester: Discord-connected WoW character roster, event scheduler and moderated chronicle for a Discord gaming community"
+description = "QuestersBoard: Discord-connected WoW character roster, event scheduler and moderated chronicle for a Discord gaming community"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = [

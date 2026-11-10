@@ -1,7 +1,7 @@
 # wowquester-worker: outbox worker (Discord posts, DMs, reminders, housekeeping)
 # Same config (/etc/wowquester/config.toml) as the other two units; only the credentials differ.
 [Unit]
-Description=WoWQuester outbox worker (Discord posts, DMs, reminders, housekeeping)
+Description=QuestersBoard outbox worker (Discord posts, DMs, reminders, housekeeping)
 Documentation=file:/opt/wowquester/current/README.md
 Wants=network-online.target
 After=network-online.target time-sync.target postgresql.service

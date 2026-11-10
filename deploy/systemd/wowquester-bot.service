@@ -1,7 +1,7 @@
 # wowquester-bot: Discord interactions (buttons, slash commands)
 # Same config (/etc/wowquester/config.toml) as the other two units; only the credentials differ.
 [Unit]
-Description=WoWQuester Discord interactions (buttons, slash commands)
+Description=QuestersBoard Discord interactions (buttons, slash commands)
 Documentation=file:/opt/wowquester/current/README.md
 Wants=network-online.target
 After=network-online.target time-sync.target postgresql.service

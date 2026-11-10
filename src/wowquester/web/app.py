@@ -168,7 +168,7 @@ class Web:
                      username=d.get("username", ""), joined_at=_parse_when(d.get("joined_at")))
 
     def member_search(self, query: str) -> list[dict]:
-        """Discord guild member search, used when a typed co-host name isn't a known WoWQuester member."""
+        """Discord guild member search, used when a typed co-host name isn't a known QuestersBoard member."""
         if self.rest is None or not hasattr(self.rest, "search_members"):
             return []
         try:
@@ -226,7 +226,7 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
     from . import routes_member, routes_public
 
     cfg = holder.cfg
-    app = FastAPI(title="WoWQuester", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="QuestersBoard", docs_url=None, redoc_url=None, openapi_url=None)
     web = Web(holder, db, oauth, rest, blizzard)
     app.state.web = web
     tpl = Jinja2Templates(directory=str(HERE / "templates"))

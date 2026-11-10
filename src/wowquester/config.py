@@ -62,7 +62,7 @@ class Edition:
     api_status: dict[str, str]
     ruleset_labels: dict[str, str] = field(default_factory=dict)
     difficulties: tuple[str, ...] = ("Normal",)
-    # Realmless editions: Blizzard's numeric ruleset IDs mapped to WoWQuester ruleset keys
+    # Realmless editions: Blizzard's numeric ruleset IDs mapped to QuestersBoard ruleset keys
     # (Battle.net sync reads a character's ruleset as an ID or a name).
     ruleset_api_ids: dict[str, int] = field(default_factory=dict)
 

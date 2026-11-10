@@ -1,4 +1,4 @@
--- (Re)create an empty WoWQuester database with the right ownership, extension and PUBLIC revokes.
+-- (Re)create an empty QuestersBoard database with the right ownership, extension and PUBLIC revokes.
 -- No passwords. Used by restore (scratch drill or approved production restore). Run as postgres over the socket:
 --   sudo -u postgres psql -v ON_ERROR_STOP=1 -v db=wowquester_restore_check -f deploy/postgres/database_init.sql
 -- Roles must already exist (roles.sql).

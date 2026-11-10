@@ -1,6 +1,6 @@
-# WoWQuester
+# QuestersBoard
 
-WoWQuester is a Discord-connected World of Warcraft companion for one gaming community:
+QuestersBoard is a Discord-connected World of Warcraft companion for one gaming community:
 
 - **Character roster** per member (WoW: Forever and Retail), with optional Blizzard checks.
 - **Event scheduler** with role slots, open or approval signups, waitlists, reminders and a
@@ -41,7 +41,7 @@ Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 - No secrets in the repository or in `config.toml`; secrets are systemd credentials.
 - Community-specific names, IDs and URLs live only in the host's `/etc/wowquester/config.toml`.
-- WoW: Forever has no published Blizzard API namespace yet. WoWQuester says so instead of
+- WoW: Forever has no published Blizzard API namespace yet. QuestersBoard says so instead of
   falling back to Retail or Classic data, and never uses `classic-ptr` namespaces.
 - A Blizzard lookup proves a character exists, not that a member owns it. Ownership needs the
   optional Battle.net login.

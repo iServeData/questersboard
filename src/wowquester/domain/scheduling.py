@@ -1,14 +1,14 @@
 """Reservations: the two independent safeguards.
 
 1. Community-wide WoW capacity (event_reservations): at most
-   [scheduling] max_simultaneous_wow_events overlapping WoWQuester events, and nothing
+   [scheduling] max_simultaneous_wow_events overlapping QuestersBoard events, and nothing
    may overlap an exclusive event. Enforced by a PostgreSQL trigger under a global
    advisory lock.
 2. Member-level conflicts (member_reservations): one person cannot organize, co-host
    or be confirmed in two overlapping WoW events, whatever character they bring.
    Enforced by a PostgreSQL exclusion constraint.
 
-Only WoWQuester events are ever written here. Other Discord scheduled events are never
+Only QuestersBoard events are ever written here. Other Discord scheduled events are never
 read, so they cannot block or be blocked.
 
 Which states hold reservations:

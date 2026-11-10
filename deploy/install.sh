@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install or upgrade WoWQuester from this checkout. Run with sudo from the repo root:
+# Install or upgrade QuestersBoard from this checkout. Run with sudo from the repo root:
 #   sudo ./deploy/install.sh            # build a release, switch "current", install units (never enables/starts)
 #   sudo ./deploy/install.sh --dry-run  # print what would happen
 # It does NOT: run database migrations, touch Nginx/DNS/firewall, register Discord commands,
@@ -39,7 +39,7 @@ echo "== wowquester $VERSION -> $REL"
 # 1. One service account for the three units (no login, no home, no other groups).
 if ! id -u "$USER_NAME" >/dev/null 2>&1; then
   run useradd --system --user-group --no-create-home --home-dir /var/lib/$APP --shell /usr/sbin/nologin \
-      --comment "WoWQuester" "$USER_NAME"
+      --comment "QuestersBoard" "$USER_NAME"
 fi
 
 # 2. Directories. Config root:wowquester 0640; credentials live in /etc/credstore.encrypted (root 0700).

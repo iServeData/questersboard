@@ -244,7 +244,7 @@ def test_permissions_report_checks_the_voice_category():
     cfg = _cfg()
     g = cfg.guild_id
     bot_role = fake_id(95)
-    roles = [{"id": g, "permissions": "0"}, {"id": bot_role, "name": "WoWQuester", "permissions": "0"}]
+    roles = [{"id": g, "permissions": "0"}, {"id": bot_role, "name": "QuestersBoard", "permissions": "0"}]
     cat = {"id": CAT, "name": "WoW Voice", "type": 4, "permission_overwrites": []}
     member = {"user": {"id": fake_id(96)}, "roles": [bot_role]}
     rep = discord_audit.build(cfg, g, roles, [cat], member, [], [])

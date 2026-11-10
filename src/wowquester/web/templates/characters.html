@@ -2,7 +2,7 @@
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
 <div class="section-head"><h1>My characters</h1></div>
-<p class="note">Characters are self-reported. A Blizzard API match (where available) confirms the character exists; it does not prove it's yours.{% if bz_enabled %} Character checks use data from Blizzard Entertainment's Battle.net API. WoWQuester isn't made, endorsed or supported by Blizzard.{% endif %}</p>
+<p class="note">Characters are self-reported. A Blizzard API match (where available) confirms the character exists; it does not prove it's yours.{% if bz_enabled %} Character checks use data from Blizzard Entertainment's Battle.net API. QuestersBoard isn't made, endorsed or supported by Blizzard.{% endif %}</p>
 <div class="wq-grid">
 <section>
   {% for c in chars %}
@@ -22,7 +22,7 @@
   {% if bn_enabled %}
   <div class="panel">
     <h2 class="sub">Sync from Battle.net</h2>
-    <p class="note">Optional. Log in with Battle.net; WoWQuester reads your character list once, marks matching characters as verified (and updates their level), and lets you add the others. It doesn't keep your Battle.net login, so sync again whenever you want to refresh. WoW: Forever characters show up from level 10, after you log out with them once. Blizzard checks last {{ cfg["blizzard"].get("data_ttl_days", 30) }} days; sync again to keep the verified mark.</p>
+    <p class="note">Optional. Log in with Battle.net; QuestersBoard reads your character list once, marks matching characters as verified (and updates their level), and lets you add the others. It doesn't keep your Battle.net login, so sync again whenever you want to refresh. WoW: Forever characters show up from level 10, after you log out with them once. Blizzard checks last {{ cfg["blizzard"].get("data_ttl_days", 30) }} days; sync again to keep the verified mark.</p>
     <p class="btns">{% for k, ed in editions.items() if ed.capability("ownership") != "unsupported" %}{% for rg in ed.regions %}<a class="btn ghost" href="{{ mp }}/characters/battlenet?edition={{ k }}&amp;region={{ rg }}">{{ ed.name }} · {{ rg|upper }}</a> {% endfor %}{% endfor %}</p>
     {% if bn_linked %}<form method="post" action="{{ mp }}/characters/battlenet/unlink">{{ csrf_field() }}<button class="linkish" type="submit">Forget my Battle.net link</button></form>{% endif %}
   </div>

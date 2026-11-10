@@ -1,4 +1,4 @@
-/* WoWQuester page styles. Layered on top of the host site's stylesheet ([branding] stylesheet).
+/* QuestersBoard page styles. Layered on top of the host site's stylesheet ([branding] stylesheet).
    .wq-fallback supplies a minimal dark theme when no host stylesheet is configured. */
 [hidden]{display:none!important}
 .wq-fallback{--bg:#111213;--panel:rgba(26,27,29,.92);--panel-solid:#1a1b1d;--text:#e1e4e8;--muted:#a3a9b1;--dim:#6d737a;

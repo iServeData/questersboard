@@ -1,4 +1,4 @@
-// WoWQuester progressive enhancement. Every page works without this file.
+// QuestersBoard progressive enhancement. Every page works without this file.
 (function () {
   "use strict";
   // Phone menu: the community stylesheet hides the menu under 760px until this button opens it.

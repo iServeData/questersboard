@@ -96,7 +96,7 @@ Discord behaviour is UNVERIFIED; the tests use FIXTURE Discord and OAuth.
   person per event, reused). With `invite_dm`, hosts or everyone get theirs by DM on Start, with an
   explanation of what the link is for. The link (`/wow/quester/v/<code>`, or the short domain via the `/v/`
   Nginx rule) shows a plain page; the guest signs in with Discord (`identify guilds.join`, consent screen),
-  is added to the server if needed, and gets a member permission on that event's channel. No WoWQuester
+  is added to the server if needed, and gets a member permission on that event's channel. No QuestersBoard
   profile or session is made and the Discord token is not stored. Each link allows up to
   `max_guests_per_invite` people. Links, guests and bans are deleted when the event ends or is cancelled
   (and by housekeeping for any event no longer running).

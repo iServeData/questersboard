@@ -28,7 +28,7 @@ a disposable local PostgreSQL cluster and tested (`tests/test_db_hardening.py`),
 ## Files
 
 - `deploy/postgres/pg_hba.conf`: complete proposed file. If PostgreSQL already serves something else on
-  the host, merge the marked WoWQuester lines above that service's lines instead.
+  the host, merge the marked QuestersBoard lines above that service's lines instead.
 - `deploy/postgres/postgresql_wowquester.conf`: drop into `/etc/postgresql/16/main/conf.d/`.
 - `deploy/postgres/roles.sql`: roles, database, revokes, extension, default privileges. Idempotent.
 - `deploy/postgres/database_init.sql`: empty database with the right owner (restores and drills).

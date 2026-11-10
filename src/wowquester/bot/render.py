@@ -149,7 +149,7 @@ def event_message(s: Session, cfg: Config, ev: Event) -> dict:
     policy = "Open signup" if ev.signup_policy == "open" else "Organizer approves signups"
     host = s.get(Character, ev.host_character_id) if ev.host_character_id else None
     foot = ([f"Hosted by {host.name}"] if host else []) + [STATE_LABEL.get(ev.state, ev.state), policy,
-                                                           f"WoWQuester #{ev.id}"]
+                                                           f"QuestersBoard #{ev.id}"]
     embed = {"author": {"name": f"{ACTIVITY.get(ev.activity_type, 'Activity')} · {where}"[:256]},
              "title": ev.title[:256], "description": "\n\n".join(desc)[:4000], "color": color(cfg, ev),
              "fields": fields[:25], "footer": {"text": " · ".join(foot)[:2048]}}

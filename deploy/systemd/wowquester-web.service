@@ -1,7 +1,7 @@
 # wowquester-web: web app (member pages, chronicle, feeds, calendars)
 # Same config (/etc/wowquester/config.toml) as the other two units; only the credentials differ.
 [Unit]
-Description=WoWQuester web app (member pages, chronicle, feeds, calendars)
+Description=QuestersBoard web app (member pages, chronicle, feeds, calendars)
 Documentation=file:/opt/wowquester/current/README.md
 Wants=network-online.target
 After=network-online.target time-sync.target postgresql.service

@@ -20,7 +20,7 @@ runs nightly once enabled. Copy backups off the host with your existing off-site
 ## One-time key setup (on an admin workstation, not the host)
 
 ```sh
-gpg --quick-generate-key "WoWQuester backups" ed25519 cert never
+gpg --quick-generate-key "QuestersBoard backups" ed25519 cert never
 gpg --quick-add-key <FPR> cv25519 encr never
 gpg --export --armor <FPR> > wowquester_backup_public.asc          # copy this to the host
 # host:

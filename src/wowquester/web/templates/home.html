@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import roles_line, state_chip %}
 {% block content %}
-<div class="section-head"><span class="label"><span class="num">//</span> WoWQuester</span><h1>Quests &amp; events</h1></div>
+<div class="section-head"><span class="label"><span class="num">//</span> QuestersBoard</span><h1>Quests &amp; events</h1></div>
 {% if actor %}
 <p class="btns"><a class="btn" href="{{ mp }}/events/new">Plan an event</a> <a class="btn ghost" href="{{ mp }}/characters">My characters</a>{% if can('chronicle_reviewer') %} <a class="btn ghost" href="{{ mp }}/review">Review queue</a>{% endif %}</p>
 {% else %}

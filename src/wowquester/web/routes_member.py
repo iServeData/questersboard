@@ -306,7 +306,7 @@ def router(cfg: Config) -> APIRouter:
 
     def _guest_callback(request, w, pre, code: str):
         """A guest signed in: add them to the server if needed and open this event's voice to them.
-        No WoWQuester account or session is created; the Discord token is used once and dropped."""
+        No QuestersBoard account or session is created; the Discord token is used once and dropped."""
         gcode = pre.data["guest_code"]
         w.forget_session(request)               # state is single-use; the cookie is cleared on the reply
         ident = w.oauth.guest_identify(code, w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/oauth/callback")
@@ -869,7 +869,7 @@ def router(cfg: Config) -> APIRouter:
             p = erasure.plan(s, a.member_id)
             for ev in {id(e): e for e in p.leave + p.cancel}.values():
                 s.expunge(ev)
-        return render(request, "remove_me.html", {"title": "Remove me from WoWQuester", "p": p, "error": error,
+        return render(request, "remove_me.html", {"title": "Remove me from QuestersBoard", "p": p, "error": error,
                                                   "phrase": erasure.CONFIRM_PHRASE}, status=status)
 
     @r.get(mp + "/me/remove")

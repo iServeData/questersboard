@@ -255,7 +255,7 @@ def check(s: Session, cfg: Config, e: ChronicleEntry, rev: ChronicleRevision | N
         if not rev.happened.strip():
             probs.append("Say what happened.")
         if rev.outcome == "unknown":
-            probs.append("Choose the outcome. WoWQuester never guesses it.")
+            probs.append("Choose the outcome. QuestersBoard never guesses it.")
     elif not (rev.happened.strip() or rev.body.strip()):
         probs.append("Say what happened from your side (or write your story).")
     people = _people(s, cfg, e)

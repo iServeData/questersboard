@@ -2,9 +2,9 @@
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
 <section class="panel wq-legal wq-remove">
-  <div class="section-head"><h1>Remove me from WoWQuester</h1></div>
+  <div class="section-head"><h1>Remove me from QuestersBoard</h1></div>
   {% if error %}<p class="wq-form-error" role="alert">{{ error }}</p>{% endif %}
-  <p class="wq-danger-note"><strong>This can't be undone.</strong> Once you confirm, your WoWQuester profile is removed straight away and nothing can be restored, not even by an officer. If you log in again later you start with an empty profile.</p>
+  <p class="wq-danger-note"><strong>This can't be undone.</strong> Once you confirm, your QuestersBoard profile is removed straight away and nothing can be restored, not even by an officer. If you log in again later you start with an empty profile.</p>
 
   <h2 class="sub">What will happen</h2>
   <ul>
@@ -18,9 +18,9 @@
     <li>In Chronicle stories{% if p.stories %} ({{ p.stories }}){% endif %}, your character names are replaced with a neutral description such as "a healer", in every saved version. Screenshots from those events go back to a reviewer in case a name plate shows.</li>
     {% if p.calendar_links %}<li>Your private calendar link will stop working.</li>{% endif %}
     {% if p.battlenet %}<li>Your Battle.net link will be forgotten.</li>{% endif %}
-    <li>Your Discord account is disconnected from WoWQuester and you're logged out everywhere.</li>
+    <li>Your Discord account is disconnected from QuestersBoard and you're logged out everywhere.</li>
   </ul>
-  <p class="note">Two things age out on their own: the security log, which notes who did what, is deleted after {{ cfg["retention"]["audit_days"] }} days, and encrypted backups after {{ cfg["legal"]["backup_keep_days"] }} days. Messages already in Discord (other than the event cards, which update) and your Discord account itself aren't part of WoWQuester.</p>
+  <p class="note">Two things age out on their own: the security log, which notes who did what, is deleted after {{ cfg["retention"]["audit_days"] }} days, and encrypted backups after {{ cfg["legal"]["backup_keep_days"] }} days. Messages already in Discord (other than the event cards, which update) and your Discord account itself aren't part of QuestersBoard.</p>
 
   <form method="post" action="{{ mp }}/me/remove" class="wq-form wq-remove-form">{{ csrf_field() }}
     <label for="confirm">To confirm, type <span class="wq-phrase">{{ phrase }}</span> in the box</label>

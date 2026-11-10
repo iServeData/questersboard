@@ -175,7 +175,7 @@ def import_verified(s: Session, cfg: Config, actor: Actor, edition: str, region:
                 s.add(ch)
                 s.flush()
         except IntegrityError:
-            skipped.append((name, "already on WoWQuester (yours or verified by someone else)"))
+            skipped.append((name, "already on QuestersBoard (yours or verified by someone else)"))
             continue
         audit.record(s, actor, "character.import", "character", ch.id, edition=ch.edition)
         added.append(ch.name)

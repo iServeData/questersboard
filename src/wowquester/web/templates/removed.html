@@ -2,7 +2,7 @@
 {% block content %}
 <section class="panel wq-legal">
   <div class="section-head"><h1>Your request is complete</h1></div>
-  <p>Your WoWQuester profile has been removed and you've been logged out. Here's what was done:</p>
+  <p>Your QuestersBoard profile has been removed and you've been logged out. Here's what was done:</p>
   <ul>
     <li>{% if r.left %}Left {{ r.left|length }} event{{ "s" if r.left|length != 1 }}: {{ r.left|join(", ") }}.{% else %}You weren't signed up for any upcoming events.{% endif %}</li>
     {% if r.cancelled %}<li>Cancelled {{ r.cancelled|length }} event{{ "s" if r.cancelled|length != 1 }} you hosted, and told the people signed up: {{ r.cancelled|join(", ") }}.</li>{% endif %}

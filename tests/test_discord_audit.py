@@ -18,7 +18,7 @@ def _cfg(**discord):
 
 def _guild(everyone=V | S | H | E_ | U, review_ows=None, bot_ows=None):
     roles = [{"id": G, "name": "@everyone", "permissions": str(everyone)},
-             {"id": BOTROLE, "name": "WoWQuester", "permissions": str(V | S | H | E_)}]
+             {"id": BOTROLE, "name": "QuestersBoard", "permissions": str(V | S | H | E_)}]
     roles += [{"id": rid, "name": cap, "permissions": "0"} for cap, rid in ROLE.items()]
     ow = lambda i, allow=0, deny=0, t=0: {"id": i, "type": t, "allow": str(allow), "deny": str(deny)}  # noqa: E731
     chans = [
@@ -53,7 +53,7 @@ def test_unregistered_commands_are_reported_first():
     roles, chans, bot = _guild()
     rep = da.build(_cfg(), G, roles, chans, bot, [], [])
     t = rep.text()
-    assert "No WoWQuester slash commands are registered" in t and rep.fixes == 1
+    assert "No QuestersBoard slash commands are registered" in t and rep.fixes == 1
     assert "can use / commands here" in t and "can't see it (private)" in t and "can review here" in t
     assert 'Category "WoW Now and Forever" (4 channels)' in t
 
@@ -68,7 +68,7 @@ def test_missing_use_commands_and_leaky_review_channel_are_fixes():
     assert "needs Use Application Commands here" in t
     assert "can see this private review channel" in t
     assert "Bot needs Send Messages, Embed Links, Read Message History here to post review notices" in t
-    assert "all WoWQuester commands turned OFF for #bot-commands" in t
+    assert "all QuestersBoard commands turned OFF for #bot-commands" in t
     assert rep.fixes >= 4
 
 
@@ -82,11 +82,11 @@ def test_commands_shown_everywhere_until_limited_in_integrations():
     roles, chans, bot = _guild()
     cmds = [{"id": "1", "name": "quest"}]
     t = da.build(_cfg(), G, roles, chans, bot, cmds, []).text()
-    assert "Discord still offers WoWQuester commands in every channel" in t and "turn off All Channels" in t
+    assert "Discord still offers QuestersBoard commands in every channel" in t and "turn off All Channels" in t
     limited = [{"id": fake_id(2), "permissions": [{"id": str(int(G) - 1), "type": 3, "permission": False},
                                                   {"id": BOTCH, "type": 3, "permission": True}]}]
     rep = da.build(_cfg(), G, roles, chans, bot, cmds, limited)
-    assert "Discord only offers WoWQuester commands in: #bot-commands" in rep.text()
+    assert "Discord only offers QuestersBoard commands in: #bot-commands" in rep.text()
     assert rep.fixes == 0 and rep.notes == 0
 
 

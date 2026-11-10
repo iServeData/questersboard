@@ -1,6 +1,6 @@
 # Site widget
 
-`wow_quester.js` adds three things to a static page, all from public WoWQuester JSON:
+`wow_quester.js` adds three things to a static page, all from public QuestersBoard JSON:
 
 - **Upcoming list** (`[data-wq-upcoming]`, `<member_path>/upcoming.json`): title, times, edition,
   ruleset, type, link. The container's existing children are the static fallback.

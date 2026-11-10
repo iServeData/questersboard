@@ -1,8 +1,8 @@
-/* WoWQuester widgets for a static site page. No dependencies, no innerHTML (textContent only).
+/* QuestersBoard widgets for a static site page. No dependencies, no innerHTML (textContent only).
  *
  * 1. Upcoming events list (reads <member_path>/upcoming.json once):
  *   <div data-wq-upcoming data-endpoint="/wow/quester/upcoming.json" data-limit="5"
- *        data-empty="No WoWQuester events scheduled yet.">
+ *        data-empty="No QuestersBoard events scheduled yet.">
  *     <ul class="facts"> ...static facts... </ul>
  *   </div>
  *   Optional: data-keep-fallback="true" keeps the static facts and appends the events after them.

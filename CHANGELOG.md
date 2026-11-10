@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Renamed to QuestersBoard.** The app was called WoWQuester; Blizzard's API terms don't allow its
+  trademarks in an application's name. Pages, messages, docs and the repository now say QuestersBoard.
+  Internal names (the `wowquester` Python package, database, roles, services, folders, credential names
+  and `WOWQUESTER_*` variables) and the web addresses are unchanged, so upgrading needs nothing extra.
+  Entries below keep the old name.
+
 - **Battle.net sync: placeholder names.** Characters Battle.net lists under a temporary name (letters plus
   a code, e.g. awaiting a forced rename) are shown but can't be ticked, with a note to rename them in game
   and sync again. Realm names on the list read "Dark Iron" rather than "dark-iron".

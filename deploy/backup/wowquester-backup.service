@@ -1,5 +1,5 @@
 [Unit]
-Description=WoWQuester encrypted backup
+Description=QuestersBoard encrypted backup
 After=postgresql.service
 
 [Service]

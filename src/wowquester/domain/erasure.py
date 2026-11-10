@@ -1,4 +1,4 @@
-"""Remove me: a member erases their own WoWQuester data. Irreversible.
+"""Remove me: a member erases their own QuestersBoard data. Irreversible.
 
 What happens, in one transaction:
 * every active signup is withdrawn (waitlists move up, hosts and Discord cards update);
@@ -114,7 +114,7 @@ def erase(s: Session, cfg: Config, member_id: int, source: str = "web") -> dict:
     # 2. events they host
     for ev in list(s.scalars(select(Event).where(Event.creator_id == member_id).order_by(Event.start_at))):
         if ev.state in ("scheduled", "in_progress"):
-            events.cancel(s, cfg, act, ev.id, reason="The host has left WoWQuester.")
+            events.cancel(s, cfg, act, ev.id, reason="The host has left QuestersBoard.")
             receipt["cancelled"].append(ev.title)
         elif ev.state == "draft":
             referenced = s.scalar(select(Event.id).where(Event.copied_from_id == ev.id).limit(1))
@@ -203,6 +203,6 @@ def erase(s: Session, cfg: Config, member_id: int, source: str = "web") -> dict:
 def find_member_id(s: Session, discord_id: str) -> int:
     mid = s.scalar(select(Member.id).where(Member.discord_id == str(discord_id), Member.erased_at.is_(None)))
     if mid is None:
-        raise NotFound("No WoWQuester profile for that Discord ID.")
+        raise NotFound("No QuestersBoard profile for that Discord ID.")
     return mid
 

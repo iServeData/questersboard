@@ -48,16 +48,16 @@ def require_member(cfg: Config, actor: Actor) -> None:
     if actor.source == "worker":
         return
     if not actor.in_guild:
-        raise PermissionDenied("You need to be a member of the community Discord server to use WoWQuester.")
+        raise PermissionDenied("You need to be a member of the community Discord server to use QuestersBoard.")
     req = frozenset(cfg["community"].get("member_role_ids", []))
     if req and not (req & actor.role_ids):
-        raise PermissionDenied("Your Discord account does not have the member role WoWQuester requires.")
+        raise PermissionDenied("Your Discord account does not have the member role QuestersBoard requires.")
     if actor.source == "slash":
         allowed = frozenset(cfg["discord"].get("allowed_command_channel_ids", []))
         if allowed and actor.channel_id not in allowed:
-            raise PermissionDenied("WoWQuester commands are not enabled in this channel.")
+            raise PermissionDenied("QuestersBoard commands are not enabled in this channel.")
     if actor.source == "dm" and not cfg["discord"].get("dm_enabled", False):
-        raise PermissionDenied("WoWQuester is not available in direct messages.")
+        raise PermissionDenied("QuestersBoard is not available in direct messages.")
 
 
 def require_publisher(cfg: Config, actor: Actor, what: str = "Publishing events") -> None:

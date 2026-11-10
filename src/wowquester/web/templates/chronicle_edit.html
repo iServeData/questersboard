@@ -11,7 +11,7 @@
   <p class="note">The answers below become the sections of your story, in this order: The plan, What happened, Best moments, then The story (if you write one).</p>
   <label>The plan <span class="note">(what the group set out to do{% if not host_story %}; optional{% endif %})</span> <textarea name="attempted" rows="3">{{ rev.attempted }}</textarea></label>
   <label>What happened <span class="note">(the short version; this is also the summary on the chronicle card)</span> <textarea name="happened" rows="5">{{ rev.happened }}</textarea></label>
-  <label>Outcome <span class="note">(you choose; WoWQuester never guesses{% if not host_story %}. Optional: the host's outcome is shown on the card{% endif %})</span>
+  <label>Outcome <span class="note">(you choose; QuestersBoard never guesses{% if not host_story %}. Optional: the host's outcome is shown on the card{% endif %})</span>
     <select name="outcome">{% for o in outcomes %}<option value="{{ o }}"{% if rev.outcome == o %} selected{% endif %}>{{ {"completed":"Completed","partial":"Partly completed","not_completed":"Not completed","social":"Social / no goal","unknown":"Not chosen yet"}[o] }}</option>{% endfor %}</select></label>
   <label>Best moments <textarea name="moments" rows="3">{{ rev.moments }}</textarea></label>
   <label>The story <span class="note">(optional, longer, in your own words; Markdown works. Shown after the sections above.)</span><textarea name="body" rows="8">{{ rev.body }}</textarea></label>

@@ -6,7 +6,7 @@ Please don't open a public issue for a security problem. Use **Report a vulnerab
 repository's Security tab, which reaches the maintainers privately. Include what you found, how to reproduce it, and the release or commit you're running
 (`git -C ~/wowquester log -1 --oneline` on the host).
 
-## What WoWQuester protects
+## What QuestersBoard protects
 
 - **Secrets**: the Discord bot token and client secret, database passwords, the session key and any
   Blizzard credentials are loaded from systemd encrypted credentials (`LoadCredentialEncrypted=`), never

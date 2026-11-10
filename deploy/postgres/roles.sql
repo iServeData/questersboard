@@ -1,4 +1,4 @@
--- WoWQuester PostgreSQL roles. Run ONCE as the postgres superuser over the local socket.
+-- QuestersBoard PostgreSQL roles. Run ONCE as the postgres superuser over the local socket.
 -- Normally run by deploy/postgres/apply_hardening.sh, which passes the passwords through the
 -- environment (WQ_ADMIN_PW, WQ_APP_PW, WQ_WORKER_PW, WQ_READONLY_PW; never argv, so never in `ps`).
 -- (psql -v admin_pw=... also works for disposable test clusters.)

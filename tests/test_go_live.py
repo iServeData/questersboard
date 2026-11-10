@@ -74,7 +74,7 @@ def test_go_live_switches_url_adds_include_and_checks(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert f'public_base_url = "{URL}"   # was prototype' in (tmp_path / "etc" / "config.toml").read_text()
     site = (tmp_path / "site").read_text()
-    assert f"    {ANCHOR}\n    # WoWQuester" in site and "    include /etc/nginx/snippets/wowquester_location[s].conf;\n" in site
+    assert f"    {ANCHOR}\n    # QuestersBoard" in site and "    include /etc/nginx/snippets/wowquester_location[s].conf;\n" in site
     assert "Live. Next: merge the site" in r.stdout and "CHECK" not in r.stdout
     calls = (tmp_path / "calls.log").read_text()
     assert "systemctl reload nginx" in calls and "systemctl restart wowquester-web wowquester-bot wowquester-worker" in calls

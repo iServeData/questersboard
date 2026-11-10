@@ -8,9 +8,9 @@ the effective permissions the way Discord does (server role permissions, then th
 * @everyone and each configured member role (what an ordinary member gets),
 * each configured capability role (officers, reviewers, trusted authors ...), held together with
   the member role as it would be in practice,
-* the WoWQuester bot itself.
+* the QuestersBoard bot itself.
 
-Each channel is checked against what WoWQuester needs from it: the event channel, the command
+Each channel is checked against what QuestersBoard needs from it: the event channel, the command
 channels, the private review channel. Nothing is changed; the report says what to switch in Discord.
 """
 
@@ -166,13 +166,13 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
     for rid in cap_roles:
         subjects.append(Subject(rname(rid), base | {rid}))
     bot_user = str((bot_member.get("user") or {}).get("id", ""))
-    bot = Subject("WoWQuester bot", frozenset(str(r) for r in bot_member.get("roles", [])), bot_user)
+    bot = Subject("QuestersBoard bot", frozenset(str(r) for r in bot_member.get("roles", [])), bot_user)
     subjects.append(bot)
     members = subjects[1:1 + len(member_roles)] or subjects[:1]       # ordinary members
     reviewers = [Subject(rname(r), base | {r}) for r, caps in cap_roles.items()
                  if set(caps) & {"chronicle_reviewer", "chronicle_editor", "admin"}]
 
-    rep.head("WoWQuester roles")
+    rep.head("QuestersBoard roles")
     for rid, caps in cap_roles.items():
         rep.lines.append(f"  {rname(rid):<30} {', '.join(caps)}")
 
@@ -182,12 +182,12 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
         rep.fix("Couldn't read the registered commands (Discord refused). Re-invite the bot with the "
                 "applications.commands scope.")
     elif not commands:
-        rep.fix("No WoWQuester slash commands are registered in this server, so typing / shows none from "
-                "WoWQuester. Registering them is the sync-commands step, which needs your approval.")
+        rep.fix("No QuestersBoard slash commands are registered in this server, so typing / shows none from "
+                "QuestersBoard. Registering them is the sync-commands step, which needs your approval.")
     else:
         rep.ok("Registered: " + ", ".join("/" + c.get("name", "?") for c in sorted(commands, key=lambda c: c.get("name", ""))))
     for entry in command_perms or []:
-        scope = "all WoWQuester commands" if str(entry.get("id")) == str(d.get("application_id")) else \
+        scope = "all QuestersBoard commands" if str(entry.get("id")) == str(d.get("application_id")) else \
             "/" + next((c.get("name", "?") for c in commands or [] if str(c.get("id")) == str(entry.get("id"))), "a command")
         for pm in entry.get("permissions", []):
             tgt = str(pm.get("id"))
@@ -199,7 +199,7 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
             else:
                 where = f"user {tgt}"
             state = "allowed" if pm.get("permission") else "turned OFF"
-            line = f"Server Settings > Integrations > WoWQuester: {scope} {state} for {where}"
+            line = f"Server Settings > Integrations > QuestersBoard: {scope} {state} for {where}"
             expected = kind == "channel" and ((tgt == all_ch and not pm.get("permission")) or
                                               (tgt in cmd_chs and pm.get("permission")))
             (rep.ok if expected else rep.note if pm.get("permission") else rep.fix)(line)
@@ -209,16 +209,16 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
     shown_in = {str(pm.get("id")) for pm in app_level if pm.get("permission")}
     if commands and cmd_chs:
         if hidden_elsewhere and set(cmd_chs) <= shown_in:
-            rep.ok("Discord only offers WoWQuester commands in: "
+            rep.ok("Discord only offers QuestersBoard commands in: "
                    + ", ".join("#" + chans.get(c, {}).get("name", c) for c in cmd_chs)
                    + " (members with Administrator still see them everywhere).")
         else:
-            rep.note("Discord still offers WoWQuester commands in every channel (they're refused outside the "
-                     "command channel). To hide them: Server Settings > Integrations > WoWQuester > Channels: "
+            rep.note("Discord still offers QuestersBoard commands in every channel (they're refused outside the "
+                     "command channel). To hide them: Server Settings > Integrations > QuestersBoard > Channels: "
                      "turn off All Channels and add " + ", ".join("#" + chans.get(c, {}).get("name", c) for c in cmd_chs)
                      + ".")
     if cmd_chs:
-        rep.ok("WoWQuester only accepts commands in: " + ", ".join("#" + chans.get(c, {}).get("name", c) for c in cmd_chs))
+        rep.ok("QuestersBoard only accepts commands in: " + ", ".join("#" + chans.get(c, {}).get("name", c) for c in cmd_chs))
     else:
         rep.note("[discord] allowed_command_channel_ids is empty, so commands would work in any channel the "
                  "member can use.")
@@ -296,7 +296,7 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
         if cid in cmd_chs or (not cmd_chs and "bot" in ch.get("name", "")):
             for m in members:
                 miss = _missing(p(m), (VIEW, USE_COMMANDS))
-                rep.fix(f"{m.label} needs {', '.join(miss)} here, or WoWQuester's / commands won't appear.") \
+                rep.fix(f"{m.label} needs {', '.join(miss)} here, or QuestersBoard's / commands won't appear.") \
                     if miss else rep.ok(f"{m.label} can use / commands here.")
             miss = _missing(p(bot), (VIEW, SEND, EMBED))
             rep.fix(f"Bot needs {', '.join(miss)} here.") if miss else rep.ok("Bot can reply here.")

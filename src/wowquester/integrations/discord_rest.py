@@ -2,7 +2,7 @@
 
 Errors are classified so the outbox can decide: retry later (RateLimited, Transient),
 repost (Gone: message/channel deleted), or stop and alert (Forbidden: missing permission).
-Allowed mentions are always empty: WoWQuester never pings @everyone/roles/users by text.
+Allowed mentions are always empty: QuestersBoard never pings @everyone/roles/users by text.
 """
 
 from __future__ import annotations

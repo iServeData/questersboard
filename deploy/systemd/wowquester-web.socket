@@ -1,7 +1,7 @@
-# Unix socket for the WoWQuester web app. Owned by systemd so Nginx (www-data) can connect
+# Unix socket for the QuestersBoard web app. Owned by systemd so Nginx (www-data) can connect
 # without being added to the wowquester group (which can read /etc/wowquester).
 [Unit]
-Description=WoWQuester web socket
+Description=QuestersBoard web socket
 PartOf=wowquester-web.service
 
 [Socket]

@@ -280,7 +280,7 @@ class SchedulePolicy(Base):
 
 
 class EventReservation(Base):
-    """Community-wide WoW capacity. Only WoWQuester events live here; other Discord events never do."""
+    """Community-wide WoW capacity. Only QuestersBoard events live here; other Discord events never do."""
     __tablename__ = "event_reservations"
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
     during = mapped_column(TSTZRANGE, nullable=False)

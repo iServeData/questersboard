@@ -40,7 +40,7 @@ Test file names refer to `tests/`.
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
-| Only WoWQuester events count; `max_simultaneous_wow_events` default 1 | Done, tested | `test_scheduling.py::test_default_limit_one_blocks_overlap` |
+| Only QuestersBoard events count; `max_simultaneous_wow_events` default 1 | Done, tested | `test_scheduling.py::test_default_limit_one_blocks_overlap` |
 | Limits above 1 (not an exclusion constraint) | Done, tested | `test_limit_two_and_peak_sweep` |
 | Half-open `[start,end)` UTC + IANA zone, DST | Done, tested | `test_back_to_back_allowed_half_open`, `test_weekly_series_keeps_local_time_across_dst`, `test_nonexistent_local_time_skipped_with_note` |
 | Exclusive events block everything and need the role | Done, tested | `test_exclusive_blocks_all_and_needs_role`, `test_web.py::test_exclusive_checkbox_needs_role` |
@@ -86,7 +86,7 @@ Test file names refer to `tests/`.
 | Requirement | Status | Evidence |
 | --- | --- | --- |
 | `/wow/chronicle/` archive, story pages, latest widget, JSON feed, RSS and Atom | Done, tested | web chronicle test (`feed.json`, `feed.xml`, `feed.atom`, `latest.json`) |
-| Routine publication needs no site commits or deployments | Done | served by WoWQuester behind Nginx; no site files written |
+| Routine publication needs no site commits or deployments | Done | served by QuestersBoard behind Nginx; no site files written |
 | Matches the WoW page design | Done, manual check | reuses the site stylesheet via `[branding]`; previews in `docs/previews/` |
 | WoW page schedule shows upcoming events | Done, manual check | `site_widget/wow_quester.js` + `upcoming.json` (tested in `test_create_publish_join_and_upcoming_json`); site patch kept outside this repo for prototype review |
 | WoW page Community status and Next event cards (Live only after the organiser launches; voice count from the DB once FU-1 exists) | Done, manual check in a local browser | `status.json` (`tests/test_status.py`), `site_widget/wow_quester.js`; site patch kept outside this repo for prototype review |

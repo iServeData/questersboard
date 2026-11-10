@@ -15,13 +15,13 @@
 <div class="wq-legal-layout">
 {{ legal_toc(toc, mp ~ "/privacy", "Privacy") }}
 <article class="panel wq-legal">
-  <div class="section-head"><span class="label"><span class="num">//</span> WoWQuester</span><h1>How it works</h1></div>
-  <p>WoWQuester is where {{ community }} plans World of Warcraft events, keeps track of who's coming, and shares stories afterwards. You can use it on this site or with the community bot in Discord; both do the same things.</p>
+  <div class="section-head"><span class="label"><span class="num">//</span> QuestersBoard</span><h1>How it works</h1></div>
+  <p>QuestersBoard is where {{ community }} plans World of Warcraft events, keeps track of who's coming, and shares stories afterwards. You can use it on this site or with the community bot in Discord; both do the same things.</p>
 
   <h2 class="sub" id="start">Getting started</h2>
   <ul>
     <li>Press <strong>Log in</strong> and sign in with Discord. You need to be a member of the {{ community }} Discord server.</li>
-    <li>The first time, Discord asks you to allow WoWQuester to see your Discord name. That's all it asks for.</li>
+    <li>The first time, Discord asks you to allow QuestersBoard to see your Discord name. That's all it asks for.</li>
     <li>Upcoming events are on the home page and in the event channel in Discord. You can look around without logging in.</li>
   </ul>
 
@@ -30,7 +30,7 @@
     <li>Add the characters you play under <a href="{{ mp }}/characters">My characters</a>, or with <code>/character add</code> in Discord.</li>
     <li>Pick the game edition, then the realm or ruleset, faction, race and class. Suggestions follow what you choose, and a pairing that can't exist in that edition is pointed out.</li>
     <li>Set the roles you can play (for example tank, healer or damage). Events use these when you join.</li>
-    {% if cfg["blizzard"]["enabled"] and cfg["blizzard"]["battlenet_link_enabled"] %}<li><strong>Sync from Battle.net</strong> (on My characters) reads the characters on your Battle.net account once: ones you already have here are marked as verified and get their level updated, and you can tick the others to add them. WoWQuester doesn't keep your Battle.net login, so sync again to refresh. WoW: Forever characters only show up from level 10, after you log out with them once.</li>{% endif %}
+    {% if cfg["blizzard"]["enabled"] and cfg["blizzard"]["battlenet_link_enabled"] %}<li><strong>Sync from Battle.net</strong> (on My characters) reads the characters on your Battle.net account once: ones you already have here are marked as verified and get their level updated, and you can tick the others to add them. QuestersBoard doesn't keep your Battle.net login, so sync again to refresh. WoW: Forever characters only show up from level 10, after you log out with them once.</li>{% endif %}
     <li>Click a character to change it. Some details lock once the character has been in an event, so past events stay accurate; you can add it again as a new character instead.</li>
   </ul>
 
@@ -92,7 +92,7 @@
     <li>Anyone who can use the event's voice can get a guest link with <code>/voice invite</code> in Discord{% if vc.invite_dm == "hosts" %}. Hosts also get their link by direct message when the event starts{% elif vc.invite_dm == "everyone" %}. Everyone in the event also gets their link by direct message when it starts{% endif %}.</li>
     <li>Send the link to the person you're playing with. They open it, sign in with Discord, and are added to the {{ community }} server if they aren't already in it. Then they can join the voice channel.</li>
     <li>Each link works for up to {{ vc.max_guests_per_invite }} {{ "person" if vc.max_guests_per_invite == 1 else "people" }} and only while the event is running. When it ends, the link stops working and guests lose access to the channel.</li>
-    <li>Guests don't need a WoWQuester account, a character or a signup. They stay in the Discord server afterwards unless they leave it.</li>
+    <li>Guests don't need a QuestersBoard account, a character or a signup. They stay in the Discord server afterwards unless they leave it.</li>
     <li>Only share your link with people you're actually playing with. You're responsible for who you invite.</li>
   </ul>
   {% endif %}
@@ -117,8 +117,8 @@
 
   <h2 class="sub" id="privacy">Privacy and Remove me</h2>
   <ul>
-    <li>WoWQuester keeps only what it needs to run events. The <a href="{{ mp }}/privacy">Privacy</a> page explains what that is and how long it's kept.</li>
-    <li>Under My settings, <a href="{{ mp }}/me/remove">Remove me</a> deletes your WoWQuester profile, characters and signups. It doesn't remove you from the Discord server or touch anything you've posted there.</li>
+    <li>QuestersBoard keeps only what it needs to run events. The <a href="{{ mp }}/privacy">Privacy</a> page explains what that is and how long it's kept.</li>
+    <li>Under My settings, <a href="{{ mp }}/me/remove">Remove me</a> deletes your QuestersBoard profile, characters and signups. It doesn't remove you from the Discord server or touch anything you've posted there.</li>
   </ul>
 
   <h2 class="sub" id="limits">Good to know</h2>

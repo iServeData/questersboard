@@ -14,7 +14,7 @@ _ID = re.compile(r"^\d{15,22}$")
 _MENTION = re.compile(r"^<@!?(\d{15,22})>$")
 
 # search(query) -> [{"id": "...", "username": "...", "global_name": "..."}]; set by the web app when the
-# bot token is available (Discord guild member search). Without it, only people who used WoWQuester match.
+# bot token is available (Discord guild member search). Without it, only people who used QuestersBoard match.
 Search = Callable[[str], list[dict]]
 
 
@@ -83,7 +83,7 @@ def resolve(s: Session, tokens: list[str], search: Search | None = None) -> list
                       + ". Use their Discord username (the unique one, shown under their name in Discord).")
     if missing:
         raise Invalid("Couldn't find " + ", ".join(missing) + ". Use their Discord username; if it still "
-                      "isn't found, ask them to sign in to WoWQuester once, or paste their Discord ID.")
+                      "isn't found, ask them to sign in to QuestersBoard once, or paste their Discord ID.")
     seen, out = set(), []
     for i in ids:
         if i not in seen:

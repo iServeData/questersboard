@@ -27,14 +27,14 @@ sudo systemd-run --pipe --wait -p User=wowquester \
 sudo /opt/wowquester/current/deploy/rollback.sh <release that matches revision>
 ```
 
-Every migration has a tested downgrade. Downgrading past `0001` removes all WoWQuester tables; use a
+Every migration has a tested downgrade. Downgrading past `0001` removes all QuestersBoard tables; use a
 restore instead if you want the data.
 
 ## 3. Data (restore)
 
 See `backup_restore.md`. Production restores need `WOWQUESTER_APPROVED_CHANGE=restore-production`.
 
-## Removing WoWQuester entirely
+## Removing QuestersBoard entirely
 
 Nothing else on the host depends on it.
 
@@ -42,7 +42,7 @@ Nothing else on the host depends on it.
 sudo systemctl disable --now wowquester-web.socket wowquester-web wowquester-bot wowquester-worker wowquester-backup.timer
 # remove the `include snippets/wowquester_locations.conf;` line(s), then:
 sudo nginx -t && sudo systemctl reload nginx
-# revert the WoW page patch through the site's normal flow; its static schedule list still works without WoWQuester
+# revert the WoW page patch through the site's normal flow; its static schedule list still works without QuestersBoard
 ```
 
 The database, `/etc/wowquester`, credentials and backups stay until you delete them deliberately.

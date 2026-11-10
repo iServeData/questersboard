@@ -9,9 +9,9 @@
 <div class="wq-legal-layout">
 {{ legal_toc(toc, mp ~ "/terms", "Terms of use") }}
 <article class="panel wq-legal">
-  <div class="section-head"><span class="label"><span class="num">//</span> WoWQuester</span><h1>Privacy</h1></div>
+  <div class="section-head"><span class="label"><span class="num">//</span> QuestersBoard</span><h1>Privacy</h1></div>
   {% if lg.effective_date %}<p class="note">Last updated <time datetime="{{ lg.effective_date }}">{{ lg.effective_date }}</time></p>{% endif %}
-  <p>WoWQuester is the event planner and Chronicle for {{ cfg["community"]["name"] }}'s World of Warcraft players. It is run by {{ operator }} on the community's own server. This page explains, in plain terms, what it keeps about you and why.</p>
+  <p>QuestersBoard is the event planner and Chronicle for {{ cfg["community"]["name"] }}'s World of Warcraft players. It is run by {{ operator }} on the community's own server. This page explains, in plain terms, what it keeps about you and why.</p>
 
   <h2 class="sub" id="short">The short version</h2>
   <ul>
@@ -22,7 +22,7 @@
 
   <h2 class="sub" id="keep">What we keep</h2>
   <ul>
-    <li><strong>Your Discord identity.</strong> When you log in with Discord we ask only for the <code>identify</code> permission. That gives us your Discord user ID, username and display name (the username lets hosts add you as a co-host by name). We do not see your email, your servers or your messages. Your community roles are checked through the community bot when you use WoWQuester; they aren't stored as a profile.</li>
+    <li><strong>Your Discord identity.</strong> When you log in with Discord we ask only for the <code>identify</code> permission. That gives us your Discord user ID, username and display name (the username lets hosts add you as a co-host by name). We do not see your email, your servers or your messages. Your community roles are checked through the community bot when you use QuestersBoard; they aren't stored as a profile.</li>
     <li><strong>Your characters.</strong> What you type in: name, game edition, region, realm or ruleset, faction, race, class, level, spec, preferred role and any notes. You can remove a character at any time.</li>
     <li><strong>Events.</strong> Events you plan, co-host, sign up for or withdraw from, and attendance that an organiser records.</li>
     <li><strong>Chronicle stories.</strong> Story drafts, their revisions and review decisions.</li>
@@ -30,7 +30,7 @@
     <li><strong>A login cookie.</strong> One cookie keeps you logged in for up to {{ cfg["web"]["session_hours"] }} hours. It is only used for this site, it isn't readable by page scripts, and we store only a scrambled (hashed) copy of it.</li>
     <li><strong>Short-lived technical records.</strong> To stop abuse we count requests per minute, which can briefly involve your IP address. A security log records actions such as creating, approving or removing things, and who did them.</li>
     <li><strong>Calendar links.</strong> If you create a personal calendar link, we store only a hashed copy, and you can revoke it.</li>
-    {% if cfg["voice"]["enabled"] %}<li><strong>Event voice channels.</strong> While an event is running, its voice channel lets in the people signed up, and we note on the channel who has access. We don't record who talks, what is said or how long anyone stays; the bot only counts how many people are in the channel.{% if cfg["voice"]["guest_invites"] %} If someone opens a guest voice link, Discord asks them to let us see their Discord name and add them to the {{ cfg["community"]["name"] }} server. We keep their Discord ID only while the event runs and delete it when it ends; the sign-in permission is used once and not kept, and no WoWQuester profile is made for them.{% endif %} If a host removes or bans someone from the channel, the security log records it.</li>{% endif %}
+    {% if cfg["voice"]["enabled"] %}<li><strong>Event voice channels.</strong> While an event is running, its voice channel lets in the people signed up, and we note on the channel who has access. We don't record who talks, what is said or how long anyone stays; the bot only counts how many people are in the channel.{% if cfg["voice"]["guest_invites"] %} If someone opens a guest voice link, Discord asks them to let us see their Discord name and add them to the {{ cfg["community"]["name"] }} server. We keep their Discord ID only while the event runs and delete it when it ends; the sign-in permission is used once and not kept, and no QuestersBoard profile is made for them.{% endif %} If a host removes or bans someone from the channel, the security log records it.</li>{% endif %}
   </ul>
 
   <h2 class="sub" id="public">What the public can see</h2>
@@ -40,7 +40,7 @@
   <h2 class="sub" id="others">Who else is involved</h2>
   <ul>
     <li><strong>Discord</strong> handles login and the community bot, under <a href="https://discord.com/privacy" rel="noopener">Discord's privacy policy</a>.</li>
-    {% if cfg["blizzard"]["enabled"] %}<li><strong>Blizzard.</strong> WoWQuester looks up public game data (such as realms and classes) from Blizzard's API.{% if cfg["blizzard"]["battlenet_link_enabled"] %} If you choose to sync with Battle.net, you sign in on Blizzard's own page (we never see your Battle.net password), we read your character list once (names, level, race, class, faction and ruleset) and don't keep your Battle.net login. The list is stored encrypted only while you pick characters to add ({{ cfg["blizzard"].get("battlenet_import_minutes", 60) }} minutes), then deleted. <strong>Forget my Battle.net link</strong> removes the verified mark from your characters at any time.{% endif %} Blizzard data is kept no longer than {{ cfg["blizzard"].get("data_ttl_days", 30) }} days: a Blizzard check that isn't refreshed by then is cleared, and the character stays as you entered it. Blizzard data is provided "as is", without any guarantee that it's complete, accurate or available. Blizzard's own handling of your data is covered by the <a href="https://www.blizzard.com/en-us/legal/a4380ee5-5c8d-4e3b-83b7-ea26d01a9918/blizzard-entertainment-online-privacy-policy" rel="noopener">Blizzard Privacy Policy</a>. WoWQuester isn't made, endorsed or supported by Blizzard.</li>{% endif %}
+    {% if cfg["blizzard"]["enabled"] %}<li><strong>Blizzard.</strong> QuestersBoard looks up public game data (such as realms and classes) from Blizzard's API.{% if cfg["blizzard"]["battlenet_link_enabled"] %} If you choose to sync with Battle.net, you sign in on Blizzard's own page (we never see your Battle.net password), we read your character list once (names, level, race, class, faction and ruleset) and don't keep your Battle.net login. The list is stored encrypted only while you pick characters to add ({{ cfg["blizzard"].get("battlenet_import_minutes", 60) }} minutes), then deleted. <strong>Forget my Battle.net link</strong> removes the verified mark from your characters at any time.{% endif %} Blizzard data is kept no longer than {{ cfg["blizzard"].get("data_ttl_days", 30) }} days: a Blizzard check that isn't refreshed by then is cleared, and the character stays as you entered it. Blizzard data is provided "as is", without any guarantee that it's complete, accurate or available. Blizzard's own handling of your data is covered by the <a href="https://www.blizzard.com/en-us/legal/a4380ee5-5c8d-4e3b-83b7-ea26d01a9918/blizzard-entertainment-online-privacy-policy" rel="noopener">Blizzard Privacy Policy</a>. QuestersBoard isn't made, endorsed or supported by Blizzard.</li>{% endif %}
     {% if cfg["ai"]["enabled"] %}<li><strong>Writing helper.</strong> If you press the suggest-wording button, the draft text you're writing is sent to an AI service to suggest wording. Nothing is published automatically; you decide what to keep.</li>{% endif %}
   </ul>
   <p>Nobody else receives your data. People with administrator access to the community server can technically read the database, as with any self-hosted service.</p>
@@ -54,14 +54,14 @@
     <li>Security log: {{ ret.audit_days }} days.</li>
     <li>Encrypted backups: {{ lg.backup_keep_days }} days.</li>
     <li>Published Chronicle stories stay up until they are unpublished.</li>
-    <li>Your Discord identity, characters and event history: for as long as you use WoWQuester, or until you use <a href="#remove-me">Remove me</a>.</li>
+    <li>Your Discord identity, characters and event history: for as long as you use QuestersBoard, or until you use <a href="#remove-me">Remove me</a>.</li>
   </ul>
 
   <h2 class="sub" id="choices">Your choices</h2>
   <ul>
     <li>Remove your characters and withdraw from events at any time.</li>
     <li>Turn Chronicle naming off for any event, or stop being named in a published story.</li>
-    <li id="remove-me"><strong>Remove me.</strong> Under My settings &rarr; <a href="{{ mp }}/me/remove">Remove me</a> you can delete your WoWQuester profile yourself. It shows exactly what will happen and asks you to type "remove me" first. It withdraws you from every event, cancels upcoming events you host (telling the people signed up), deletes your characters, replaces your names in Chronicle stories with a neutral description such as "a healer", and disconnects your Discord login. It takes effect straight away and can't be undone. The security log ages out after {{ ret.audit_days }} days and backups after {{ lg.backup_keep_days }} days.</li>
+    <li id="remove-me"><strong>Remove me.</strong> Under My settings &rarr; <a href="{{ mp }}/me/remove">Remove me</a> you can delete your QuestersBoard profile yourself. It shows exactly what will happen and asks you to type "remove me" first. It withdraws you from every event, cancels upcoming events you host (telling the people signed up), deletes your characters, replaces your names in Chronicle stories with a neutral description such as "a healer", and disconnects your Discord login. It takes effect straight away and can't be undone. The security log ages out after {{ ret.audit_days }} days and backups after {{ lg.backup_keep_days }} days.</li>
     <li>If you can no longer log in (for example, you've left the Discord), ask an organiser and they'll do the same removal for you.</li>
     <li>Ask for a copy of what we hold about you.</li>
   </ul>

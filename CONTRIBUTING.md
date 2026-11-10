@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping. WoWQuester is a self-hosted Discord + web companion for one World of Warcraft
+Thanks for helping. QuestersBoard is a self-hosted Discord + web companion for one World of Warcraft
 community; everything deployment-specific lives in that community's `/etc/wowquester/config.toml`, so the
 repository itself works for any community.
 
@@ -13,7 +13,7 @@ uv venv -p 3.12 .venv
 uv pip install -r requirements.lock -r requirements-dev.lock && uv pip install -e . --no-deps
 ```
 
-The tests need a disposable local PostgreSQL (16 or newer) with the four WoWQuester roles. Setting one
+The tests need a disposable local PostgreSQL (16 or newer) with the four QuestersBoard roles. Setting one
 up takes a few commands: see [docs/testing.md](docs/testing.md). Then:
 
 ```sh

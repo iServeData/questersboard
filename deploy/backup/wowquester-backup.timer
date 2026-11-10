@@ -1,5 +1,5 @@
 [Unit]
-Description=Daily WoWQuester encrypted backup
+Description=Daily QuestersBoard encrypted backup
 
 [Timer]
 OnCalendar=*-*-* 04:20:00 UTC

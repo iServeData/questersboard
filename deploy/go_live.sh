@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Go live: serve WoWQuester on the public site instead of the prototype (docs/production_rollout.md, steps 5-6, 8).
+# Go live: serve QuestersBoard on the public site instead of the prototype (docs/production_rollout.md, steps 5-6, 8).
 #   sudo ./deploy/go_live.sh --url https://LIVE_HOST --site-file /etc/nginx/sites-available/SITE \
 #                            --after 'include /etc/nginx/snippets/SOME_EXISTING_INCLUDE.conf;'
 #   sudo ./deploy/go_live.sh --rollback /root/wowquester_go_live_STAMP.tgz
@@ -55,7 +55,7 @@ if [ -n "$ROLLBACK" ]; then
   nginx -t -q || stop "nginx -t fails after restoring; nothing reloaded. Check the files listed above."
   systemctl reload nginx
   restart_and_health || echo "health check reported a problem; see above"
-  echo "Restored. WoWQuester is back on its previous address."
+  echo "Restored. QuestersBoard is back on its previous address."
   exit 0
 fi
 
@@ -75,7 +75,7 @@ CURRENT="$(grep -E '^[[:space:]]*public_base_url[[:space:]]*=' "$CONF" | sed -E 
 echo "public_base_url now: $CURRENT"
 echo "will become:         $URL"
 if grep -qF "$LINE" "$SITE"; then
-  echo "$SITE already includes WoWQuester"
+  echo "$SITE already includes QuestersBoard"
 else
   [ "$(grep -cF "$AFTER" "$SITE" || true)" = 1 ] || stop "$SITE should have exactly one line: $AFTER"
 fi
@@ -111,7 +111,7 @@ echo "ok"
 say "4/6 Nginx include"
 if ! grep -qF "$LINE" "$SITE"; then
   tmp="$(mktemp)"
-  awk -v a="$AFTER" -v l="$LINE" '{ print } index($0, a) { match($0, /^[ \t]*/); print substr($0, 1, RLENGTH) "# WoWQuester (/wow/quester/, /wow/chronicle/): its own service on a unix socket"; print substr($0, 1, RLENGTH) l }' "$SITE" > "$tmp"
+  awk -v a="$AFTER" -v l="$LINE" '{ print } index($0, a) { match($0, /^[ \t]*/); print substr($0, 1, RLENGTH) "# QuestersBoard (/wow/quester/, /wow/chronicle/): its own service on a unix socket"; print substr($0, 1, RLENGTH) l }' "$SITE" > "$tmp"
   diff -u "$SITE" "$tmp" | sed -n '3,$p' || true
   cat "$tmp" > "$SITE"; rm -f "$tmp"
 fi

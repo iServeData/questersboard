@@ -189,7 +189,7 @@ def test_housekeeping_drops_guest_rows_of_finished_events(seeded, worker_db, mon
 def test_permissions_report_checks_create_invite():
     cfg = _cfg()
     g, bot_role = cfg.guild_id, fake_id(95)
-    roles = [{"id": g, "permissions": "0"}, {"id": bot_role, "name": "WoWQuester", "permissions": "0"}]
+    roles = [{"id": g, "permissions": "0"}, {"id": bot_role, "name": "QuestersBoard", "permissions": "0"}]
     cat = {"id": CAT, "name": "WoW Voice", "type": 4,
            "permission_overwrites": [{"id": bot_role, "type": 0, "allow": str(voice.BOT), "deny": "0"}]}
     member = {"user": {"id": fake_id(96)}, "roles": [bot_role]}
@@ -253,7 +253,7 @@ def test_guest_web_flow(seeded, worker_db, monkeypatch, tmp_path):
     r = c.get(f"/wow/quester/v/{code}")
     assert r.status_code == 200 and "Mine run" in r.text and "Continue with Discord" in r.text
     assert 'content="noindex,nofollow"' in r.text and "og:url" not in r.text      # links stay out of search
-    assert "You don&#39;t need a WoWQuester account" in r.text or "You don't need a WoWQuester account" in r.text
+    assert "You don&#39;t need a QuestersBoard account" in r.text or "You don't need a QuestersBoard account" in r.text
     r = c.get(f"/wow/quester/v/{code}/go")
     assert r.status_code == 303 and "scope=identify guilds.join" in r.headers["location"]
     assert "prompt=consent" in r.headers["location"]

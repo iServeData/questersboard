@@ -1,6 +1,6 @@
 # /etc/wowquester/config.toml   (owner root:wowquester, mode 0640)
 #
-# WoWQuester settings. NO SECRETS in this file. Tokens, client secrets and
+# QuestersBoard settings. NO SECRETS in this file. Tokens, client secrets and
 # database passwords are systemd credentials (see docs/configuration.md).
 # Discord IDs MUST be quoted strings.
 #
@@ -18,7 +18,7 @@ default_timezone = "America/Los_Angeles"      # IANA name
 common_timezones = ["America/Los_Angeles", "America/Denver", "America/Chicago", "America/New_York",
                     "Europe/London", "Europe/Berlin", "Australia/Sydney"]
 public_base_url = "https://community.example.org"
-# Optional Discord role every member must hold to use WoWQuester at all.
+# Optional Discord role every member must hold to use QuestersBoard at all.
 # Empty = any member of the guild.
 member_role_ids = []
 
@@ -217,7 +217,7 @@ data_ttl_days = 30                            # Blizzard checks not refreshed fo
 battlenet_profile_lookups = 25                # per login: max character-profile reads to fill in a missing ruleset (0 = none)
 
 # ---------------------------------------------------------------------------
-# Game editions. Each WoWQuester event and character belongs to exactly one.
+# Game editions. Each QuestersBoard event and character belongs to exactly one.
 # Namespaces use {region}. Leave a namespace empty when Blizzard has not
 # published one: the feature then shows "not available" instead of guessing.
 # api_status values: verified | unverified | unsupported

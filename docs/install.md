@@ -1,8 +1,8 @@
-# Installing WoWQuester
+# Installing QuestersBoard
 
 **Nothing in this file has been run on the production host.** Each numbered step changes the host
 and needs explicit approval. Steps are ordered so the community site and other services keep running
-throughout; WoWQuester starts in the prototype environment first and goes live only after review.
+throughout; QuestersBoard starts in the prototype environment first and goes live only after review.
 
 Target: Ubuntu 24.04 with systemd ≥ 254 (for `ImportCredential=`), Python 3.12, PostgreSQL 16, the
 existing Nginx.
@@ -55,7 +55,7 @@ It creates the `wowquester` system user, `/etc/wowquester/` (installs the exampl
 exists), the release venv from `requirements.lock` with `--require-hashes`, `/usr/local/sbin/wowquester-admin`,
 and the four units. It does **not** enable or start them, migrate, touch Nginx, or register commands.
 
-Host-specific isolation drop-in (keeps WoWQuester away from other services' files; kept outside the repo):
+Host-specific isolation drop-in (keeps QuestersBoard away from other services' files; kept outside the repo):
 
 ```sh
 for u in web bot worker; do
@@ -108,9 +108,9 @@ creates it only if it is missing and never changes its owner or mode.
 
 ## 5. Discord application (approval: Discord)
 
-In the Discord developer portal for the WoWQuester application:
+In the Discord developer portal for the QuestersBoard application:
 - OAuth2 redirect: `<public_base_url>/wow/quester/oauth/callback`; scope `identify` only.
-- Bot: no privileged intents (WoWQuester uses the Guilds intent only).
+- Bot: no privileged intents (QuestersBoard uses the Guilds intent only).
 - Invite with scopes `bot applications.commands` and permissions **84992**
   (View Channel 1024 + Send Messages 2048 + Embed Links 16384 + Read Message History 65536),
   limited to the event channel (and review channel) by channel overrides.
@@ -154,7 +154,7 @@ registers slash commands on its own (that is step 9). Backups are a separate ste
 One instance serves one host, so while testing on the prototype set `[community] public_base_url` to the
 prototype host and add `https://PROTOTYPE_HOST/wow/quester/oauth/callback` as a second OAuth2 redirect in the
 Discord portal (keep the live one). The prototype server block is already behind its sign-in gate; a
-server-level `auth_request` is inherited by the WoWQuester locations.
+server-level `auth_request` is inherited by the QuestersBoard locations.
 
 ```sh
 sudo install -m 0644 -o root -g root deploy/nginx/wowquester_locations.conf /etc/nginx/snippets/wowquester_locations.conf

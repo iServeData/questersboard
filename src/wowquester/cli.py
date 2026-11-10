@@ -334,7 +334,7 @@ def main(argv=None) -> int:
     cr = sub.add_parser("calendar-revoke")
     cr.add_argument("discord_id")
     cr.set_defaults(fn=cmd_calendar_revoke)
-    em = sub.add_parser("erase-member", help="remove a member's WoWQuester data (dry run unless --yes)")
+    em = sub.add_parser("erase-member", help="remove a member's QuestersBoard data (dry run unless --yes)")
     em.add_argument("discord_id")
     em.add_argument("--yes", action="store_true")
     em.set_defaults(fn=cmd_erase_member)

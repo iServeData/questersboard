@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install step 2: harden a fresh PostgreSQL cluster and create the WoWQuester roles and database.
+# Install step 2: harden a fresh PostgreSQL cluster and create the QuestersBoard roles and database.
 #
 #   sudo deploy/postgres/apply_hardening.sh            # apply
 #   sudo deploy/postgres/apply_hardening.sh --check    # read-only verification only
@@ -13,7 +13,7 @@
 #                                                       turns them into systemd credentials and shreds them
 # Passwords never appear on a command line or in the PostgreSQL log.
 #
-# Undo (before any WoWQuester data exists):
+# Undo (before any QuestersBoard data exists):
 #   sudo cp -p /etc/postgresql/16/main/pg_hba.conf.pre_wowquester /etc/postgresql/16/main/pg_hba.conf
 #   sudo rm /etc/postgresql/16/main/conf.d/50-wowquester.conf && sudo systemctl restart postgresql@16-main
 #   sudo -u postgres psql -c 'DROP DATABASE wowquester' -c 'DROP ROLE wowquester_app, wowquester_worker, wowquester_readonly, wowquester_admin'

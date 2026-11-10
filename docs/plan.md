@@ -1,4 +1,4 @@
-# WoWQuester plan and architecture
+# QuestersBoard plan and architecture
 
 Status: implemented and tested locally. Nothing has been deployed. Every production step in
 `docs/install.md` needs separate approval.
@@ -7,17 +7,17 @@ Status: implemented and tested locally. Nothing has been deployed. Every product
 
 **Existing host and site (inspected before coding).**
 - The community site is plain static HTML (no Hugo) published from Git by server-side timers.
-  Routine chronicle publication therefore must not touch the site repository at all: WoWQuester
+  Routine chronicle publication therefore must not touch the site repository at all: QuestersBoard
   serves `/wow/chronicle/` dynamically from its own database through the existing Nginx.
 - The WoW page already has a hand-written schedule list. It keeps that list as the no-JS /
-  service-down fallback; `site_widget/wow_quester.js` replaces it with upcoming WoWQuester events
+  service-down fallback; `site_widget/wow_quester.js` replaces it with upcoming QuestersBoard events
   when `/wow/quester/upcoming.json` answers. That page change is a separate site patch that goes
   through the site's normal prototype review.
-- Other community bots and services on the host have their own users, units and paths. WoWQuester
+- Other community bots and services on the host have their own users, units and paths. QuestersBoard
   gets its own OS user, units, database, socket and config directory, and its units hide the other
   services' paths (`InaccessiblePaths=`, plus a host-specific isolation drop-in).
-- The site's shared schedule data file drives other games' announcers. WoWQuester does not write it;
-  WoW events come only from WoWQuester, so they are never double-announced.
+- The site's shared schedule data file drives other games' announcers. QuestersBoard does not write it;
+  WoW events come only from QuestersBoard, so they are never double-announced.
 
 **Blizzard API (checked 2026-10-31).**
 - WoW: Forever has no published API namespace yet; community developers are still asking Blizzard
@@ -68,14 +68,14 @@ Blizzard API <── lookups (web), reference import (worker/CLI)
 Two independent safeguards, both transactional:
 
 1. **Community capacity** (`event_reservations`): at most `[scheduling] max_simultaneous_wow_events`
-   overlapping WoWQuester events, and nothing may overlap an exclusive event. A trigger takes a global
+   overlapping QuestersBoard events, and nothing may overlap an exclusive event. A trigger takes a global
    advisory lock and does a peak sweep over overlapping intervals. An exclusion constraint alone can
    only express "no overlap" (a limit of 1), so it isn't used for capacity.
 2. **Member conflicts** (`member_reservations`): one person can't organize, co-host or be confirmed in
    two overlapping WoW events, across all their characters. This *is* a pure no-overlap rule, so it is
    a `btree_gist` exclusion constraint on `(member_id, tstzrange [start,end))`.
 
-Only WoWQuester events are written there. Other Discord scheduled events are never read. Drafts,
+Only QuestersBoard events are written there. Other Discord scheduled events are never read. Drafts,
 pending, tentative and waitlisted signups reserve nothing. Intervals are half-open UTC with the event's
 IANA zone kept for display, recurrence and DST.
 
