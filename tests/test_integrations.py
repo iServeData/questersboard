@@ -390,3 +390,24 @@ def test_probe_media_reads_one_spec_tree_and_its_class_tree():
     assert by["spec-tree"]["status"] == "200" and by["spec-tree"]["shape"].startswith("Marksmanship")
     assert "display_col: 1" in "\n".join(by["spec-tree"]["tree"])
     assert by["class-tree"]["status"] == "200" and by["class-tree"]["shape"].startswith("Hunter")
+
+
+def test_probe_media_checks_a_hunter_pets_picture():
+    inner = _media_handler()
+
+    def h(req):
+        p = req.url.path
+        if p.endswith("/hunter-pets"):
+            return httpx.Response(200, json={"hunter_pets": [{"name": "Fixture Pet", "creature_display": {
+                "id": 31, "key": {"href": "https://us.api.blizzard.com/data/wow/media/creature-display/31?namespace=static-fixture-us"}}}]})
+        if p == "/data/wow/media/creature-display/31":
+            return httpx.Response(200, json={"assets": [{"key": "zoom", "value": "https://render.worldofwarcraft.com/us/npcs/zoom/creature-display-31.jpg"}]})
+        if p.startswith("/us/npcs/"):
+            return httpx.Response(200, content=b"\xff\xd8PET", headers={"content-type": "image/jpeg"})
+        return inner(req)
+    b, calls = _bz(h)
+    rows = b.probe_media("forever", "us", "Zulmara Ashveil")
+    i = next(n for n, r in enumerate(rows) if r["check"] == "pet-display-media")
+    assert "display id=31" in next(r for r in rows if r["check"] == "pet-entry")["shape"]
+    assert rows[i]["status"] == "200" and rows[i]["namespace"] == "static-fixture-us"
+    assert rows[i + 1]["check"].strip() == "icon-image" and rows[i + 1]["status"] == "200"

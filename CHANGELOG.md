@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Hunter pet pictures.** When Blizzard lists a pet's creature display, its picture is shown beside
+  the pet's name (fetched by QuestersBoard like gear icons, with the Pets group's sharing). Pets
+  without one keep the text-only line. `probe-media` now checks a pet's display and picture too.
 - **Refresh all and one sharing choice at the top of My characters.** One press re-imports every
   imported character (same groups, oldest first, up to `[blizzard] refresh_all_max` per press), and
   "Who can see it" can set every group of every character at once. Each character keeps its own

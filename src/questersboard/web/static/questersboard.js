@@ -373,6 +373,12 @@
     });
     rows.forEach(function (s) { s.addEventListener("change", function () { all.value = ""; }); });
   });
+  // Pet pictures: if Blizzard doesn't send one, drop the empty box and keep the text.
+  document.querySelectorAll("img[data-hide-broken]").forEach(function (img) {
+    var gone = function () { img.remove(); };
+    if (img.complete && img.naturalWidth === 0 && img.getAttribute("src")) { gone(); }
+    img.addEventListener("error", gone);
+  });
   // Top of My characters: Save needs a level picked first.
   document.querySelectorAll("select[data-bulk-level]").forEach(function (sel) {
     var btn = sel.form && sel.form.querySelector("[data-bulk-share]");

@@ -325,9 +325,11 @@ class Blizzard:
             return None
         return r.content, ctype
 
-    def media_icon(self, s: Session | None, region: str, path: str, ns: str) -> str | None:
-        """The icon URL from a media answer (/data/wow/media/item/{id} or /spell/{id}), or None. Cached
-        like other static data; only URLs on [blizzard] render_image_hosts are returned."""
+    def media_icon(self, s: Session | None, region: str, path: str, ns: str,
+                   keys: tuple[str, ...] = ("icon",)) -> str | None:
+        """The image URL from a media answer (/data/wow/media/item/{id}, /spell/{id}; or
+        /creature-display/{id} with keys=("zoom",) for a hunter pet), or None. Cached like other
+        static data; only URLs on [blizzard] render_image_hosts are returned."""
         if not path.startswith("/data/wow/media/"):
             return None
         try:
@@ -337,14 +339,14 @@ class Blizzard:
         if st != 200:
             return None
         assets = [a for a in body.get("assets") or [] if isinstance(a, dict) and isinstance(a.get("value"), str)]
-        icon = next((a for a in assets if a.get("key") == "icon"), None)
+        icon = next((a for k in keys for a in assets if a.get("key") == k), None)
         if icon is None:
             return None
         u = urlsplit(icon["value"])
         hosts = set(self.bz.get("render_image_hosts", ["render.worldofwarcraft.com"]))
         return icon["value"][:300] if u.scheme == "https" and u.hostname in hosts else None
 
-    def fetch_icon(self, url: str) -> tuple[bytes, str] | None:
+    def fetch_icon(self, url: str, max_bytes: int = 200_000) -> tuple[bytes, str] | None:
         """An item or spell icon (game art, the same for everyone), kept in a small in-memory cache so a
         page full of icons doesn't ask Blizzard again for each visitor. [blizzard] icon_cache_hours
         (max 24) and icon_cache_entries size it; the cache is per process and never written to disk."""
@@ -356,7 +358,7 @@ class Blizzard:
             if hit and hit[0] > t:
                 self._icons.move_to_end(url)
                 return hit[1]
-        got = self.fetch_image(url, max_bytes=200_000)
+        got = self.fetch_image(url, max_bytes=max_bytes)
         if got and limit > 0 and hours > 0:
             with self._icon_lock:
                 self._icons[url] = (t + hours * 3600, got)
@@ -539,6 +541,18 @@ class Blizzard:
             out.append({"check": "talent-entry", "path": "", "namespace": pns, "status": "-",
                         "shape": "no talent with a spell id (no points spent yet?)"})
 
+        # Hunter pets: does the pet list carry a display, and does its picture come through?
+        pets = check("hunter-pets", base + "/hunter-pets", pns, tree=False)
+        pet = next((p for p in pets.get("hunter_pets") or [] if isinstance(p, dict)), None)
+        if pet:
+            out.append({"check": "pet-entry", "path": "(from the hunter-pets page)", "namespace": pns,
+                        "status": "200", "shape": f"display id={(pet.get('creature_display') or {}).get('id')}",
+                        "tree": _tree(pet, max_depth=3)})
+            did = (pet.get("creature_display") or {}).get("id")
+            if isinstance(did, int):
+                dpath, dns = linked(pet.get("creature_display"), f"/data/wow/media/creature-display/{did}")
+                self._probe_icon(out, check("pet-display-media", dpath, dns), keys=("zoom",))
+
         # Tree layouts: Retail-style talent trees, the older talent index, and the specialization list.
         index = {}
         for label, path in (("talent-tree-index", "/data/wow/talent-tree/index"),
@@ -561,10 +575,10 @@ class Blizzard:
                 out[-1]["shape"] = f"{_label(pick)}  |  " + out[-1].get("shape", "")
         return out
 
-    def _probe_icon(self, out: list[dict], media: dict) -> None:
+    def _probe_icon(self, out: list[dict], media: dict, keys: tuple[str, ...] = ("icon",)) -> None:
         """For a media answer: is the icon on an allowed image host, and does it download as an image?"""
         assets = [a for a in media.get("assets") or [] if isinstance(a, dict)]
-        icon = next((a for a in assets if a.get("key") == "icon"), assets[0] if assets else None)
+        icon = next((a for k in keys for a in assets if a.get("key") == k), assets[0] if assets else None)
         if not icon or not isinstance(icon.get("value"), str):
             return
         u = urlsplit(icon["value"])

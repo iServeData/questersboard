@@ -327,3 +327,34 @@ def test_bulk_refresh_keeps_groups_split_out_later():
         shares = {"progress": "members"}
     assert profiles._bulk_groups(P()) == {"gear", "progress", "pets"}
     assert profiles.share_choice(P(), "pets") == "members" and profiles.share_choice(None, "pets") == "private"
+
+
+@needs_db
+def test_hunter_pets_show_blizzards_picture_through_questersboard(seeded, tmp_path, monkeypatch):
+    def h(req):
+        p = req.url.path
+        if p == BASE + "/hunter-pets":
+            return httpx.Response(200, json={"hunter_pets": [
+                {"name": "Fixture Pet", "level": 17, "creature": {"name": "Fixture Beast"},
+                 "creature_display": {"id": 4242}},
+                {"name": "Fixture Plain", "level": 9}]})                       # no display: text only
+        if p == "/data/wow/media/creature-display/4242" and req.url.params.get("namespace") == "static-forever-us":
+            return httpx.Response(200, json={"assets": [{"key": "zoom", "value": f"{ICON_HOST}/creature-display-4242.jpg"}]})
+        if p.endswith("/creature-display-4242.jpg"):
+            return httpx.Response(200, content=b"\xff\xd8PET", headers={"content-type": "image/jpeg"})
+        return _handler(req)
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, h)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(145), "Zulmara Ashveil").id
+    c = login(a, 145)
+    assert c.post(f"/wow/quester/characters/{cid}/details",
+                  data={"csrf": csrf(c), "groups": ["pets"]}).status_code == 303
+    with seeded.tx() as s:
+        g = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()
+    assert "_display" not in str(g) and g["pets"][0]["icon"].endswith("creature-display-4242.jpg")
+    page = c.get(f"/wow/quester/characters/{cid}/view").text
+    assert page.count('class="wq-pet-img"') == 1 and f"/wow/quester/characters/{cid}/icon/pets/0?v=" in page
+    r = c.get(f"/wow/quester/characters/{cid}/icon/pets/0")
+    assert r.status_code == 200 and r.content == b"\xff\xd8PET"
+    assert c.get(f"/wow/quester/characters/{cid}/icon/pets/1").status_code == 404
+    assert login(a, 146).get(f"/wow/quester/characters/{cid}/icon/pets/0").status_code == 404   # Only me

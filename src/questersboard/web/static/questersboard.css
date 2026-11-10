@@ -245,3 +245,8 @@ tr[hidden]{display:none}
 .wq-select::after{content:"";position:absolute;right:14px;top:50%;width:8px;height:8px;margin-top:-6px;
   border-right:2px solid var(--text,#e1e4e8);border-bottom:2px solid var(--text,#e1e4e8);transform:rotate(45deg);pointer-events:none}
 @media (max-width:560px){.wq-select{flex:1 1 100%}.wq-bulk-row .btn{flex:1 1 100%}}
+
+/* Hunter pets: Blizzard's picture beside the name, when there is one. */
+.wq-pets{list-style:none;padding-left:0}
+.wq-pets li{display:flex;align-items:center;gap:12px;margin:0 0 8px}
+.wq-pet-img{width:64px;height:64px;object-fit:cover;border:1px solid var(--line-strong);border-radius:var(--radius,2px);background:rgba(225,228,232,.06);flex:0 0 auto}

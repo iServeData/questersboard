@@ -265,7 +265,8 @@ def _progress(pages: dict[str, dict | None]) -> dict:
 
 def _pets(body) -> list | None:
     """Hunter pets (their own group, so they can be shared separately from Progress)."""
-    pets = [{"name": p.get("name"), "level": p.get("level"), "family": pet_family(p)}
+    pets = [{"name": p.get("name"), "level": p.get("level"), "family": pet_family(p),
+             **({"_display": d} if isinstance(d := (p.get("creature_display") or {}).get("id"), int) else {})}
             for p in body.get("hunter_pets") or [] if isinstance(p, dict) and p.get("name")]
     return pets or None
 
@@ -370,10 +371,13 @@ def _resolve_icons(s: Session, cfg: Config, bz, ed, region: str, data: dict) -> 
     bzc = cfg["blizzard"]
     gear = data.get("gear") or []
     refs = [(row, row.pop("_media", None)) for row in gear]
+    pets = [(row, row.pop("_display", None)) for row in data.get("pets") or [] if isinstance(row, dict)]
     if not bzc.get("detail_icons", True):
         return
     sns = ed.namespace("static", region)
     jobs = [(row, ref["path"], ref["ns"]) for row, ref in refs if ref and _same_static(ref["ns"], sns)]
+    # Hunter pets: the creature display's picture ("zoom" render), when Blizzard lists one.
+    jobs += [(row, f"/data/wow/media/creature-display/{did}", sns) for row, did in pets if did and sns]
     for grp in (data.get("talents") or {}).get("groups") or []:
         for sp in grp.get("specs") or []:
             for t in sp.get("talents") or []:
@@ -387,7 +391,8 @@ def _resolve_icons(s: Session, cfg: Config, bz, ed, region: str, data: dict) -> 
             if budget <= 0:
                 continue
             budget -= 1
-            seen[key] = bz.media_icon(s, region, path, ns)
+            keys = ("zoom", "icon") if "/creature-display/" in path else ("icon",)
+            seen[key] = bz.media_icon(s, region, path, ns, keys)
         if seen[key]:
             row["icon"] = seen[key]
 
@@ -488,10 +493,10 @@ def gear_portrait_key(groups, visible=None) -> str | None:
 
 
 def icon_url(data, group: str, ref: str) -> str | None:
-    """The stored icon URL for a gear position ("3") or a talent ("0-1-4": group, spec, talent)."""
+    """The stored icon URL for a gear or pet position ("3") or a talent ("0-1-4": group, spec, talent)."""
     try:
         idx = [int(x) for x in ref.split("-")]
-        if group == "gear" and len(idx) == 1 and isinstance(data, list):
+        if group in ("gear", "pets") and len(idx) == 1 and isinstance(data, list):
             row = data[idx[0]]
         elif group == "talents" and len(idx) == 3 and isinstance(data, dict):
             row = data["groups"][idx[0]]["specs"][idx[1]]["talents"][idx[2]]

@@ -840,7 +840,7 @@ def router(cfg: Config) -> APIRouter:
         from fastapi.responses import Response
 
         from ..domain import profiles
-        if group not in ("gear", "talents") or not re.fullmatch(r"\d{1,3}(-\d{1,3}){0,2}", ref):
+        if group not in ("gear", "talents", "pets") or not re.fullmatch(r"\d{1,3}(-\d{1,3}){0,2}", ref):
             raise NotFound("Icon not found.")
         sess, a = session_or_login(request, bucket="i")
         w = W(request)
@@ -849,7 +849,7 @@ def router(cfg: Config) -> APIRouter:
             url = profiles.icon_url((prof.groups or {}).get(group), group, ref) if group in vis else None
         if not url:
             raise NotFound("Icon not found.")
-        got = w.bz.fetch_icon(url)
+        got = w.bz.fetch_icon(url, max_bytes=600_000 if group == "pets" else 200_000)  # pet pictures are larger
         if got is None:
             raise NotFound("Blizzard didn't send this icon.")
         body, ctype = got
