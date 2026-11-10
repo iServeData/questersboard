@@ -5,7 +5,7 @@
 {% if guild_links or bz_enabled %}<p class="btns">{% for g in guild_links %}<a class="btn ghost" href="{{ mp }}/guilds/{{ g.edition }}/{{ g.region }}/{{ g.guild_id }}">{{ g.name }} roster</a> {% endfor %}{% if bz_enabled %}<a class="btn ghost" href="{{ mp }}/players">Shared characters</a>{% endif %}</p>{% endif %}
 <p class="note">Characters are self-reported. A Blizzard API match (where available) confirms the character exists; it does not prove it's yours.{% if bz_enabled %} Character checks use data from Blizzard Entertainment's Battle.net API. QuestersBoard isn't made, endorsed or supported by Blizzard.{% endif %}</p>
 {% if bz_enabled and details %}
-<form method="post" class="panel wq-bulk" action="{{ mp }}/characters/details/all">{{ csrf_field() }}
+<form method="post" class="panel wq-form wq-bulk" action="{{ mp }}/characters/details/all">{{ csrf_field() }}
   {% if bulk == "refreshed" %}<p class="wq-saved" role="status">Refreshed {{ bulk_n }} character{{ "" if bulk_n == 1 else "s" }} from Blizzard.{% if bulk_failed %} {{ bulk_failed }} didn't refresh; use Refresh on that character to see why.{% endif %}</p>
   {% elif bulk == "shared" %}<p class="wq-saved" role="status">Sharing updated for {{ bulk_n }} character{{ "" if bulk_n == 1 else "s" }}.</p>{% endif %}
   <h2 class="sub">All characters</h2>
@@ -14,7 +14,7 @@
     <button class="btn" type="submit" name="action" value="refresh">Refresh all from Blizzard</button>
     <button class="btn ghost" type="submit" name="action" value="share">Save sharing only</button>
   </div>
-  <p class="note">Refresh all re-imports the same groups for each character (up to {{ cfg["blizzard"].get("refresh_all_max", 10) }} per press). A sharing choice here applies to every group of every character; sharing beyond yourself only applies to characters verified as yours through Battle.net.</p>
+  <p class="note">Refresh all re-imports the same groups for each character (up to {{ cfg["blizzard"].get("refresh_all_max", 10) }} per press). A sharing choice here applies to every group of every character; sharing beyond yourself only applies to characters verified as yours through Battle.net. You can still change any one character below afterwards.</p>
 </form>
 {% endif %}
 <div class="wq-grid">
