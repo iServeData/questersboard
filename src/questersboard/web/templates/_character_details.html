@@ -1,5 +1,6 @@
 {# Imported Blizzard details for one character (d = CharacterProfile, c = Character).
    owner_view: show sharing labels. visible: groups this viewer may see (owner: all). open_groups: expanded. #}
+{% import "_item_tips.html" as tips with context %}{% set ed = editions[c.edition] if editions is defined and c.edition in editions else none %}
 <div class="wq-details">
   <p class="note">Imported from Blizzard {{ d.fetched_at.strftime("%Y-%m-%d") }}.{% if owner_view %} Kept up to {{ cfg["blizzard"].get("data_ttl_days", 30) }} days unless you refresh it.{% endif %}</p>
   {% set gd = d.groups %}
@@ -8,9 +9,15 @@
     <summary>{{ g.label }}{% if owner_view %} <span class="note">· {{ share_labels[effective_share(d, c, g.key)] }}{% if effective_share(d, c, g.key) != (d.shares or {}).get(g.key, "private") %} (set to {{ share_labels[(d.shares or {}).get(g.key, "private")] }}{% if g.key != "guild" and (d.shares or {}).get(g.key) == "guild" and not d.guild_id %}, needs the Guild group{% else %}, needs Battle.net verification{% endif %}){% endif %}</span>{% endif %}</summary>
     {% if g.key == "overview" %}<p>{% for k, x in v.items() %}{{ k.replace("_", " ")|capitalize }}: {{ x }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
     {% elif g.key == "guild" %}<p>{{ v.name }}</p>
-    {% elif g.key == "gear" %}<ul class="wq-detail-list">{% for i in v %}<li><span class="note">{{ i.slot }}</span> {{ i.name }}{% if i.item_level %} <span class="note">ilvl {{ i.item_level }}</span>{% endif %}{% if i.enchants %} <span class="note">· {{ i.enchants|join(", ") }}</span>{% endif %}</li>{% endfor %}</ul>
-    {% elif g.key == "talents" %}{% for grp in v.groups %}<p>{% if v.groups|length > 1 %}{{ "Active" if grp.active else "Other" }}: {% endif %}{% for sp in grp.specs %}{{ sp.name }}{% if sp.points is not none %} {{ sp.points }}{% endif %}{% if not loop.last %} / {% endif %}{% endfor %}</p>
-      {% for sp in grp.specs if sp.talents %}<p class="note">{{ sp.name }}: {% for t in sp.talents %}{{ t.name }}{% if t.rank %} {{ t.rank }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endfor %}{% endfor %}
+    {% elif g.key == "gear" %}{% set cols = gear_columns(v) %}
+      <div class="wq-gear">
+        <div class="wq-gear-col">{% for n, i in cols[0] %}{{ tips.item(n, i, "l", ed) }}{% endfor %}</div>
+        <div class="wq-gear-col">{% for n, i in cols[1] %}{{ tips.item(n, i, "r", ed) }}{% endfor %}</div>
+        {% if cols[2] %}<div class="wq-gear-bottom">{% for n, i in cols[2] %}{{ tips.item(n, i, "l" if loop.index is odd else "r", ed) }}{% endfor %}</div>{% endif %}
+      </div>
+    {% elif g.key == "talents" %}{% for grp in v.groups %}{% set gi = loop.index0 %}<p>{% if v.groups|length > 1 %}{{ "Active" if grp.active else "Other" }}: {% endif %}{% for sp in grp.specs %}{{ sp.name }}{% if sp.points is not none %} {{ sp.points }}{% endif %}{% if not loop.last %} / {% endif %}{% endfor %}</p>
+      {% for sp in grp.specs %}{% set si = loop.index0 %}{% if sp.talents %}<p class="wq-talent-head">{{ sp.name }}{% if sp.points is not none %} <span class="note">· {{ sp.points }} points</span>{% endif %}</p>
+      <div class="wq-talents">{% for t in sp.talents %}{{ tips.talent(gi ~ "-" ~ si ~ "-" ~ loop.index0, t, ed) }}{% endfor %}</div>{% endif %}{% endfor %}{% endfor %}
       {% if v.active %}<p>Active: {{ v.active }}</p>{% endif %}
     {% elif g.key == "professions" %}<ul class="wq-detail-list">{% for p in v %}<li>{{ p.name }}{% if p.skill is not none %} {{ p.skill }}{% if p.max %}/{{ p.max }}{% endif %}{% endif %} <span class="note">{{ p.kind }}</span></li>{% endfor %}</ul>
     {% elif g.key == "stats" %}<div class="wq-stats">{% for title, rows in stat_sections(v) %}<dl class="wq-stat-block"><dt class="wq-stat-title">{{ title }}</dt>{% for label, text in rows %}<div class="wq-stat"><dt>{{ label }}</dt><dd>{{ text }}</dd></div>{% endfor %}</dl>{% endfor %}</div>

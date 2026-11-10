@@ -42,7 +42,13 @@ EU is unverified.
 
 1. **Probe** (done): `blizzard probe-character`, with `--detail PAGE` and guild/roster sizes.
    **Media probe**: `blizzard probe-media` checks item, icon, spell and talent-tree answers before the
-   Armory-style gear icons, tooltips and talent trees are built.
+   Armory-style gear icons, tooltips and talent trees are built (done; all answered on Forever US).
+   It also follows one spec tree and its class tree, to read the layout for Build 2.
+   **Build 1** (done): gear icons and item tooltips, talent icons and talent tooltips, all from
+   Blizzard. Icons come through `/characters/<id>/icon/<group>/<ref>` with the same sharing check as
+   the page; they are held in memory (`icon_cache_hours`, `icon_cache_entries`) and never stored.
+   Existing imports need "Refresh from Blizzard" to get them.
+   **Build 2** (pending the tree-layout probe): talent trees laid out like the in-game panel.
 2. **Config** (done): Forever's comment records the US result; the status stays per edition.
 3. **Import with checkboxes and sharing choices** (done): on My characters, per character. Stored in
    `character_profiles` (migration 0009).

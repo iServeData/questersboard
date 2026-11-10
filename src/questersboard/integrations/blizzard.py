@@ -21,6 +21,7 @@ import logging
 import secrets as pysecrets
 import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import timedelta
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit
@@ -208,6 +209,8 @@ class Blizzard:
         self.sleep = sleep
         self._token: tuple[str, float] | None = None
         self.limiter = _Limiter(self.bz.get("requests_per_second", 20))
+        self._icons: OrderedDict[str, tuple[float, tuple[bytes, str]]] = OrderedDict()
+        self._icon_lock = threading.Lock()
 
     # ------------------------------------------------------------------ plumbing
     def require(self, ed: Edition, cap: str, ns_kind: str, region: str) -> str:
@@ -321,6 +324,46 @@ class Blizzard:
                 len(r.content) > max_bytes:
             return None
         return r.content, ctype
+
+    def media_icon(self, s: Session | None, region: str, path: str, ns: str) -> str | None:
+        """The icon URL from a media answer (/data/wow/media/item/{id} or /spell/{id}), or None. Cached
+        like other static data; only URLs on [blizzard] render_image_hosts are returned."""
+        if not path.startswith("/data/wow/media/"):
+            return None
+        try:
+            st, body = self.get(s, region, path, ns, self.bz.get("cache_hours_static", 168))
+        except (ApiError, ValueError, httpx.HTTPError):
+            return None
+        if st != 200:
+            return None
+        assets = [a for a in body.get("assets") or [] if isinstance(a, dict) and isinstance(a.get("value"), str)]
+        icon = next((a for a in assets if a.get("key") == "icon"), None)
+        if icon is None:
+            return None
+        u = urlsplit(icon["value"])
+        hosts = set(self.bz.get("render_image_hosts", ["render.worldofwarcraft.com"]))
+        return icon["value"][:300] if u.scheme == "https" and u.hostname in hosts else None
+
+    def fetch_icon(self, url: str) -> tuple[bytes, str] | None:
+        """An item or spell icon (game art, the same for everyone), kept in a small in-memory cache so a
+        page full of icons doesn't ask Blizzard again for each visitor. [blizzard] icon_cache_hours
+        (max 24) and icon_cache_entries size it; the cache is per process and never written to disk."""
+        hours = min(float(self.bz.get("icon_cache_hours", 12)), 24.0)
+        limit = int(self.bz.get("icon_cache_entries", 2000))
+        t = time.time()
+        with self._icon_lock:
+            hit = self._icons.get(url)
+            if hit and hit[0] > t:
+                self._icons.move_to_end(url)
+                return hit[1]
+        got = self.fetch_image(url, max_bytes=200_000)
+        if got and limit > 0 and hours > 0:
+            with self._icon_lock:
+                self._icons[url] = (t + hours * 3600, got)
+                self._icons.move_to_end(url)
+                while len(self._icons) > limit:
+                    self._icons.popitem(last=False)
+        return got
 
     def character_path(self, ed: Edition, ch: Character) -> str:
         if ed.uses_realms:
@@ -440,11 +483,11 @@ class Blizzard:
             base = f"/profile/wow/character/{quote(char_slug(name))}"
         out: list[dict] = []
 
-        def check(label: str, path: str, ns: str, tree: bool = True) -> dict:
+        def check(label: str, path: str, ns: str, tree: bool = True, depth: int = 4) -> dict:
             row = {"check": label, "path": path, "namespace": ns}
             body = self._probe_row(row, region, path, ns, label)
             if tree and row["status"] == "200":
-                row["tree"] = _tree(body, max_depth=4)
+                row["tree"] = _tree(body, max_depth=depth)
             out.append(row)
             return body
 
@@ -474,7 +517,7 @@ class Blizzard:
 
         # One talent: its spell (tooltip text and icon) and the talent itself.
         sp = check("specializations", base + "/specializations", pns, tree=False)
-        talent = None
+        talent, tbody = None, {}
         for g in sp.get("specialization_groups") or []:
             for spec in g.get("specializations") or []:
                 for t in spec.get("talents") or []:
@@ -491,16 +534,31 @@ class Blizzard:
             self._probe_icon(out, check("spell-media", spath, sp_ns))
             tid = (talent.get("talent") or {}).get("id")
             if isinstance(tid, int):
-                check("talent", f"/data/wow/talent/{tid}", sns)
+                tbody = check("talent", f"/data/wow/talent/{tid}", sns)
         else:
             out.append({"check": "talent-entry", "path": "", "namespace": pns, "status": "-",
                         "shape": "no talent with a spell id (no points spent yet?)"})
 
         # Tree layouts: Retail-style talent trees, the older talent index, and the specialization list.
+        index = {}
         for label, path in (("talent-tree-index", "/data/wow/talent-tree/index"),
                             ("talent-index", "/data/wow/talent/index"),
                             ("spec-index", "/data/wow/playable-specialization/index")):
-            check(label, path, sns)
+            body = check(label, path, sns)
+            if label == "talent-tree-index":
+                index = body
+        # One tree's layout (the talent's specialization, else the first), and its class tree: these
+        # pages say where each talent sits (row and column) and what it needs, for drawing the tree.
+        want = (_label(tbody.get("playable_specialization")), _label(tbody.get("playable_class")))
+        for label, field, name in (("spec-tree", "spec_talent_trees", want[0]),
+                                   ("class-tree", "class_talent_trees", want[1])):
+            trees = [t for t in index.get(field) or [] if isinstance(t, dict)]
+            pick = next((t for t in trees if name and _label(t) == name), trees[0] if trees else None)
+            href = ((pick or {}).get("key") or {}).get("href") or ""
+            u = urlsplit(href)
+            if u.path.startswith("/data/wow/talent-tree/"):
+                check(label, u.path, dict(parse_qsl(u.query)).get("namespace") or sns, depth=6)
+                out[-1]["shape"] = f"{_label(pick)}  |  " + out[-1].get("shape", "")
         return out
 
     def _probe_icon(self, out: list[dict], media: dict) -> None:

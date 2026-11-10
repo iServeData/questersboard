@@ -167,14 +167,18 @@ def router(cfg: Config) -> APIRouter:
     def W(request):
         return request.app.state.web
 
-    def session_or_login(request: Request, fresh: bool = False):
+    def session_or_login(request: Request, fresh: bool = False, bucket: str = "m"):
+        """bucket: "m" for pages; "i" for icons, which come many to a page and have their own limit
+        ([rate_limits] icon_requests_per_minute)."""
         w = W(request)
         sess = w.load_session(request)
         request.state.sess = sess
         a = w.actor(sess, fresh=fresh)
         if a is None:
             raise _Login()
-        if not w.rate_ok(f"m:{a.discord_id}", w.cfg["rate_limits"].get("web_requests_per_minute", 120)):
+        per_min = (w.cfg["rate_limits"].get("icon_requests_per_minute", 600) if bucket == "i"
+                   else w.cfg["rate_limits"].get("web_requests_per_minute", 120))
+        if not w.rate_ok(f"{bucket}:{a.discord_id}", per_min):
             raise PermissionDenied("Too many requests. Please wait a minute.")
         return sess, a
 
@@ -678,6 +682,7 @@ def router(cfg: Config) -> APIRouter:
                                                    "share_labels": profiles.SHARE_LABELS,
                                                    "effective_share": profiles.effective_share,
                                                    "stat_sections": profiles.stat_sections,
+                                                   "gear_columns": profiles.gear_columns,
                                                    "guild_links": guild_links, "saved": saved,
                                                    "removed": removed})
 
@@ -764,7 +769,7 @@ def router(cfg: Config) -> APIRouter:
         from ..domain import profiles
         return {"detail_groups": profiles.GROUPS, "share_labels": profiles.SHARE_LABELS,
                 "effective_share": profiles.effective_share, "stat_sections": profiles.stat_sections,
-                "editions": w.cfg.editions}
+                "gear_columns": profiles.gear_columns, "editions": w.cfg.editions}
 
     @r.get(mp + "/characters/{character_id}/view")
     def character_view(request: Request, character_id: int):
@@ -802,6 +807,28 @@ def router(cfg: Config) -> APIRouter:
         got = w.bz.fetch_image(url)
         if got is None:
             raise NotFound("Blizzard didn't send a picture.")
+        body, ctype = got
+        return Response(body, media_type=ctype, headers={"Cache-Control": "private, max-age=86400"})
+
+    @r.get(mp + "/characters/{character_id}/icon/{group}/{ref}")
+    def character_icon(request: Request, character_id: int, group: str, ref: str):
+        """A gear or talent icon (Blizzard's game art), fetched by QuestersBoard like the portrait.
+        ref: the item's position in the gear list, or group-spec-talent positions for talents."""
+        from fastapi.responses import Response
+
+        from ..domain import profiles
+        if group not in ("gear", "talents") or not re.fullmatch(r"\d{1,3}(-\d{1,3}){0,2}", ref):
+            raise NotFound("Icon not found.")
+        sess, a = session_or_login(request, bucket="i")
+        w = W(request)
+        with w.db.tx() as s:
+            ch, prof, vis = profiles.view_character(s, w.cfg, a, character_id)
+            url = profiles.icon_url((prof.groups or {}).get(group), group, ref) if group in vis else None
+        if not url:
+            raise NotFound("Icon not found.")
+        got = w.bz.fetch_icon(url)
+        if got is None:
+            raise NotFound("Blizzard didn't send this icon.")
         body, ctype = got
         return Response(body, media_type=ctype, headers={"Cache-Control": "private, max-age=86400"})
 

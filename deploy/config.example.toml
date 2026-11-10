@@ -196,6 +196,7 @@ backup_keep_days = 30                         # keep in step with QUESTERSBOARD_
 
 [rate_limits]                                 # [live]
 web_requests_per_minute = 120
+icon_requests_per_minute = 600                # gear and talent icons (a character page can show 30 or more)
 actions_per_minute = 30
 
 [database]                                    # restart
@@ -218,7 +219,11 @@ battlenet_link_enabled = false                # optional ownership verification 
 battlenet_import_minutes = 60                 # after a Battle.net login, how long the "Add these characters" list stays usable
 data_ttl_days = 30                            # Blizzard checks not refreshed for this long are cleared (API terms: 30 max)
 battlenet_profile_lookups = 25                # per login: max character-profile reads to fill in a missing ruleset (0 = none)
-render_image_hosts = ["render.worldofwarcraft.com"]   # imported portraits are fetched from these hosts only (served from QuestersBoard)
+render_image_hosts = ["render.worldofwarcraft.com"]   # portraits and icons are fetched from these hosts only (served from QuestersBoard)
+detail_icons = true                           # gear and talent icons with "Import details" (icon links come from Blizzard's media answers)
+icon_lookups = 80                             # max icon lookups per import (cached like other static data)
+icon_cache_hours = 12                         # icon images kept in memory per web process (max 24; never written to disk)
+icon_cache_entries = 2000                     # about 3 KB each
 
 # ---------------------------------------------------------------------------
 # Game editions. Each QuestersBoard event and character belongs to exactly one.
@@ -257,6 +262,9 @@ ruleset_api_ids = { pvp = 1, normal = 2, rp = 3, rp_pvp = 15 }
 # "Import details". US: the profile and all 15 detail pages answered (probe-character, 2026-11-10).
 # EU character pages were reported as 404 after launch, so this stays "unverified" (it's per edition).
 api_status = { reference = "unsupported", character = "unverified", quests = "unsupported", locations = "unsupported", ownership = "unverified" }
+# Optional plain links from item and talent tooltips (no third-party script). Empty = no link.
+item_link_template = "https://www.wowhead.com/forever/item={id}"
+spell_link_template = "https://www.wowhead.com/forever/spell={id}"
 
 [[editions]]
 key = "retail"
@@ -276,6 +284,8 @@ dynamic_namespace = "dynamic-{region}"
 profile_namespace = "profile-{region}"
 ruleset_realm_slugs = {}
 api_status = { reference = "unverified", character = "unverified", quests = "unverified", locations = "unverified", ownership = "unverified" }
+item_link_template = "https://www.wowhead.com/item={id}"
+spell_link_template = "https://www.wowhead.com/spell={id}"
 
 # Classic editions use realms. Namespaces from Blizzard's API forums / community docs (unverified here):
 # Era/Hardcore/Season of Discovery = classic1x, TBC Anniversary = classicann, progression (Mists) = classic.

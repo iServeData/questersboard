@@ -1,0 +1,43 @@
+{# Gear and talent tiles with tooltips (tap on phones and iPad, hover or keyboard focus on desktop).
+   Icons are Blizzard's, served by QuestersBoard: /characters/{id}/icon/{group}/{ref}. #}
+{% macro coins(sell) %}{% if sell.gold != "0" %}{{ sell.gold }}<i class="wq-coin wq-coin-g" aria-label="gold"></i> {% endif %}{% if sell.silver != "0" %}{{ sell.silver }}<i class="wq-coin wq-coin-s" aria-label="silver"></i> {% endif %}{% if sell.copper != "0" %}{{ sell.copper }}<i class="wq-coin wq-coin-c" aria-label="copper"></i>{% endif %}{% endmacro %}
+{% macro item(n, i, side, ed) %}{% set t = i.tip or {} %}{% set q = i.quality or "common" %}
+<div class="wq-item wq-item-{{ side }} wq-q-{{ q }}" data-tip>
+  <button type="button" class="wq-item-btn" aria-expanded="false">
+    {% if i.icon %}<img class="wq-icon" src="{{ mp }}/characters/{{ c.id }}/icon/gear/{{ n }}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif %}
+    <span class="wq-item-txt"><span class="wq-item-name">{{ i.name }}</span><span class="note">{{ i.slot }}{% if i.item_level %} · ilvl {{ i.item_level }}{% endif %}</span></span>
+  </button>
+  <div class="wq-tip" role="tooltip">
+    <div class="wq-tip-name">{{ i.name }}</div>
+    {% if t.binding %}<div>{{ t.binding }}</div>{% endif %}{% if t.unique %}<div>{{ t.unique }}</div>{% endif %}
+    {% if t.type or t.subtype %}<div class="wq-tip-row"><span>{{ t.type }}</span><span>{{ t.subtype }}</span></div>{% endif %}
+    {% if t.damage or t.speed %}<div class="wq-tip-row"><span>{{ t.damage }}</span><span>{{ t.speed }}</span></div>{% endif %}
+    {% if t.dps %}<div>{{ t.dps }}</div>{% endif %}{% if t.armor %}<div>{{ t.armor }}</div>{% endif %}
+    {% for st in t.stats or [] %}<div{% if st.green %} class="wq-tip-green"{% endif %}>{{ st.text }}</div>{% endfor %}
+    {% for e in i.enchants or [] %}<div class="wq-tip-green">{{ e }}</div>{% endfor %}
+    {% if t.durability %}<div>{{ t.durability }}</div>{% endif %}
+    {% for r in t.requirements or [] %}<div>{{ r }}</div>{% endfor %}
+    {% if t.level %}<div class="wq-tip-gold">{{ t.level }}</div>{% elif i.item_level %}<div class="wq-tip-gold">Item Level {{ i.item_level }}</div>{% endif %}
+    {% for sp in t.spells or [] %}<div class="wq-tip-green">{{ sp }}</div>{% endfor %}
+    {% if t.set %}<div class="wq-tip-gold">{{ t.set }}</div>{% endif %}
+    {% if t.description %}<div class="wq-tip-gold">"{{ t.description }}"</div>{% endif %}
+    {% if t.transmog %}<div class="wq-tip-pink">Transmogrified to:<br>{{ t.transmog }}</div>{% endif %}
+    {% if t.sell %}<div>Sell Price: {{ coins(t.sell) }}</div>{% endif %}
+    {% set link = ed.item_link(i.item_id) if ed else "" %}{% if link %}<a class="wq-tip-link" href="{{ link }}" target="_blank" rel="noopener noreferrer">View on Wowhead ↗</a>{% endif %}
+  </div>
+</div>{% endmacro %}
+{% macro talent(ref, t, ed) %}
+<div class="wq-item wq-talent{% if t.rank %} wq-talent-on{% endif %}" data-tip>
+  <button type="button" class="wq-item-btn" aria-expanded="false">
+    <span class="wq-talent-icon">{% if t.icon %}<img class="wq-icon" src="{{ mp }}/characters/{{ c.id }}/icon/talents/{{ ref }}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif %}{% if t.rank %}<span class="wq-rank">{{ t.rank }}</span>{% endif %}</span>
+    <span class="wq-item-txt"><span class="wq-item-name">{{ t.name }}</span>{% if t.rank %}<span class="note">Rank {{ t.rank }}</span>{% endif %}</span>
+  </button>
+  <div class="wq-tip" role="tooltip">
+    <div class="wq-tip-name wq-tip-white">{{ t.name }}</div>
+    {% if t.rank %}<div class="note">Rank {{ t.rank }}</div>{% endif %}
+    {% if t.power_cost or t.range %}<div class="wq-tip-row"><span>{{ t.power_cost }}</span><span>{{ t.range }}</span></div>{% endif %}
+    {% if t.cast_time or t.cooldown %}<div class="wq-tip-row"><span>{{ t.cast_time }}</span><span>{{ t.cooldown }}</span></div>{% endif %}
+    {% if t.description %}<div class="wq-tip-gold">{{ t.description }}</div>{% endif %}
+    {% set link = ed.spell_link(t.spell_id) if ed else "" %}{% if link %}<a class="wq-tip-link" href="{{ link }}" target="_blank" rel="noopener noreferrer">View on Wowhead ↗</a>{% endif %}
+  </div>
+</div>{% endmacro %}

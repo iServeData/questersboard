@@ -62,7 +62,7 @@ def test_extract_keeps_a_curated_summary_of_each_page():
     assert profiles.extract("guild", pages) == {"id": "9001", "name": "Fixture Guild"}
     gear = profiles.extract("gear", pages)
     assert gear[0] == {"slot": "Head", "name": "Fixture Cap", "item_level": 12, "quality": "uncommon", "item_id": 11,
-                       "enchants": ["+3 Stamina"]}
+                       "enchants": ["+3 Stamina"], "slot_type": "HEAD"}
     t = profiles.extract("talents", pages)
     assert t["groups"][0]["specs"][0] == {"name": "Beast Mastery", "points": 8,
                                           "talents": [{"name": "Improved Aspect of the Hawk", "rank": 3}]}

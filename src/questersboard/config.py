@@ -67,6 +67,18 @@ class Edition:
     # Realmless editions: Blizzard's numeric ruleset IDs mapped to QuestersBoard ruleset keys
     # (Battle.net sync reads a character's ruleset as an ID or a name).
     ruleset_api_ids: dict[str, int] = field(default_factory=dict)
+    # Optional plain links from item and talent tooltips to a database site, e.g.
+    # "https://www.wowhead.com/forever/item={id}". Empty = no link. Links only: no third-party script.
+    item_link_template: str = ""
+    spell_link_template: str = ""
+
+    def item_link(self, item_id) -> str:
+        return self.item_link_template.replace("{id}", str(int(item_id))) if self.item_link_template and \
+            isinstance(item_id, int) else ""
+
+    def spell_link(self, spell_id) -> str:
+        return self.spell_link_template.replace("{id}", str(int(spell_id))) if self.spell_link_template and \
+            isinstance(spell_id, int) else ""
 
     def ruleset_label(self, ruleset: str | None) -> str:
         if not ruleset:
@@ -482,6 +494,13 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     if bz.get("battlenet_import_minutes", 60) > ttl * 24 * 60:
         raise ConfigError("[blizzard] battlenet_import_minutes must fit within data_ttl_days")
     _positive(bz.get("battlenet_profile_lookups", 25), "[blizzard] battlenet_profile_lookups", 0)
+    if not isinstance(bz.get("detail_icons", True), bool):
+        raise ConfigError("[blizzard] detail_icons must be true or false")
+    _positive(bz.get("icon_lookups", 80), "[blizzard] icon_lookups", 0)
+    _positive(bz.get("icon_cache_entries", 2000), "[blizzard] icon_cache_entries", 0)
+    ich = bz.get("icon_cache_hours", 12)
+    if not isinstance(ich, (int, float)) or isinstance(ich, bool) or not 0 <= ich <= 24:
+        raise ConfigError("[blizzard] icon_cache_hours must be between 0 and 24")
     hosts = bz.get("render_image_hosts", ["render.worldofwarcraft.com"])
     if not isinstance(hosts, list) or not all(isinstance(h, str) and re.fullmatch(r"[a-z0-9.-]{3,100}", h)
                                               for h in hosts):
@@ -530,7 +549,9 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             ruleset_realm_slugs=dict(e.get("ruleset_realm_slugs", {})), api_status=status,
             ruleset_labels={str(k): str(v)[:40] for k, v in dict(e.get("ruleset_labels", {})).items()},
             difficulties=_difficulties(e.get("difficulties", ["Normal"]), where),
-            ruleset_api_ids=_ruleset_ids(e.get("ruleset_api_ids", {}), rulesets, where))
+            ruleset_api_ids=_ruleset_ids(e.get("ruleset_api_ids", {}), rulesets, where),
+            item_link_template=_link_template(e.get("item_link_template", ""), f"{where} item_link_template"),
+            spell_link_template=_link_template(e.get("spell_link_template", ""), f"{where} spell_link_template"))
     r["_editions"] = parsed
 
     presets = []
@@ -553,6 +574,15 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             tags=tuple(a.get("tags", []))))
     r["_activities"] = tuple(acts)
     return r
+
+
+def _link_template(v: Any, where: str) -> str:
+    if v in ("", None):
+        return ""
+    if not isinstance(v, str) or not re.fullmatch(r"https://[a-z0-9.-]+/[A-Za-z0-9/_.=?&-]*\{id\}[A-Za-z0-9/_.=?&-]*", v) \
+            or len(v) > 200:
+        raise ConfigError(f"{where} must be an https:// address containing {{id}}")
+    return v
 
 
 def _difficulties(v: Any, where: str) -> tuple[str, ...]:

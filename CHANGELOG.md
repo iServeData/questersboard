@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Gear and talent icons and tooltips.** Imported gear shows in two columns like the in-game
+  character panel, with weapons below; each item has its Blizzard icon, quality colour and a tooltip
+  (binding, type, armour, stats, requirements, item level, transmog, sell price) with a "View on
+  Wowhead" link. Talents show as icon tiles with rank badges and a tooltip (rank, cast time,
+  description). Tap opens a tooltip on phones; Escape or tapping elsewhere closes it. Icons are served
+  by QuestersBoard after the same sharing check as the page, so the page policy stays `img-src 'self'`.
+  New config: `[blizzard] detail_icons`, `icon_lookups`, `icon_cache_hours`, `icon_cache_entries`,
+  `[rate_limits] icon_requests_per_minute`, and per edition `item_link_template`, `spell_link_template`.
+  Existing imports need "Refresh from Blizzard".
+- **Media probe follows the talent trees.** `probe-media` now also reads one spec tree and its class
+  tree, to plan the in-game tree layout.
 - **Media probe.** `questersboard-admin blizzard probe-media EDITION --name "First Last"` checks, read-only,
   whether gear icons, item tooltips, talent icons and talent trees can come straight from Blizzard: it
   takes one equipped item and one talent from the character and checks the item, item media, spell,

@@ -83,17 +83,95 @@ def _guild(summary: dict) -> dict | None:
     return {"id": str(g.get("id")) if g.get("id") is not None else None, "name": _label(g)[:96]}
 
 
+def _text(v, n: int = 200) -> str:
+    """A display string from Blizzard (plain text, or {display_string}), trimmed for storage."""
+    if isinstance(v, dict):
+        v = v.get("display_string")
+    return v.strip()[:n] if isinstance(v, str) else ""
+
+
+def _media_ref(item: dict) -> dict | None:
+    """Where Blizzard says an item's icon is: the path and namespace of its media link. Forever's item
+    media lives in a versioned static namespace, so the link is followed rather than rebuilt."""
+    from urllib.parse import parse_qsl, urlsplit
+    href = (((item.get("media") or {}).get("key") or {}).get("href") or "") if isinstance(item.get("media"), dict) else ""
+    u = urlsplit(href)
+    if not u.path.startswith("/data/wow/media/"):
+        return None
+    ns = dict(parse_qsl(u.query)).get("namespace") or ""
+    return {"path": u.path[:120], "ns": ns[:64]} if ns else None
+
+
+def _tooltip(i: dict) -> dict:
+    """The lines of an item tooltip, from the equipment page (only the parts Blizzard sent)."""
+    t: dict = {}
+    if _label(i.get("binding")):
+        t["binding"] = _label(i["binding"])[:60]
+    if i.get("unique_equipped"):
+        t["unique"] = _text(i["unique_equipped"], 60) or "Unique-Equipped"
+    if _label(i.get("inventory_type")):
+        t["type"] = _label(i["inventory_type"])[:40]
+    if _label(i.get("item_subclass")) and not i.get("is_subclass_hidden"):
+        t["subtype"] = _label(i["item_subclass"])[:40]
+    w = i.get("weapon") if isinstance(i.get("weapon"), dict) else {}
+    for k, src in (("damage", w.get("damage")), ("speed", w.get("attack_speed")), ("dps", w.get("dps"))):
+        if _text(src):
+            t[k] = _text(src, 80)
+    if _text((i.get("armor") or {}).get("display") if isinstance(i.get("armor"), dict) else None):
+        t["armor"] = _text(i["armor"]["display"], 60)
+    stats = []
+    for st in i.get("stats") or []:
+        if isinstance(st, dict) and _text(st.get("display")):
+            stats.append({"text": _text(st["display"], 80), "green": bool(st.get("is_equip_bonus"))})
+    if stats:
+        t["stats"] = stats[:12]
+    spells = [_text(sp.get("description"), 300) for sp in i.get("spells") or [] if isinstance(sp, dict)]
+    if any(spells):
+        t["spells"] = [x for x in spells if x][:4]
+    if _text(i.get("durability")):
+        t["durability"] = _text(i["durability"], 60)
+    req = i.get("requirements") if isinstance(i.get("requirements"), dict) else {}
+    reqs = [_text(req.get(k)) for k in ("level", "playable_classes", "skill", "faction", "reputation")
+            if _text(req.get(k))]
+    if reqs:
+        t["requirements"] = reqs[:4]
+    if _text(i.get("level")):
+        t["level"] = _text(i["level"], 40)
+    if isinstance(i.get("set"), dict) and _text(i["set"]):
+        t["set"] = _text(i["set"], 80)
+    if _text(i.get("description"), 300):
+        t["description"] = _text(i["description"], 300)
+    ds = ((i.get("sell_price") or {}).get("display_strings") or {}) if isinstance(i.get("sell_price"), dict) else {}
+    coins = {k: str(ds.get(k) or "0") for k in ("gold", "silver", "copper") if str(ds.get(k) or "").isdigit()}
+    if coins and any(v != "0" for v in coins.values()):
+        t["sell"] = coins
+    tm = i.get("transmog") if isinstance(i.get("transmog"), dict) else {}
+    if _label(tm.get("item")):
+        t["transmog"] = _label(tm["item"])[:80]
+    return t
+
+
 def _gear(body: dict) -> list[dict]:
     out = []
     for i in body.get("equipped_items") or []:
         if not isinstance(i, dict):
             continue
-        out.append({"slot": _label(i.get("slot")), "name": _label(i),
-                    "item_level": (i.get("level") or {}).get("value"),
-                    "quality": ((i.get("quality") or {}).get("type") or "").lower(),
-                    "item_id": (i.get("item") or {}).get("id"),
-                    "enchants": [e.get("display_string") for e in i.get("enchantments") or []
-                                 if isinstance(e, dict) and e.get("display_string")][:4]})
+        row = {"slot": _label(i.get("slot")), "name": _label(i),
+               "item_level": (i.get("level") or {}).get("value"),
+               "quality": ((i.get("quality") or {}).get("type") or "").lower(),
+               "item_id": (i.get("item") or {}).get("id"),
+               "enchants": [e.get("display_string") for e in i.get("enchantments") or []
+                            if isinstance(e, dict) and e.get("display_string")][:4]}
+        slot_type = ((i.get("slot") or {}).get("type") or "") if isinstance(i.get("slot"), dict) else ""
+        if slot_type:
+            row["slot_type"] = str(slot_type)[:24]
+        tip = _tooltip(i)
+        if tip:
+            row["tip"] = tip
+        ref = _media_ref(i)
+        if ref:
+            row["_media"] = ref                    # resolved to an icon URL at import, then dropped
+        out.append(row)
     return out
 
 
@@ -104,9 +182,18 @@ def _talents(body: dict) -> dict:
         for sp in g.get("specializations") or []:
             talents = []
             for t in sp.get("talents") or []:
-                name = _label(t.get("talent")) or _label(((t.get("spell_tooltip") or {}).get("spell")))
-                if name:
-                    talents.append({"name": name, "rank": t.get("talent_rank")})
+                tip = t.get("spell_tooltip") if isinstance(t.get("spell_tooltip"), dict) else {}
+                name = _label(t.get("talent")) or _label(tip.get("spell"))
+                if not name:
+                    continue
+                row = {"name": name, "rank": t.get("talent_rank")}
+                sid = (tip.get("spell") or {}).get("id") if isinstance(tip.get("spell"), dict) else None
+                if isinstance(sid, int):
+                    row["spell_id"] = sid
+                for k in ("description", "cast_time", "power_cost", "range", "cooldown"):
+                    if _text(tip.get(k), 600):
+                        row[k] = _text(tip[k], 600)
+                talents.append(row)
             specs.append({"name": sp.get("specialization_name") or _label(sp.get("specialization")),
                           "points": sp.get("spent_points"), "talents": talents})
         groups.append({"active": bool(g.get("is_active")), "specs": specs})
@@ -244,6 +331,7 @@ def import_profile(s: Session, cfg: Config, bz, actor: Actor, character_id: int,
         hosts = set(cfg["blizzard"].get("render_image_hosts", ["render.worldofwarcraft.com"]))
         data["portrait"] = [a for a in data["portrait"] if urlsplit(a["url"]).hostname in hosts]
     data = {g: v for g, v in data.items() if v not in (None, {}, [])}
+    _resolve_icons(s, cfg, bz, ed, ch.region, data)
     guild = data.get("guild") or {}
     prof = s.get(CharacterProfile, ch.id)
     if prof is None:
@@ -256,6 +344,80 @@ def import_profile(s: Session, cfg: Config, bz, actor: Actor, character_id: int,
     prof.fetched_at = now()
     audit.record(s, actor, "character.profile_import", "character", ch.id, groups=sorted(data))
     return prof
+
+
+def _same_static(ns: str, sns: str | None) -> bool:
+    """A linked namespace is used only if it is the edition's static namespace or a version-pinned copy
+    of it (static-1.60.1_70399-forever-us for static-forever-us), never another edition's or a PTR."""
+    import re
+    if not sns or not ns:
+        return False
+    if ns == sns:
+        return True
+    rest = sns[len("static-"):] if sns.startswith("static-") else ""
+    return bool(rest) and "ptr" not in ns and re.fullmatch(r"static-[0-9][0-9._]*-" + re.escape(rest), ns) is not None
+
+
+def _resolve_icons(s: Session, cfg: Config, bz, ed, region: str, data: dict) -> None:
+    """Gear and talent icons: Blizzard's media answers give each icon's URL on its image server. Only
+    the URL is stored; the image is fetched by QuestersBoard when the page is viewed. [blizzard]
+    detail_icons = false skips this; icon_lookups caps the lookups per import (cached like other
+    static data). A lookup that fails just leaves that icon out."""
+    bzc = cfg["blizzard"]
+    gear = data.get("gear") or []
+    refs = [(row, row.pop("_media", None)) for row in gear]
+    if not bzc.get("detail_icons", True):
+        return
+    sns = ed.namespace("static", region)
+    jobs = [(row, ref["path"], ref["ns"]) for row, ref in refs if ref and _same_static(ref["ns"], sns)]
+    for grp in (data.get("talents") or {}).get("groups") or []:
+        for sp in grp.get("specs") or []:
+            for t in sp.get("talents") or []:
+                if isinstance(t.get("spell_id"), int) and sns:
+                    jobs.append((t, f"/data/wow/media/spell/{t['spell_id']}", sns))
+    budget = int(bzc.get("icon_lookups", 80))
+    seen: dict[tuple[str, str], str | None] = {}
+    for row, path, ns in jobs:
+        key = (path, ns)
+        if key not in seen:
+            if budget <= 0:
+                continue
+            budget -= 1
+            seen[key] = bz.media_icon(s, region, path, ns)
+        if seen[key]:
+            row["icon"] = seen[key]
+
+
+GEAR_LEFT = ("HEAD", "NECK", "SHOULDER", "BACK", "CHEST", "SHIRT", "TABARD", "WRIST")
+GEAR_RIGHT = ("HANDS", "WAIST", "LEGS", "FEET", "FINGER_1", "FINGER_2", "TRINKET_1", "TRINKET_2")
+
+
+def gear_columns(items) -> tuple[list, list, list]:
+    """Gear laid out like the in-game character sheet: (left, right, bottom) lists of (position, item).
+    Weapons, and items imported before slot types were kept, go in the bottom row."""
+    left, right, bottom = [], [], []
+    for n, i in enumerate(items or []):
+        st = i.get("slot_type") or ""
+        (left if st in GEAR_LEFT else right if st in GEAR_RIGHT else bottom).append((n, i))
+    left.sort(key=lambda x: GEAR_LEFT.index(x[1]["slot_type"]))
+    right.sort(key=lambda x: GEAR_RIGHT.index(x[1]["slot_type"]))
+    return left, right, bottom
+
+
+def icon_url(data, group: str, ref: str) -> str | None:
+    """The stored icon URL for a gear position ("3") or a talent ("0-1-4": group, spec, talent)."""
+    try:
+        idx = [int(x) for x in ref.split("-")]
+        if group == "gear" and len(idx) == 1 and isinstance(data, list):
+            row = data[idx[0]]
+        elif group == "talents" and len(idx) == 3 and isinstance(data, dict):
+            row = data["groups"][idx[0]]["specs"][idx[1]]["talents"][idx[2]]
+        else:
+            return None
+    except (IndexError, KeyError, TypeError, ValueError):
+        return None
+    url = row.get("icon") if isinstance(row, dict) else None
+    return url if isinstance(url, str) and url.startswith("https://") else None
 
 
 def remove_profile(s: Session, cfg: Config, actor: Actor, character_id: int) -> bool:

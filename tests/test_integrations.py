@@ -365,3 +365,28 @@ def test_probe_media_needs_a_realm_where_editions_use_realms():
     with pytest.raises(blizzard.Unsupported):
         b.probe_media("retail", "us", "Testchar")
     assert not [r for r in calls if r.url.path != "/token"]
+
+
+def test_probe_media_reads_one_spec_tree_and_its_class_tree():
+    inner = _media_handler()
+
+    def h(req):
+        p = req.url.path
+        if p == "/data/wow/talent/55":
+            return httpx.Response(200, json={"id": 55, "playable_class": {"name": "Hunter"},
+                                             "playable_specialization": {"name": "Marksmanship"}})
+        if p == "/data/wow/talent-tree/index":
+            return httpx.Response(200, json={
+                "spec_talent_trees": [{"name": "Balance", "key": {"href": "https://x/data/wow/talent-tree/1/playable-specialization/2?namespace=static-forever-us"}},
+                                      {"name": "Marksmanship", "key": {"href": "https://x/data/wow/talent-tree/7/playable-specialization/163?namespace=static-forever-us"}}],
+                "class_talent_trees": [{"name": "Hunter", "key": {"href": "https://x/data/wow/talent-tree/7?namespace=static-forever-us"}}]})
+        if p == "/data/wow/talent-tree/7/playable-specialization/163":
+            return httpx.Response(200, json={"talent_nodes": [{"id": 1, "display_row": 0, "display_col": 1}]})
+        if p == "/data/wow/talent-tree/7":
+            return httpx.Response(200, json={"talent_nodes": []})
+        return inner(req)
+    b, _ = _bz(h)
+    by = {r["check"].strip(): r for r in b.probe_media("forever", "us", "Zulmara Ashveil")}
+    assert by["spec-tree"]["status"] == "200" and by["spec-tree"]["shape"].startswith("Marksmanship")
+    assert "display_col: 1" in "\n".join(by["spec-tree"]["tree"])
+    assert by["class-tree"]["status"] == "200" and by["class-tree"]["shape"].startswith("Hunter")

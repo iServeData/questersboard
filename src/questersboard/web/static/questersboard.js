@@ -382,4 +382,31 @@
     };
     if (img.complete && img.naturalWidth === 0) { miss(); } else { img.addEventListener("error", miss); }
   });
+  // Gear and talent tooltips: tap (phones, iPad) opens one and closes the others; Escape or tapping
+  // elsewhere closes it. Hover and keyboard focus work through CSS.
+  var tips = document.querySelectorAll("[data-tip]");
+  var closeAll = function (except) {
+    tips.forEach(function (t) {
+      if (t !== except && t.classList.contains("is-open")) {
+        t.classList.remove("is-open");
+        var b = t.querySelector(".wq-item-btn"); if (b) { b.setAttribute("aria-expanded", "false"); }
+      }
+    });
+  };
+  tips.forEach(function (t) {
+    var b = t.querySelector(".wq-item-btn");
+    if (!b) { return; }
+    b.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      var open = !t.classList.contains("is-open");
+      closeAll(t);
+      t.classList.toggle("is-open", open);
+      b.setAttribute("aria-expanded", open ? "true" : "false");
+      if (!open) { b.blur(); }
+    });
+  });
+  if (tips.length) {
+    document.addEventListener("click", function (ev) { if (!ev.target.closest("[data-tip]")) { closeAll(null); } });
+    document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { closeAll(null); } });
+  }
 })();

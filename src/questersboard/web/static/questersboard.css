@@ -175,3 +175,45 @@ tr[hidden]{display:none}
 .wq-roster-table th{font-weight:600;font-size:.85rem}
 @media (max-width:700px){.wq-roster-table thead{display:none}.wq-roster-table tr{display:block;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)}.wq-roster-table td{display:block;border:0;padding:1px 0}.wq-roster-table td[data-label]:not(:first-child)::before{content:attr(data-label) ": ";opacity:.7}}
 .wq-saved{margin:0 0 .6em;padding:6px 10px;border-left:3px solid #4caf50;background:rgba(76,175,80,.12)}
+/* Gear and talent tiles with tooltips (icons are Blizzard's, served by QuestersBoard) */
+.wq-gear{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:.5em 0}
+.wq-gear-col{display:flex;flex-direction:column;gap:6px;min-width:0}
+.wq-gear-bottom{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
+.wq-item{position:relative;min-width:0}
+.wq-item-btn{display:flex;align-items:center;gap:10px;width:100%;padding:4px;margin:0;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.1);border-radius:3px;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.wq-item-btn:hover,.wq-item.is-open .wq-item-btn{border-color:rgba(255,255,255,.35)}
+.wq-item-btn:focus-visible{outline:2px solid #fff;outline-offset:1px}
+.wq-icon{width:40px;height:40px;flex:none;border:2px solid #555;border-radius:4px;display:block;background:#111}
+.wq-icon-none{display:inline-block}
+.wq-item-txt{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.wq-item-name{font-weight:600;overflow-wrap:anywhere}
+.wq-item-r .wq-item-btn{flex-direction:row-reverse;text-align:right}.wq-item-r .wq-item-txt{align-items:flex-end}
+.wq-q-poor .wq-item-name,.wq-q-poor .wq-tip-name{color:#9d9d9d}.wq-q-poor .wq-icon{border-color:#9d9d9d}
+.wq-q-common .wq-item-name,.wq-q-common .wq-tip-name{color:#fff}.wq-q-common .wq-icon{border-color:#cfcfcf}
+.wq-q-uncommon .wq-item-name,.wq-q-uncommon .wq-tip-name{color:#1eff00}.wq-q-uncommon .wq-icon{border-color:#1eff00}
+.wq-q-rare .wq-item-name,.wq-q-rare .wq-tip-name{color:#3d9bff}.wq-q-rare .wq-icon{border-color:#0070dd}
+.wq-q-epic .wq-item-name,.wq-q-epic .wq-tip-name{color:#c27cff}.wq-q-epic .wq-icon{border-color:#a335ee}
+.wq-q-legendary .wq-item-name,.wq-q-legendary .wq-tip-name{color:#ff8000}.wq-q-legendary .wq-icon{border-color:#ff8000}
+.wq-q-artifact .wq-item-name,.wq-q-artifact .wq-tip-name,.wq-q-heirloom .wq-item-name,.wq-q-heirloom .wq-tip-name{color:#e6cc80}
+.wq-tip{display:none;position:absolute;z-index:20;top:-4px;left:calc(100% + 10px);width:280px;padding:9px 11px;background:#0b0d1a;border:1px solid #6b7180;border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.6);color:#fff;font-size:.88rem;line-height:1.38;text-align:left}
+.wq-item-r .wq-tip{left:auto;right:calc(100% + 10px)}
+.wq-talent .wq-tip{left:0;top:calc(100% + 6px)}
+.wq-item:hover .wq-tip,.wq-item:focus-within .wq-tip,.wq-item.is-open .wq-tip{display:block}
+.wq-tip-name{font-weight:700;font-size:1rem;margin-bottom:2px}.wq-tip-white{color:#fff}
+.wq-tip-row{display:flex;justify-content:space-between;gap:12px}
+.wq-tip-green{color:#1eff00}.wq-tip-gold{color:#ffd100}.wq-tip-pink{color:#ff80ff}
+.wq-tip-link{display:inline-block;margin-top:6px;font-size:.82rem;color:#8fb8ff}
+.wq-coin{display:inline-block;width:.62em;height:.62em;border-radius:50%;margin:0 .2em 0 .12em;vertical-align:baseline}
+.wq-coin-g{background:#e9c33b}.wq-coin-s{background:#c7c7cf}.wq-coin-c{background:#c8602c}
+.wq-talent-head{margin:.7em 0 .3em;font-weight:600}
+.wq-talents{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px 12px}
+.wq-talent-icon{position:relative;flex:none}
+.wq-talent-on .wq-icon{border-color:#ffd100}
+.wq-rank{position:absolute;right:1px;bottom:1px;background:rgba(0,0,0,.8);color:#ffd100;font:700 .7rem/1.2 ui-monospace,Menlo,monospace;padding:0 3px;border-radius:2px}
+@media (max-width:760px){
+  .wq-gear,.wq-gear-bottom{grid-template-columns:1fr}
+  .wq-item-r .wq-item-btn{flex-direction:row;text-align:left}.wq-item-r .wq-item-txt{align-items:flex-start}
+  .wq-tip,.wq-item-r .wq-tip{position:static;width:auto;margin-top:4px;box-shadow:none}
+  .wq-item:hover .wq-tip{display:none}.wq-item.is-open .wq-tip,.wq-item:focus-within .wq-tip{display:block}
+}
+@media (hover:none){.wq-item:hover .wq-tip{display:none}.wq-item.is-open .wq-tip{display:block}}
