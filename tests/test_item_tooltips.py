@@ -388,7 +388,11 @@ def _tree_handler(req):
             {"id": 2, "display_row": 3, "display_col": 1, "ranks": [_rank(134477, "Fixture Strike", 19427, "Strikes.")]}]})
     if p == "/data/wow/talent-tree/901/playable-specialization/72":
         return httpx.Response(200, json={"playable_specialization": {"name": "Fixture Fury"}, "spec_talent_nodes": [
-            {"id": 3, "display_row": 1, "display_col": 6, "ranks": [_rank(134478, "Fixture Rage", 19428, "Rage.")] * 2}]})
+            {"id": 3, "display_row": 1, "display_col": 7, "ranks": [_rank(134478, "Fixture Rage", 19428, "Rage.")] * 2},
+            # Past the old four-column block (columns 5-8): this one used to be dropped. Its talent id
+            # doesn't match the character's, but its spell does.
+            {"id": 4, "display_row": 2, "display_col": 11,
+             "ranks": [_rank(134499, "Fixture Blitz", 19426, f"Blitz {i}.") for i in (1, 2, 3)]}]})
     return _handler(req)
 
 
@@ -403,11 +407,13 @@ def test_talents_are_drawn_as_trees_from_blizzards_layout(seeded, tmp_path, monk
     with seeded.tx() as s:
         t = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()["talents"]
     arms, fury = t["trees"]
-    assert arms["name"] == "Fixture Arms" and arms["cols"] == 4 and arms["rows"] == 3 and arms["points"] == 5
+    assert arms["name"] == "Fixture Arms" and arms["rows"] == 3 and arms["points"] == 5
     aim, strike = arms["nodes"]
     assert (aim["row"], aim["col"], aim["rank"], aim["max"]) == (1, 1, 5, 5) and aim["description"] == "Aim 25%."
     assert strike["rank"] == 0 and strike["requires"] == ["Fixture Aim"] and "next" not in strike
-    assert fury["nodes"][0]["col"] == 2 and fury["points"] == 0          # column 6 of the class grid -> 2 in its tree
+    assert fury["nodes"][0]["col"] == 1 and fury["points"] == 3          # its own leftmost column is column 1
+    assert fury["cols"] == arms["cols"] == 5 and fury["nodes"][1]["col"] == 5    # widened, nothing cut off
+    assert fury["nodes"][1]["rank"] == 3 and fury["nodes"][1]["description"] == "Blitz 3."   # matched by spell
     assert aim["icon"].endswith("/132312.jpg")                           # spell media, like the talent list
     page = c.get(f"/wow/quester/characters/{cid}/view").text
     assert page.count('class="wq-tree"') == 2 and "wq-r3 wq-c1" in page and ">5/5<" in page and ">0/1<" in page
@@ -427,3 +433,20 @@ def test_talent_tree_columns_are_validated():
         r["editions"][0]["talent_tree_columns"] = bad
         with pytest.raises(ConfigError, match="talent_tree_columns"):
             validate(r)
+
+
+def test_pet_pictures_are_cropped_to_the_animal():
+    import io
+
+    from PIL import Image, ImageDraw
+    im = Image.new("RGB", (400, 300), (20, 30, 50))
+    ImageDraw.Draw(im).ellipse((150, 120, 250, 220), fill=(200, 150, 90))
+    raw = io.BytesIO()
+    im.save(raw, "JPEG")
+    body, ctype = profiles.trim_backdrop(raw.getvalue(), "image/jpeg")
+    out = Image.open(io.BytesIO(body))
+    assert ctype == "image/jpeg" and out.width == out.height and 110 <= out.width <= 130
+    assert profiles.trim_backdrop(b"junk", "image/jpeg") == (b"junk", "image/jpeg")
+    flat = io.BytesIO()
+    Image.new("RGB", (50, 50), (9, 9, 9)).save(flat, "JPEG")            # nothing to crop to
+    assert profiles.trim_backdrop(flat.getvalue(), "image/jpeg")[0] == flat.getvalue()

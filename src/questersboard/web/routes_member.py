@@ -682,7 +682,7 @@ def router(cfg: Config) -> APIRouter:
                                                    "bn_enabled": bool(bz.get("enabled") and bz.get("battlenet_link_enabled")),
                                                    "bn_linked": bn_linked, "editing": editing,
                                                    "race_label": race_label, "class_label": class_label,
-                                                   "details": details, "detail_groups": profiles.GROUPS,
+                                                   "details": details, "detail_groups": profiles.GROUPS, "detail_tabs": profiles.DETAIL_TABS, "tab_of": profiles.TAB_OF,
                                                    "share_labels": profiles.SHARE_LABELS,
                                                    "effective_share": profiles.effective_share,
                                                    "stat_sections": profiles.stat_sections,
@@ -790,7 +790,7 @@ def router(cfg: Config) -> APIRouter:
 
     def _details_ctx(w):
         from ..domain import profiles
-        return {"detail_groups": profiles.GROUPS, "share_labels": profiles.SHARE_LABELS,
+        return {"detail_groups": profiles.GROUPS, "detail_tabs": profiles.DETAIL_TABS, "tab_of": profiles.TAB_OF, "share_labels": profiles.SHARE_LABELS,
                 "effective_share": profiles.effective_share, "stat_sections": profiles.stat_sections,
                 "gear_columns": profiles.gear_columns, "gear_portrait_key": profiles.gear_portrait_key, "editions": w.cfg.editions}
 
@@ -854,6 +854,8 @@ def router(cfg: Config) -> APIRouter:
         if got is None:
             raise NotFound("Blizzard didn't send this icon.")
         body, ctype = got
+        if group == "pets":
+            body, ctype = profiles.trim_backdrop(body, ctype)      # the animal fills its tile
         return Response(body, media_type=ctype, headers={"Cache-Control": "private, max-age=86400"})
 
     def _roster_page(request, w, a, title, rows, scope, guild=None):

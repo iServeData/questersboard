@@ -390,10 +390,48 @@
   document.querySelectorAll("img[data-portrait]").forEach(function (img) {
     var miss = function () {
       img.hidden = true;
-      var p = img.parentNode, note = p && p.querySelector("[data-portrait-missing]");
+      var fig = img.closest(".wq-figure");
+      if (fig) fig.hidden = true;                         // no stand without a figure on it
+      var p = img.closest(".wq-gear-center") || img.parentNode, note = p && p.querySelector("[data-portrait-missing]");
       if (note && !p.querySelector("img[data-portrait]:not([hidden])")) note.hidden = false;
     };
     if (img.complete && img.naturalWidth === 0) { miss(); } else { img.addEventListener("error", miss); }
+  });
+  // Pill tabs over a character's details: show one tab's sections at a time. Without this script the
+  // tab bar stays hidden and every section shows. On a single character's page the tab follows #hash.
+  var tabBars = document.querySelectorAll("[data-tabs]");
+  tabBars.forEach(function (bar) {
+    var box = bar.closest(".wq-details"), btns = bar.querySelectorAll("[data-tab]");
+    if (!box) return;
+    var show = function (key, opening) {
+      btns.forEach(function (b) {
+        var on = b.getAttribute("data-tab") === key;
+        b.setAttribute("aria-selected", on ? "true" : "false");
+        b.tabIndex = on ? 0 : -1;
+      });
+      box.querySelectorAll("[data-tab-panel]").forEach(function (d) {
+        var on = d.getAttribute("data-tab-panel") === key;
+        d.hidden = !on;
+        if (on && opening) d.open = true;
+      });
+    };
+    var keys = Array.prototype.map.call(btns, function (b) { return b.getAttribute("data-tab"); });
+    var start = tabBars.length === 1 && keys.indexOf(location.hash.slice(1)) >= 0 ? location.hash.slice(1) : keys[0];
+    show(start, start !== keys[0]);
+    bar.hidden = false;
+    btns.forEach(function (b, i) {
+      b.addEventListener("click", function () {
+        show(keys[i], true);
+        if (tabBars.length === 1 && history.replaceState) history.replaceState(null, "", "#" + keys[i]);
+      });
+      b.addEventListener("keydown", function (e) {
+        var j = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : -2;
+        if (j === -2) return;
+        e.preventDefault();
+        j = (j + btns.length) % btns.length;
+        btns[j].focus(); btns[j].click();
+      });
+    });
   });
   // Gear and talent tooltips: tap (phones, iPad) opens one and closes the others; Escape or tapping
   // elsewhere closes it. Hover and keyboard focus work through CSS.

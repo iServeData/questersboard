@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Section tabs.** A character's details open with Armory-style pill tabs (Character, Talents,
+  Professions, Progress, Pets; only those with something to show). Arrow keys move between them, a
+  single character's page remembers the tab in the address (#talents), and without JavaScript every
+  section shows in order as before. Per-group sharing labels are unchanged.
+- **Complete talent trees.** Each specialization is placed from its own leftmost column instead of
+  fixed four-column blocks of the class grid, and every tree is as wide as the widest one (at least
+  `talent_tree_columns`), so talents past the old block edge are no longer dropped. Ranks are matched
+  by talent id, then by spell id, then by name.
+- **Figurine stand.** The full-body render is transparent, so the grey box behind it is gone and the
+  character stands on a lit round base. Other picture types (bust, avatar) show without the base.
+- **Bigger pet pictures.** Pet pictures are cropped to the animal (Blizzard's creature pictures have it
+  small on a plain backdrop) and shown as 160px cards with the name and family underneath.
+
 - **Talent trees.** Where an edition sets `talent_tree_columns` (WoW: Forever: 4), Talents are drawn as
   one tree per specialization from Blizzard's talent-tree pages: each talent in its row and column
   with its icon, "rank/max", what it requires, and the current and next rank in its tooltip. Other

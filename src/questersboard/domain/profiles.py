@@ -48,6 +48,16 @@ GROUPS: tuple[Group, ...] = (
     Group("pets", "Pets", "hunter pets: name, family and level (hunters only)", ("/hunter-pets",)),
 )
 GROUP_KEYS = tuple(g.key for g in GROUPS)
+# Pill tabs over a character's details (Armory-style). Each group sits in exactly one tab; tabs with
+# nothing to show are left out, and without JavaScript every section simply shows in order.
+DETAIL_TABS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("character", "Character", ("overview", "guild", "gear", "stats", "portrait")),
+    ("talents", "Talents", ("talents",)),
+    ("professions", "Professions", ("professions",)),
+    ("progress", "Progress", ("pvp", "progress")),
+    ("pets", "Pets", ("pets",)),
+)
+TAB_OF = {k: t for t, _label, keys in DETAIL_TABS for k in keys}
 SHARE_LABELS = {"private": "Only me", "guild": "My guild", "members": "All QuestersBoard members"}
 
 
@@ -454,21 +464,32 @@ def _resolve_trees(s: Session, cfg: Config, bz, ed, ch, talents: dict) -> None:
              for n in ctree.get("talent_nodes") or [] if isinstance(n, dict) and isinstance(n.get("id"), int)}
     active = next((g for g in talents.get("groups") or [] if g.get("active")), None) or \
         next(iter(talents.get("groups") or []), {})
-    have_id, have_name, points = {}, {}, {}
+    have_id, have_spell, have_name, points = {}, {}, {}, {}
     for sp in active.get("specs") or []:
         points[sp.get("name")] = sp.get("points")
         for t in sp.get("talents") or []:
             if t.get("talent_id"):
                 have_id[t["talent_id"]] = t.get("rank") or 0
+            if t.get("spell_id"):
+                have_spell[t["spell_id"]] = t.get("rank") or 0
             have_name[t.get("name")] = t.get("rank") or 0
-    trees = []
+    # Columns are numbered across the whole class, and a specialization doesn't always start on a
+    # multiple of the edition's column count: place each tree from its own leftmost column, and make
+    # every tree as wide as the widest one (at least talent_tree_columns), so nothing is cut off.
+    pages = []
     for ref in (ctree.get("spec_talent_trees") or [])[:4]:
         body = _static_page(s, bz, ch.region, ref, sns, hours)
         raw = [n for n in body.get("spec_talent_nodes") or [] if isinstance(n, dict)
                and isinstance(n.get("display_row"), int) and isinstance(n.get("display_col"), int)]
-        if not raw:
-            continue
-        base = ((min(n["display_col"] for n in raw) - 1) // cols) * cols
+        if raw:
+            pages.append((ref, body, raw))
+    if not pages:
+        return
+    cols = min(8, max([cols] + [max(n["display_col"] for n in raw) - min(n["display_col"] for n in raw) + 1
+                                for _r, _b, raw in pages]))
+    trees = []
+    for ref, body, raw in pages:
+        base = min(n["display_col"] for n in raw) - 1
         nodes, pos = [], {}
         for n in sorted(raw, key=lambda n: (n["display_row"], n["display_col"]))[:60]:
             ranks = [r for r in n.get("ranks") or [] if isinstance(r, dict)]
@@ -478,10 +499,13 @@ def _resolve_trees(s: Session, cfg: Config, bz, ed, ch, talents: dict) -> None:
             name = _label(first.get("talent")) or _label((first.get("spell_tooltip") or {}).get("spell"))
             if not name:
                 continue
-            rank = have_id.get(tid, have_name.get(name, 0)) if tid else have_name.get(name, 0)
+            spell = ((first.get("spell_tooltip") or {}).get("spell") or {}).get("id")
+            # Match the character's rank by talent id, then by any rank's spell id, then by name.
+            spells = [((t.get("spell_tooltip") or {}).get("spell") or {}).get("id") for t in tips]
+            rank = have_id.get(tid) if tid in have_id else next(
+                (have_spell[x] for x in spells if x in have_spell), have_name.get(name, 0))
             rank = max(0, min(int(rank or 0), len(ranks) or 1))
             cur = tips[rank - 1] if rank and rank <= len(tips) else first
-            spell = ((first.get("spell_tooltip") or {}).get("spell") or {}).get("id")
             node = {"name": name, "row": n["display_row"], "col": n["display_col"] - base,
                     "rank": rank, "max": max(len(ranks), 1),
                     **_tip_fields(cur.get("spell_tooltip") or {})}
@@ -585,6 +609,42 @@ def trim_render(body: bytes, ctype: str, margin: float = 0.04) -> tuple[bytes, s
             out = io.BytesIO()
             im.crop(box).save(out, "PNG", compress_level=6)
             return out.getvalue(), "image/png"
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return body, ctype
+
+
+def trim_backdrop(body: bytes, ctype: str, margin: float = 0.06, threshold: int = 28) -> tuple[bytes, str]:
+    """Blizzard's creature pictures (pets) are JPEGs with the animal small on a plain backdrop. Crop to
+    whatever differs from the corner colour (plus a margin, kept square) so the animal fills its tile.
+    Anything that can't be read, or has no clear backdrop, is returned unchanged."""
+    if ctype not in ("image/jpeg", "image/png"):
+        return body, ctype
+    import io
+
+    from PIL import Image, ImageChops
+    try:
+        with Image.open(io.BytesIO(body)) as src:
+            if src.width * src.height > TRIM_MAX_PIXELS:
+                return body, ctype
+            im = src.convert("RGB")
+            w, h = im.size
+            corners = [im.getpixel(p) for p in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1))]
+            bg = tuple(sorted(c[i] for c in corners)[1] for i in range(3))
+            diff = ImageChops.difference(im, Image.new("RGB", im.size, bg)).convert("L")
+            box = diff.point(lambda v: 255 if v > threshold else 0).getbbox()
+            if not box or (box[2] - box[0]) * (box[3] - box[1]) > 0.85 * w * h:
+                return body, ctype
+            side = int(max(box[2] - box[0], box[3] - box[1]) * (1 + 2 * margin))
+            side = max(side, int(min(w, h) * 0.4))              # at most 2.5x zoom, so it stays sharp
+            cx, cy = (box[0] + box[2]) // 2, (box[1] + box[3]) // 2
+            # Keep the square inside the picture where it fits; pad with the backdrop where it doesn't.
+            left = max(0, min(w - side, cx - side // 2)) if side <= w else cx - side // 2
+            top = max(0, min(h - side, cy - side // 2)) if side <= h else cy - side // 2
+            crop = Image.new("RGB", (side, side), bg)
+            crop.paste(im, (-left, -top))
+            out = io.BytesIO()
+            crop.save(out, "JPEG", quality=88)
+            return out.getvalue(), "image/jpeg"
     except (OSError, ValueError, Image.DecompressionBombError):
         return body, ctype
 

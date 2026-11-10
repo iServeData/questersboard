@@ -182,8 +182,20 @@ tr[hidden]{display:none}
 .wq-gear-bottom>.wq-item{flex:0 1 calc(50% - 9px);min-width:0}
 .wq-gear.has-portrait{grid-template-columns:1fr minmax(160px,240px) 1fr}
 .wq-gear.has-portrait .wq-gear-bottom>.wq-item{flex:1 1 0;max-width:300px}
-.wq-gear-center{display:flex;align-items:center;justify-content:center;flex-direction:column;min-height:240px;border:1px solid rgba(255,255,255,.08);border-radius:6px;background:radial-gradient(ellipse at 50% 40%,rgba(255,255,255,.07),rgba(0,0,0,.25) 70%);overflow:hidden}
-.wq-gear-portrait{display:block;max-width:100%;max-height:440px;width:auto;height:auto;object-fit:contain}
+/* Blizzard's full-body render is a transparent PNG: no box behind it, so the page shows through, and
+   a lit round base under the feet like a tabletop figurine. */
+.wq-gear-center{display:flex;align-items:center;justify-content:center;flex-direction:column;min-height:240px}
+.wq-figure{position:relative;display:block;max-width:100%;padding-bottom:6px}
+.wq-gear-portrait{position:relative;z-index:1;display:block;max-width:100%;max-height:440px;width:auto;height:auto;object-fit:contain}
+.wq-on-stand{padding-bottom:22px}
+.wq-on-stand::before{content:"";position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:min(240px,92%);aspect-ratio:4/1;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.55));box-shadow:0 8px 18px rgba(0,0,0,.55)}
+.wq-on-stand::after{content:"";position:absolute;left:50%;bottom:10px;transform:translateX(-50%);width:min(224px,86%);aspect-ratio:4/1;border-radius:50%;background:radial-gradient(ellipse at 50% 45%,rgba(236,240,245,.34),rgba(200,208,218,.16) 55%,rgba(160,170,182,.08) 75%);border:1px solid rgba(255,255,255,.28)}
+/* Pill tabs over a character's sections (shown by the script). */
+.wq-tabs{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;margin:4px 0 12px;border:1px solid var(--line-strong,rgba(255,255,255,.2));border-radius:999px;background:rgba(0,0,0,.3)}
+.wq-tab{appearance:none;margin:0;padding:6px 16px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;opacity:.75}
+.wq-tab:hover{opacity:1;background:rgba(255,255,255,.06)}
+.wq-tab[aria-selected="true"]{opacity:1;background:rgba(236,240,245,.9);color:#0b0f14}
+.wq-tab:focus-visible{outline:2px solid #ffd100;outline-offset:2px}
 .wq-gear-center .note{padding:0 10px;text-align:center}
 .wq-item{position:relative;min-width:0}
 .wq-item-btn{display:flex;align-items:center;gap:10px;width:100%;padding:4px;margin:0;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.1);border-radius:3px;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -248,8 +260,10 @@ tr[hidden]{display:none}
 
 /* Hunter pets: Blizzard's picture beside the name, when there is one. */
 .wq-pets{list-style:none;padding-left:0}
-.wq-pets li{display:flex;align-items:center;gap:12px;margin:0 0 8px}
-.wq-pet-img{width:64px;height:64px;object-fit:cover;border:1px solid var(--line-strong);border-radius:var(--radius,2px);background:rgba(225,228,232,.06);flex:0 0 auto}
+.wq-pets{display:flex;flex-wrap:wrap;gap:12px}
+.wq-pets li{display:flex;flex-direction:column;align-items:center;gap:6px;margin:0;width:160px;text-align:center}
+.wq-pet-txt{display:flex;flex-direction:column;gap:2px}
+.wq-pet-img{width:160px;height:160px;object-fit:cover;border:1px solid var(--line-strong);border-radius:var(--radius,2px);background:rgba(225,228,232,.06)}
 
 /* Classic-style talent trees: one grid per specialization, talents placed by Blizzard's row/column. */
 .wq-trees{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:.4rem 0 .8rem}
@@ -272,3 +286,4 @@ tr[hidden]{display:none}
   .wq-node .wq-tip{position:fixed;left:12px;right:12px;top:auto;bottom:12px;width:auto;z-index:1000}
   .wq-node-right .wq-tip{left:12px;right:12px}
 }
+.wq-detail-group[hidden],.wq-figure[hidden]{display:none}
