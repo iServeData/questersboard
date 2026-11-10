@@ -35,15 +35,15 @@
     <p class="note">API: {{ {"api_matched":"matched in Blizzard's API (existence only, not proof it's yours)","ownership_verified":"verified as yours via Battle.net login","self_reported":"self-reported, not checked","unverified":"not checked","not_found":"not found in Blizzard's API","unsupported":"no Blizzard API for this edition yet"}.get(c.verification, c.verification) }}</p>
     {% set ed = editions[c.edition] %}
     {% if bz_enabled and ed.capability("character") != "unsupported" %}
-    <form method="post" action="{{ mp }}/characters/{{ c.id }}/lookup">{{ csrf_field() }}<button class="linkish" type="submit">Check with Blizzard</button></form>
     {% set d = details.get(c.id) %}
+    {% if not d %}<form method="post" action="{{ mp }}/characters/{{ c.id }}/lookup">{{ csrf_field() }}<button class="linkish" type="submit">Check it exists on Blizzard</button></form>{% endif %}
     {% if d %}{% set owner_view = true %}{% set visible = none %}{% include "_character_details.html" %}
     <p class="note"><a href="{{ mp }}/characters/{{ c.id }}/view">Open its character page</a> (what others see depends on your sharing choices){% if d.guild_id and "guild" in d.groups and effective_share(d, c, "guild") != "private" %} · <a href="{{ mp }}/guilds/{{ d.edition }}/{{ d.region }}/{{ d.guild_id }}">{{ d.guild_name or "Guild" }} roster</a>{% endif %}</p>{% endif %}
     <details class="wq-import" id="details-{{ c.id }}"{% if not d %} data-new{% endif %}>
-      <summary>{{ "Refresh or change imported details" if d else "Import details from Blizzard" }}</summary>
+      <summary>Refresh from Blizzard <span class="note">{{ "· change what's included or who can see it" if d else "· choose what to bring in" }}</span></summary>
       <form method="post" action="{{ mp }}/characters/{{ c.id }}/details">{{ csrf_field() }}
         <p class="note">Pick what to bring in and who can see it. Untick anything you'd rather keep out.{% if c.verification != "ownership_verified" %} Sharing with your guild or other members needs this character verified as yours: use Sync from Battle.net below. Until then everything stays visible only to you.{% endif %} Sharing takes effect on guild and member pages as they arrive.</p>
-        <table class="wq-import-table"><thead><tr><th scope="col">Import</th><th scope="col">Who can see it</th></tr></thead><tbody>
+        <table class="wq-import-table"><thead><tr><th scope="col">Include</th><th scope="col">Who can see it</th></tr></thead><tbody>
           {% if c.verification == "ownership_verified" %}<tr class="wq-share-all"><td><strong>Set all</strong> <span class="note">(changes every row)</span></td>
           <td><select name="share_all" aria-label="Who can see every group" data-share-all><option value="">Choose each</option>{% for lv, lab in share_labels.items() %}<option value="{{ lv }}">{{ lab }}</option>{% endfor %}</select></td></tr>{% endif %}
         {% for g in detail_groups %}
@@ -51,7 +51,7 @@
           <td><select name="share_{{ g.key }}" data-share-one aria-label="Who can see {{ g.label }}">{% for lv, lab in share_labels.items() %}<option value="{{ lv }}"{% if share_choice(d, g.key) == lv %} selected{% endif %}{% if lv != "private" and c.verification != "ownership_verified" %} disabled{% endif %}>{{ lab }}</option>{% endfor %}</select></td></tr>
         {% endfor %}
         </tbody></table>
-        <p class="btns"><button class="btn" type="submit">{{ "Refresh from Blizzard" if d else "Import" }}</button></p>
+        <p class="btns"><button class="btn" type="submit">Refresh from Blizzard</button></p>
       </form>
       {% if d %}<form method="post" action="{{ mp }}/characters/{{ c.id }}/details/remove">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Remove the details imported for {{ c.name }}?">Remove imported details</button></form>{% endif %}
     </details>

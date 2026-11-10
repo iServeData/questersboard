@@ -104,7 +104,7 @@ def test_import_all_groups_then_untick_some(seeded, tmp_path, monkeypatch):
         cid = char(s, cfg, actor(70), "Zulmara Ashveil").id
     c = login(a, 70)
     page = c.get("/wow/quester/characters").text
-    assert "Import details from Blizzard" in page
+    assert "choose what to bring in" in page
     assert page.count('name="groups"') == len(profiles.GROUPS) and 'checked' in page
     form = {"csrf": csrf(c), "groups": list(profiles.GROUP_KEYS), "share_gear": "guild"}
     r = c.post(f"/wow/quester/characters/{cid}/details", data=form)
@@ -403,3 +403,23 @@ def test_link_preview_agents_must_be_a_list():
     from questersboard.config import ConfigError
     with pytest.raises(ConfigError, match="link_preview_agents"):
         make_cfg(web={"link_preview_agents": "Discordbot"})
+
+
+@needs_db
+def test_character_page_refreshes_from_blizzard_with_the_same_choices(seeded, tmp_path, monkeypatch):
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(97), "Zulmara Ashveil").id
+    c, o = login(a, 97), login(a, 98)
+    url = f"/wow/quester/characters/{cid}/details/refresh"
+    assert c.post(url, data={"csrf": csrf(c)}).status_code == 404                  # nothing imported yet
+    c.post(f"/wow/quester/characters/{cid}/details", data={"csrf": csrf(c), "groups": ["gear"]})
+    page = c.get(f"/wow/quester/characters/{cid}/view").text
+    assert f'action="{url}"' in page and "Refresh from Blizzard" in page
+    assert "Check it exists on Blizzard" not in c.get("/wow/quester/characters").text   # imported: not needed
+    assert o.post(url, data={"csrf": csrf(o)}).status_code == 404                  # only the owner
+    r = c.post(url, data={"csrf": csrf(c)}, follow_redirects=False)
+    assert r.headers["location"].endswith(f"/characters/{cid}/view?refreshed=1")
+    assert "Refreshed from Blizzard." in c.get(r.headers["location"]).text
+    with seeded.tx() as s:
+        assert list(s.execute(text("select groups from character_profiles")).scalar()) == ["gear"]

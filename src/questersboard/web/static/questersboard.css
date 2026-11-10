@@ -196,6 +196,13 @@ tr[hidden]{display:none}
 .wq-tab:hover{opacity:1;background:rgba(255,255,255,.06)}
 .wq-tab[aria-selected="true"]{opacity:1;background:rgba(236,240,245,.9);color:#0b0f14}
 .wq-tab:focus-visible{outline:2px solid #ffd100;outline-offset:2px}
+/* Tab colours follow the character's faction. */
+.wq-tabs-horde{border-color:rgba(196,40,28,.55)}
+.wq-tabs-horde .wq-tab[aria-selected="true"]{background:#9e1b12;color:#fff}
+.wq-tabs-alliance{border-color:rgba(64,120,214,.55)}
+.wq-tabs-alliance .wq-tab[aria-selected="true"]{background:#1f56b0;color:#fff}
+.wq-refresh-one{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px}
+.wq-tree{min-width:0;overflow-x:auto}
 .wq-gear-center .note{padding:0 10px;text-align:center}
 .wq-item{position:relative;min-width:0}
 .wq-item-btn{display:flex;align-items:center;gap:10px;width:100%;padding:4px;margin:0;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.1);border-radius:3px;color:inherit;font:inherit;text-align:left;cursor:pointer}

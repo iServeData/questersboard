@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Talent trees placed by their block of the class grid.** WoW: Forever's per-specialization pages
+  each carry the next tree's leftmost column, which pushed a stray column off the side of a tree.
+  Talents are now grouped by the run of class-grid columns they sit in (blocks split by empty
+  columns), and each block takes the name of the page holding most of its talents; if the blocks don't
+  line up with the pages, each page is drawn as sent. Trees no longer spill out of their boxes.
+- **Refresh from Blizzard on the character page.** Owners can refresh from their character's page
+  with the same groups and sharing ("Refreshed from Blizzard." afterwards).
+- **One name for refreshing.** Everything that pulls data from Blizzard says "Refresh from Blizzard"
+  ("Refresh all from Blizzard" at the top of My characters), and dates say "Last refreshed from
+  Blizzard". The existence-only check is now "Check it exists on Blizzard" and only shows until details
+  are imported.
+- **Faction-coloured tabs.** The section tabs are red for Horde characters and blue for Alliance.
+
 - **Section tabs.** A character's details open with Armory-style pill tabs (Character, Talents,
   Professions, Progress, Pets; only those with something to show). Arrow keys move between them, a
   single character's page remembers the tab in the address (#talents), and without JavaScript every

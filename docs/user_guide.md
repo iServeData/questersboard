@@ -30,7 +30,7 @@ Log in with Discord. QuestersBoard only learns your Discord ID, username and dis
   offers a picker for the missing or valid choice and saves as soon as you pick. Any other problem (a name
   with a number, an unknown ruleset) comes with an "Edit the form" button that reopens it filled in.
 - Set the roles you can fill (tank, healer, damage, or your community's custom roles).
-- "Check with Blizzard" confirms the character exists. It doesn't prove it's yours. For WoW: Forever it
+- "Check it exists on Blizzard" confirms the character exists (shown until details are imported). It doesn't prove it's yours. For WoW: Forever it
   looks up "Name Surname" with no realm; Blizzard reportedly answers in the US but not yet in the EU.
 - "Sync from Battle.net" (if your community turned it on): log in with Battle.net. Characters you already
   have here show "verified as yours" and get their level updated; the others are listed so you can tick

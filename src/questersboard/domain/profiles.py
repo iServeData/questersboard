@@ -438,6 +438,39 @@ def _tip_fields(tip: dict) -> dict:
     return out
 
 
+def _regroup_by_block(pages: list) -> list:
+    """[(ref, body, nodes)] per specialization page -> the same, with nodes regrouped by the block of
+    class-grid columns they sit in (see _resolve_trees). Unchanged when blocks and pages don't match."""
+    seen, owner = {}, {}
+    for i, (_r, _b, raw) in enumerate(pages):
+        for n in raw:
+            key = n.get("id") if n.get("id") is not None else id(n)
+            if key not in seen:
+                seen[key], owner[key] = n, i
+    used = sorted({n["display_col"] for n in seen.values()})
+    blocks, run = [], []
+    for c in used:
+        if run and c != run[-1] + 1:
+            blocks.append(run)
+            run = []
+        run.append(c)
+    if run:
+        blocks.append(run)
+    if len(blocks) != len(pages):
+        return pages
+    block_of = {c: b for b, run in enumerate(blocks) for c in run}
+    members: list[list] = [[] for _ in blocks]
+    votes: list[dict] = [{} for _ in blocks]
+    for key, n in seen.items():
+        b = block_of[n["display_col"]]
+        members[b].append(n)
+        votes[b][owner[key]] = votes[b].get(owner[key], 0) + 1
+    picks = [max(v, key=lambda i: (v[i], -i)) for v in votes]
+    if len(set(picks)) != len(picks):                  # two blocks claim the same page: keep Blizzard's
+        return pages
+    return [(pages[p][0], pages[p][1], members[b]) for b, p in enumerate(picks)]
+
+
 def _resolve_trees(s: Session, cfg: Config, bz, ed, ch, talents: dict) -> None:
     """Classic-style talent trees: Blizzard's class tree lists its specialization trees, and each one
     places every talent on a grid (display_row, display_col) with its ranks; the class tree says which
@@ -473,9 +506,12 @@ def _resolve_trees(s: Session, cfg: Config, bz, ed, ch, talents: dict) -> None:
             if t.get("spell_id"):
                 have_spell[t["spell_id"]] = t.get("rank") or 0
             have_name[t.get("name")] = t.get("rank") or 0
-    # Columns are numbered across the whole class, and a specialization doesn't always start on a
-    # multiple of the edition's column count: place each tree from its own leftmost column, and make
-    # every tree as wide as the widest one (at least talent_tree_columns), so nothing is cut off.
+    # Columns are numbered across the whole class grid (one block of columns per specialization, with
+    # empty columns between). Blizzard's per-specialization pages don't always hold exactly their own
+    # block: WoW: Forever's hunter pages each carry the next tree's leftmost column. So every talent
+    # is placed by the block its column falls in (runs of used columns split by empty ones), and each
+    # block is named after the page that holds most of its talents. If the blocks don't line up one to
+    # one with the pages, each page is drawn as Blizzard sent it.
     pages = []
     for ref in (ctree.get("spec_talent_trees") or [])[:4]:
         body = _static_page(s, bz, ch.region, ref, sns, hours)
@@ -485,6 +521,7 @@ def _resolve_trees(s: Session, cfg: Config, bz, ed, ch, talents: dict) -> None:
             pages.append((ref, body, raw))
     if not pages:
         return
+    pages = _regroup_by_block(pages)
     cols = min(8, max([cols] + [max(n["display_col"] for n in raw) - min(n["display_col"] for n in raw) + 1
                                 for _r, _b, raw in pages]))
     trees = []
@@ -725,6 +762,17 @@ def refresh_all(s: Session, cfg: Config, bz, actor: Actor, level: str = "") -> t
         except (Invalid, NotFound, ApiError, Unsupported):
             failed.append(ch.name)
     return done, failed
+
+
+def refresh_one(s: Session, cfg: Config, bz, actor: Actor, character_id: int) -> CharacterProfile:
+    """Refresh one imported character from Blizzard with the same groups and sharing choices (the
+    character page's Refresh from Blizzard). Only the owner; NotFound if nothing is imported yet."""
+    require_member(cfg, actor)
+    prof = s.get(CharacterProfile, character_id)
+    if prof is None or prof.member_id != actor.member_id:
+        raise NotFound("Nothing imported for this character yet.")
+    return import_profile(s, cfg, bz, actor, character_id, _bulk_groups(prof),
+                          {g: share_choice(prof, g) for g in GROUP_KEYS})
 
 
 def share_all(s: Session, cfg: Config, actor: Actor, level: str) -> int:

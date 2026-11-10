@@ -325,7 +325,7 @@ def test_check_with_blizzard_retail_is_existence_only(seeded, tmp_path, monkeypa
     cid = _retail(seeded, cfg, 30)
     c = login(a, 30)
     page = c.get("/wow/quester/characters").text
-    assert "Check with Blizzard" in page and "Sync from Battle.net" in page
+    assert "Check it exists on Blizzard" in page and "Sync from Battle.net" in page
     r = c.post(f"/wow/quester/characters/{cid}/lookup", data={"csrf": csrf(c)})
     assert r.status_code == 303
     with seeded.tx() as s:
@@ -345,7 +345,7 @@ def test_check_with_blizzard_forever_uses_realmless_slug(seeded, tmp_path, monke
     with seeded.tx() as s:
         cid = char(s, cfg, actor(32), "Grimtusk Ironhide").id
     c = login(a, 32)
-    assert "Check with Blizzard" in c.get("/wow/quester/characters").text
+    assert "Check it exists on Blizzard" in c.get("/wow/quester/characters").text
     r = c.post(f"/wow/quester/characters/{cid}/lookup", data={"csrf": csrf(c)})
     assert r.status_code == 303
     paths = [q.url.path for q in calls if q.url.path != "/token"]

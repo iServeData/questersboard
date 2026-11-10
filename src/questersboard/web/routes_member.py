@@ -788,6 +788,22 @@ def router(cfg: Config) -> APIRouter:
                 raise Invalid("Blizzard's API didn't answer. Nothing was changed; try again later.") from None
         return _redirect(f"{mp}/characters?saved={character_id}#char-{character_id}")
 
+    @r.post(mp + "/characters/{character_id}/details/refresh")
+    async def refresh_details(request: Request, character_id: int):
+        """The character page's Refresh from Blizzard: same groups and sharing, back to the page."""
+        from ..domain import profiles
+        from ..integrations.blizzard import ApiError, Unsupported
+        form, a = await post_guard(request, fresh=False)
+        w = W(request)
+        with w.db.tx() as s:
+            try:
+                profiles.refresh_one(s, w.cfg, w.bz, a, character_id)
+            except Unsupported as exc:
+                raise Invalid(str(exc)) from None
+            except ApiError:
+                raise Invalid("Blizzard's API didn't answer. Nothing was changed; try again later.") from None
+        return _redirect(f"{mp}/characters/{character_id}/view?refreshed=1")
+
     def _details_ctx(w):
         from ..domain import profiles
         return {"detail_groups": profiles.GROUPS, "detail_tabs": profiles.DETAIL_TABS, "tab_of": profiles.TAB_OF, "share_labels": profiles.SHARE_LABELS,
@@ -812,6 +828,7 @@ def router(cfg: Config) -> APIRouter:
         return render(request, "character_view.html", {"guild_links": guild_links, "title": ch.name, "c": ch, "d": prof, "visible": vis,
                                                       "owner_view": owner, "open_groups": True,
                                                       "portrait_key": "main-raw", "guild_ok": guild_ok,
+                                                      "refreshed": owner and request.query_params.get("refreshed") == "1",
                                                       **_details_ctx(w)})
 
     @r.get(mp + "/characters/{character_id}/portrait/{key}")

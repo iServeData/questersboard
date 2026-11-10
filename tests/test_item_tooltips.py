@@ -450,3 +450,22 @@ def test_pet_pictures_are_cropped_to_the_animal():
     flat = io.BytesIO()
     Image.new("RGB", (50, 50), (9, 9, 9)).save(flat, "JPEG")            # nothing to crop to
     assert profiles.trim_backdrop(flat.getvalue(), "image/jpeg")[0] == flat.getvalue()
+
+
+def test_talents_are_placed_by_their_block_of_the_class_grid():
+    # FIXTURE shaped like WoW: Forever's hunter pages: three 4-column trees (columns 1-4, 7-10, 13-16),
+    # where the first two pages also carry the next tree's leftmost column.
+    def nodes(start, rows=3):
+        return [{"id": start * 100 + r * 10 + c, "display_row": r, "display_col": start + c}
+                for r in range(1, rows + 1) for c in range(4)]
+    a, b, c = nodes(1), nodes(7), nodes(13)
+    left = lambda ns: [n for n in ns if n["display_col"] in (7, 13)]           # noqa: E731
+    pages = [("a", {}, a + left(b)), ("b", {}, [n for n in b if n["display_col"] != 7] + left(c)),
+             ("c", {}, [n for n in c if n["display_col"] != 13])]
+    out = profiles._regroup_by_block(pages)
+    assert [r for r, _b, _n in out] == ["a", "b", "c"]
+    for (_r, _b, ns), want in zip(out, (a, b, c)):
+        assert sorted(n["id"] for n in ns) == sorted(n["id"] for n in want)
+    # Blocks that don't line up with the pages: drawn as sent.
+    odd = [("a", {}, nodes(1)), ("b", {}, nodes(5))]                           # columns 1-8, no gap
+    assert profiles._regroup_by_block(odd) is odd

@@ -40,7 +40,7 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | POST | `/wow/quester/signups/{id}/{decision}` | `approve waitlist reject role` |
 | GET/POST | `/wow/quester/characters` | list / add or edit |
 | POST | `/wow/quester/characters/{id}/remove` | archive a character |
-| POST | `/wow/quester/characters/{id}/lookup` | "Check with Blizzard" (existence only) |
+| POST | `/wow/quester/characters/{id}/lookup` | "Check it exists on Blizzard" (existence only; hidden once details are imported) |
 | GET | `/wow/quester/characters/battlenet?edition=&region=` | start optional ownership link |
 | GET | `/wow/quester/battlenet/callback` | Battle.net OAuth (`wow.profile`), single-use state; shows verified and addable characters |
 | POST | `/wow/quester/characters/battlenet/import` | add ticked characters from the member's own encrypted list (`pick`, `ruleset_<n>`), within `battlenet_import_minutes` |
