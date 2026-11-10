@@ -12,6 +12,7 @@ member can refresh or remove them at any time.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from urllib.parse import parse_qsl, urlsplit
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -188,6 +189,8 @@ def _talents(body: dict) -> dict:
                 if not name:
                     continue
                 row = {"name": name, "rank": t.get("talent_rank")}
+                if isinstance((t.get("talent") or {}).get("id"), int):
+                    row["talent_id"] = t["talent"]["id"]
                 sid = (tip.get("spell") or {}).get("id") if isinstance(tip.get("spell"), dict) else None
                 if isinstance(sid, int):
                     row["spell_id"] = sid
@@ -336,6 +339,8 @@ def import_profile(s: Session, cfg: Config, bz, actor: Actor, character_id: int,
         hosts = set(cfg["blizzard"].get("render_image_hosts", ["render.worldofwarcraft.com"]))
         data["portrait"] = [a for a in data["portrait"] if urlsplit(a["url"]).hostname in hosts]
     data = {g: v for g, v in data.items() if v not in (None, {}, [])}
+    if data.get("talents"):
+        _resolve_trees(s, cfg, bz, ed, ch, data["talents"])
     _resolve_icons(s, cfg, bz, ed, ch.region, data)
     guild = data.get("guild") or {}
     prof = s.get(CharacterProfile, ch.id)
@@ -383,7 +388,11 @@ def _resolve_icons(s: Session, cfg: Config, bz, ed, region: str, data: dict) -> 
             for t in sp.get("talents") or []:
                 if isinstance(t.get("spell_id"), int) and sns:
                     jobs.append((t, f"/data/wow/media/spell/{t['spell_id']}", sns))
-    budget = int(bzc.get("icon_lookups", 80))
+    for tree in (data.get("talents") or {}).get("trees") or []:
+        for node in tree.get("nodes") or []:
+            if isinstance(node.get("spell_id"), int) and sns:
+                jobs.append((node, f"/data/wow/media/spell/{node['spell_id']}", sns))
+    budget = int(bzc.get("icon_lookups", 120))
     seen: dict[tuple[str, str], str | None] = {}
     for row, path, ns in jobs:
         key = (path, ns)
@@ -395,6 +404,108 @@ def _resolve_icons(s: Session, cfg: Config, bz, ed, region: str, data: dict) -> 
             seen[key] = bz.media_icon(s, region, path, ns, keys)
         if seen[key]:
             row["icon"] = seen[key]
+
+
+def _static_page(s: Session, bz, region: str, ref, sns: str, hours: float) -> dict:
+    """A linked talent-tree page (its href in Blizzard's answer), only within the edition's static data."""
+    href = ((ref or {}).get("key") or {}).get("href") or "" if isinstance(ref, dict) else ""
+    u = urlsplit(href)
+    ns = dict(parse_qsl(u.query)).get("namespace") or sns
+    if not u.path.startswith("/data/wow/talent-tree/") or not _same_static(ns, sns):
+        return {}
+    try:
+        st, body = bz.get(s, region, u.path, ns, hours)
+    except Exception:                          # a missing tree just keeps the plain talent list
+        return {}
+    return body if st == 200 and isinstance(body, dict) else {}
+
+
+def _tip_fields(tip: dict) -> dict:
+    out = {}
+    for k in ("description", "cast_time", "power_cost", "range", "cooldown"):
+        if _text(tip.get(k), 600):
+            out[k] = _text(tip[k], 600)
+    return out
+
+
+def _resolve_trees(s: Session, cfg: Config, bz, ed, ch, talents: dict) -> None:
+    """Classic-style talent trees: Blizzard's class tree lists its specialization trees, and each one
+    places every talent on a grid (display_row, display_col) with its ranks; the class tree says which
+    talent needs which. The character's ranks come from its own talents page. Stored as
+    talents["trees"]; the plain list stays as it was. Off when the edition's talent_tree_columns is 0."""
+    cols = getattr(ed, "talent_tree_columns", 0)
+    sns = ed.namespace("static", ch.region)
+    if not cols or not sns:
+        return
+    hours = cfg["blizzard"].get("cache_hours_static", 168)
+    try:
+        st, index = bz.get(s, ch.region, "/data/wow/talent-tree/index", sns, hours)
+    except Exception:
+        return
+    if st != 200 or not isinstance(index, dict):
+        return
+    want = ch.class_key.replace("_", " ").lower()
+    pick = next((t for t in index.get("class_talent_trees") or [] if isinstance(t, dict)
+                 and _label(t).lower() == want), None)
+    ctree = _static_page(s, bz, ch.region, pick, sns, hours)
+    if not ctree:
+        return
+    needs = {n["id"]: [x for x in n.get("locked_by") or [] if isinstance(x, int)]
+             for n in ctree.get("talent_nodes") or [] if isinstance(n, dict) and isinstance(n.get("id"), int)}
+    active = next((g for g in talents.get("groups") or [] if g.get("active")), None) or \
+        next(iter(talents.get("groups") or []), {})
+    have_id, have_name, points = {}, {}, {}
+    for sp in active.get("specs") or []:
+        points[sp.get("name")] = sp.get("points")
+        for t in sp.get("talents") or []:
+            if t.get("talent_id"):
+                have_id[t["talent_id"]] = t.get("rank") or 0
+            have_name[t.get("name")] = t.get("rank") or 0
+    trees = []
+    for ref in (ctree.get("spec_talent_trees") or [])[:4]:
+        body = _static_page(s, bz, ch.region, ref, sns, hours)
+        raw = [n for n in body.get("spec_talent_nodes") or [] if isinstance(n, dict)
+               and isinstance(n.get("display_row"), int) and isinstance(n.get("display_col"), int)]
+        if not raw:
+            continue
+        base = ((min(n["display_col"] for n in raw) - 1) // cols) * cols
+        nodes, pos = [], {}
+        for n in sorted(raw, key=lambda n: (n["display_row"], n["display_col"]))[:60]:
+            ranks = [r for r in n.get("ranks") or [] if isinstance(r, dict)]
+            tips = [r.get("tooltip") or {} for r in ranks]
+            first = tips[0] if tips else {}
+            tid = (first.get("talent") or {}).get("id")
+            name = _label(first.get("talent")) or _label((first.get("spell_tooltip") or {}).get("spell"))
+            if not name:
+                continue
+            rank = have_id.get(tid, have_name.get(name, 0)) if tid else have_name.get(name, 0)
+            rank = max(0, min(int(rank or 0), len(ranks) or 1))
+            cur = tips[rank - 1] if rank and rank <= len(tips) else first
+            spell = ((first.get("spell_tooltip") or {}).get("spell") or {}).get("id")
+            node = {"name": name, "row": n["display_row"], "col": n["display_col"] - base,
+                    "rank": rank, "max": max(len(ranks), 1),
+                    **_tip_fields(cur.get("spell_tooltip") or {})}
+            if rank and rank < len(tips):
+                nxt = _tip_fields(tips[rank].get("spell_tooltip") or {}).get("description")
+                if nxt:
+                    node["next"] = nxt
+            if isinstance(spell, int):
+                node["spell_id"] = spell
+            if not 1 <= node["col"] <= cols:
+                continue
+            pos[n.get("id")] = len(nodes)
+            node["_id"] = n.get("id")
+            nodes.append(node)
+        for node in nodes:
+            req = [nodes[pos[x]]["name"] for x in needs.get(node.pop("_id"), []) if x in pos]
+            if req:
+                node["requires"] = req[:3]
+        name = _label(body.get("playable_specialization")) or _label(body) or _label(ref)
+        spent = points.get(name)
+        trees.append({"name": name, "points": spent if isinstance(spent, int) else sum(n["rank"] for n in nodes),
+                      "rows": max(n["row"] for n in nodes) if nodes else 0, "cols": cols, "nodes": nodes})
+    if trees:
+        talents["trees"] = trees
 
 
 GEAR_LEFT = ("HEAD", "NECK", "SHOULDER", "BACK", "CHEST", "SHIRT", "TABARD", "WRIST")
@@ -498,6 +609,8 @@ def icon_url(data, group: str, ref: str) -> str | None:
         idx = [int(x) for x in ref.split("-")]
         if group in ("gear", "pets") and len(idx) == 1 and isinstance(data, list):
             row = data[idx[0]]
+        elif group == "tree" and len(idx) == 2 and isinstance(data, dict):
+            row = data["trees"][idx[0]]["nodes"][idx[1]]
         elif group == "talents" and len(idx) == 3 and isinstance(data, dict):
             row = data["groups"][idx[0]]["specs"][idx[1]]["talents"][idx[2]]
         else:

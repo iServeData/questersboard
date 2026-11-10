@@ -45,3 +45,22 @@
     {% set link = ed.spell_link(t.spell_id) if ed else "" %}{% if link %}<a class="wq-tip-link" href="{{ link }}" target="_blank" rel="noopener noreferrer">View on Wowhead ↗</a>{% endif %}
   </div>
 </div>{% endmacro %}
+
+{# One talent in a Classic-style tree: icon with "rank/max", dimmed until a point is spent. #}
+{% macro node(ref, n, cols, ed) %}
+<div class="wq-item wq-node wq-r{{ n.row }} wq-c{{ n.col }}{% if n.rank %} wq-node-on{% endif %}{% if n.rank == n.max %} wq-node-max{% endif %}{% if n.col > cols // 2 %} wq-node-right{% endif %}" data-tip>
+  <button type="button" class="wq-item-btn" aria-expanded="false" aria-label="{{ n.name }}, rank {{ n.rank }} of {{ n.max }}">
+    {% if n.icon %}<img class="wq-icon" src="{{ mp }}/characters/{{ c.id }}/icon/tree/{{ ref }}?v={{ ver() }}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif %}
+    <span class="wq-rank">{{ n.rank }}/{{ n.max }}</span>
+  </button>
+  <div class="wq-tip" role="tooltip">
+    <div class="wq-tip-name wq-tip-white">{{ n.name }}</div>
+    <div class="note">Rank {{ n.rank }}/{{ n.max }}</div>
+    {% for r in n.requires or [] %}<div class="wq-tip-red">Requires {{ r }}</div>{% endfor %}
+    {% if n.power_cost or n.range %}<div class="wq-tip-row"><span>{{ n.power_cost }}</span><span>{{ n.range }}</span></div>{% endif %}
+    {% if n.cast_time or n.cooldown %}<div class="wq-tip-row"><span>{{ n.cast_time }}</span><span>{{ n.cooldown }}</span></div>{% endif %}
+    {% if n.description %}<div class="wq-tip-gold">{{ n.description }}</div>{% endif %}
+    {% if n.next %}<div class="wq-tip-next">Next rank:</div><div class="wq-tip-gold">{{ n.next }}</div>{% endif %}
+    {% set link = ed.spell_link(n.spell_id) if ed else "" %}{% if link %}<a class="wq-tip-link" href="{{ link }}" target="_blank" rel="noopener noreferrer">View on Wowhead ↗</a>{% endif %}
+  </div>
+</div>{% endmacro %}

@@ -74,6 +74,9 @@ class Edition:
     # The weapon row under the gear columns, left to right; every listed slot is always shown (empty
     # ones too) so every character's panel has the same shape. Retail has no ranged or ammo slot.
     gear_bottom_slots: tuple[str, ...] = ("MAIN_HAND", "OFF_HAND", "RANGED")
+    # Classic-style talent trees (one grid per specialization) drawn from Blizzard's talent-tree pages;
+    # the number of columns in each tree, or 0 to keep the plain talent list.
+    talent_tree_columns: int = 0
 
     def item_link(self, item_id) -> str:
         return self.item_link_template.replace("{id}", str(int(item_id))) if self.item_link_template and \
@@ -499,7 +502,7 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     _positive(bz.get("battlenet_profile_lookups", 25), "[blizzard] battlenet_profile_lookups", 0)
     if not isinstance(bz.get("detail_icons", True), bool):
         raise ConfigError("[blizzard] detail_icons must be true or false")
-    _positive(bz.get("icon_lookups", 80), "[blizzard] icon_lookups", 0)
+    _positive(bz.get("icon_lookups", 120), "[blizzard] icon_lookups", 0)
     if _positive(bz.get("refresh_all_max", 10), "[blizzard] refresh_all_max") > 50:
         raise ConfigError("[blizzard] refresh_all_max must be 50 or less")
     _positive(bz.get("icon_cache_entries", 2000), "[blizzard] icon_cache_entries", 0)
@@ -558,7 +561,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             item_link_template=_link_template(e.get("item_link_template", ""), f"{where} item_link_template"),
             spell_link_template=_link_template(e.get("spell_link_template", ""), f"{where} spell_link_template"),
             gear_bottom_slots=_gear_slots(e.get("gear_bottom_slots", ["MAIN_HAND", "OFF_HAND", "RANGED"]),
-                                          f"{where} gear_bottom_slots"))
+                                          f"{where} gear_bottom_slots"),
+            talent_tree_columns=_tree_columns(e.get("talent_tree_columns", 0), f"{where} talent_tree_columns"))
     r["_editions"] = parsed
 
     presets = []
@@ -589,6 +593,12 @@ def _link_template(v: Any, where: str) -> str:
     if not isinstance(v, str) or not re.fullmatch(r"https://[a-z0-9.-]+/[A-Za-z0-9/_.=?&-]*\{id\}[A-Za-z0-9/_.=?&-]*", v) \
             or len(v) > 200:
         raise ConfigError(f"{where} must be an https:// address containing {{id}}")
+    return v
+
+
+def _tree_columns(v: Any, where: str) -> int:
+    if isinstance(v, bool) or not isinstance(v, int) or not (v == 0 or 2 <= v <= 8):
+        raise ConfigError(f"{where} must be 0 (plain talent list) or 2 to 8 columns")
     return v
 
 

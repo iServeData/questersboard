@@ -17,8 +17,12 @@
         <div class="wq-gear-bottom">{% for n, i, lab in cols[2] %}{{ tips.slot(n, i, lab, "l" if loop.index is odd else "r", ed) }}{% endfor %}</div>
       </div>
     {% elif g.key == "talents" %}{% for grp in v.groups %}{% set gi = loop.index0 %}<p>{% if v.groups|length > 1 %}{{ "Active" if grp.active else "Other" }}: {% endif %}{% for sp in grp.specs %}{{ sp.name }}{% if sp.points is not none %} {{ sp.points }}{% endif %}{% if not loop.last %} / {% endif %}{% endfor %}</p>
-      {% for sp in grp.specs %}{% set si = loop.index0 %}{% if sp.talents %}<p class="wq-talent-head">{{ sp.name }}{% if sp.points is not none %} <span class="note">· {{ sp.points }} points</span>{% endif %}</p>
-      <div class="wq-talents">{% for t in sp.talents %}{{ tips.talent(gi ~ "-" ~ si ~ "-" ~ loop.index0, t, ed) }}{% endfor %}</div>{% endif %}{% endfor %}{% endfor %}
+      {% if v.trees %}{% if loop.first %}<div class="wq-trees">{% for tr in v.trees %}{% set ti = loop.index0 %}
+        <section class="wq-tree"><h4 class="wq-tree-head">{{ tr.name }} <span class="note">{{ tr.points }} points</span></h4>
+          <div class="wq-tree-grid wq-cols-{{ tr.cols }} wq-rows-{{ tr.rows }}">{% for n in tr.nodes %}{{ tips.node(ti ~ "-" ~ loop.index0, n, tr.cols, ed) }}{% endfor %}</div>
+        </section>{% endfor %}</div>{% endif %}
+      {% else %}{% for sp in grp.specs %}{% set si = loop.index0 %}{% if sp.talents %}<p class="wq-talent-head">{{ sp.name }}{% if sp.points is not none %} <span class="note">· {{ sp.points }} points</span>{% endif %}</p>
+      <div class="wq-talents">{% for t in sp.talents %}{{ tips.talent(gi ~ "-" ~ si ~ "-" ~ loop.index0, t, ed) }}{% endfor %}</div>{% endif %}{% endfor %}{% endif %}{% endfor %}
       {% if v.active %}<p>Active: {{ v.active }}</p>{% endif %}
     {% elif g.key == "professions" %}<ul class="wq-detail-list">{% for p in v %}<li>{{ p.name }}{% if p.skill is not none %} {{ p.skill }}{% if p.max %}/{{ p.max }}{% endif %}{% endif %} <span class="note">{{ p.kind }}</span></li>{% endfor %}</ul>
     {% elif g.key == "stats" %}<div class="wq-stats">{% for title, rows in stat_sections(v) %}<dl class="wq-stat-block"><dt class="wq-stat-title">{{ title }}</dt>{% for label, text in rows %}<div class="wq-stat"><dt>{{ label }}</dt><dd>{{ text }}</dd></div>{% endfor %}</dl>{% endfor %}</div>

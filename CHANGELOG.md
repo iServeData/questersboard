@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Talent trees.** Where an edition sets `talent_tree_columns` (WoW: Forever: 4), Talents are drawn as
+  one tree per specialization from Blizzard's talent-tree pages: each talent in its row and column
+  with its icon, "rank/max", what it requires, and the current and next rank in its tooltip. Other
+  editions keep the plain talent list. Tree icons follow the Talents sharing.
 - **Hunter pet pictures.** When Blizzard lists a pet's creature display, its picture is shown beside
   the pet's name (fetched by QuestersBoard like gear icons, with the Pets group's sharing). Pets
   without one keep the text-only line. `probe-media` now checks a pet's display and picture too.

@@ -221,7 +221,7 @@ data_ttl_days = 30                            # Blizzard checks not refreshed fo
 battlenet_profile_lookups = 25                # per login: max character-profile reads to fill in a missing ruleset (0 = none)
 render_image_hosts = ["render.worldofwarcraft.com"]   # portraits and icons are fetched from these hosts only (served from QuestersBoard)
 detail_icons = true                           # gear and talent icons with "Import details" (icon links come from Blizzard's media answers)
-icon_lookups = 80                             # max icon lookups per import (cached like other static data)
+icon_lookups = 120                            # max icon lookups per import: gear, talent trees, pets (cached like other static data)
 refresh_all_max = 10                          # My characters "Refresh all": at most this many characters per press (1-50)
 icon_cache_hours = 12                         # icon images kept in memory per web process (max 24; never written to disk)
 icon_cache_entries = 2000                     # about 3 KB each
@@ -268,6 +268,7 @@ item_link_template = "https://www.wowhead.com/forever/item={id}"
 spell_link_template = "https://www.wowhead.com/forever/spell={id}"
 # The weapon row under the gear columns; listed slots always show, empty or not.
 gear_bottom_slots = ["MAIN_HAND", "OFF_HAND", "RANGED", "AMMO"]
+talent_tree_columns = 4            # draw each specialization as a talent tree (0 = plain talent list)
 
 [[editions]]
 key = "retail"

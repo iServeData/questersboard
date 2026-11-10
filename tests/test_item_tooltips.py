@@ -82,7 +82,7 @@ def test_gear_keeps_tooltip_lines_and_the_media_link():
 
 def test_talents_keep_spell_tooltips():
     t = profiles.extract("talents", {"/specializations": SPECS})["groups"][0]["specs"][0]["talents"][0]
-    assert t == {"name": "Fixture Aim", "rank": 5, "spell_id": 19426,
+    assert t == {"name": "Fixture Aim", "rank": 5, "spell_id": 19426, "talent_id": 134476,
                  "description": "Increases your fixture chance by 5%.", "cast_time": "Passive"}
 
 
@@ -358,3 +358,72 @@ def test_hunter_pets_show_blizzards_picture_through_questersboard(seeded, tmp_pa
     assert r.status_code == 200 and r.content == b"\xff\xd8PET"
     assert c.get(f"/wow/quester/characters/{cid}/icon/pets/1").status_code == 404
     assert login(a, 146).get(f"/wow/quester/characters/{cid}/icon/pets/0").status_code == 404   # Only me
+
+
+# ------------------------------------------------------------------ Classic-style talent trees (FIXTURE trees)
+SNS = "static-forever-us"
+
+
+def _rank(tid, name, sid, desc):
+    return {"tooltip": {"talent": {"id": tid, "name": name},
+                        "spell_tooltip": {"spell": {"id": sid, "name": name}, "description": desc}}}
+
+
+def _tree_handler(req):
+    p, ns = req.url.path, req.url.params.get("namespace")
+    tree = f"https://us.api.blizzard.com/data/wow/talent-tree/%s?namespace={VNS}"
+    if p == "/data/wow/talent-tree/index" and ns == SNS:
+        return httpx.Response(200, json={"class_talent_trees": [
+            {"name": "Mage", "key": {"href": tree % "900"}},
+            {"name": "Warrior", "key": {"href": tree % "901"}}]})
+    if p == "/data/wow/talent-tree/901" and ns == VNS:
+        return httpx.Response(200, json={"spec_talent_trees": [
+            {"name": "Fixture Arms", "key": {"href": tree % "901/playable-specialization/71"}},
+            {"name": "Fixture Fury", "key": {"href": tree % "901/playable-specialization/72"}}],
+            "talent_nodes": [{"id": 2, "locked_by": [1]}]})
+    if p == "/data/wow/talent-tree/901/playable-specialization/71":
+        return httpx.Response(200, json={"playable_specialization": {"name": "Fixture Arms"}, "spec_talent_nodes": [
+            {"id": 1, "display_row": 1, "display_col": 1,
+             "ranks": [_rank(134476, "Fixture Aim", 19426, f"Aim {i}%.") for i in (5, 10, 15, 20, 25)]},
+            {"id": 2, "display_row": 3, "display_col": 1, "ranks": [_rank(134477, "Fixture Strike", 19427, "Strikes.")]}]})
+    if p == "/data/wow/talent-tree/901/playable-specialization/72":
+        return httpx.Response(200, json={"playable_specialization": {"name": "Fixture Fury"}, "spec_talent_nodes": [
+            {"id": 3, "display_row": 1, "display_col": 6, "ranks": [_rank(134478, "Fixture Rage", 19428, "Rage.")] * 2}]})
+    return _handler(req)
+
+
+@needs_db
+def test_talents_are_drawn_as_trees_from_blizzards_layout(seeded, tmp_path, monkeypatch):
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, _tree_handler)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(147), "Zulmara Ashveil").id
+    c = login(a, 147)
+    assert c.post(f"/wow/quester/characters/{cid}/details",
+                  data={"csrf": csrf(c), "groups": ["talents"], "share_talents": "members"}).status_code == 303
+    with seeded.tx() as s:
+        t = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()["talents"]
+    arms, fury = t["trees"]
+    assert arms["name"] == "Fixture Arms" and arms["cols"] == 4 and arms["rows"] == 3 and arms["points"] == 5
+    aim, strike = arms["nodes"]
+    assert (aim["row"], aim["col"], aim["rank"], aim["max"]) == (1, 1, 5, 5) and aim["description"] == "Aim 25%."
+    assert strike["rank"] == 0 and strike["requires"] == ["Fixture Aim"] and "next" not in strike
+    assert fury["nodes"][0]["col"] == 2 and fury["points"] == 0          # column 6 of the class grid -> 2 in its tree
+    assert aim["icon"].endswith("/132312.jpg")                           # spell media, like the talent list
+    page = c.get(f"/wow/quester/characters/{cid}/view").text
+    assert page.count('class="wq-tree"') == 2 and "wq-r3 wq-c1" in page and ">5/5<" in page and ">0/1<" in page
+    assert "Requires Fixture Aim" in page and 'class="wq-talents"' not in page        # trees replace the list
+    assert c.get(f"/wow/quester/characters/{cid}/icon/tree/0-0").status_code == 200
+    assert c.get(f"/wow/quester/characters/{cid}/icon/tree/0-1").status_code == 404   # no icon for that spell
+    assert c.get(f"/wow/quester/characters/{cid}/icon/tree/9-9").status_code == 404
+
+
+def test_talent_tree_columns_are_validated():
+    from pathlib import Path
+    import tomllib
+    raw = tomllib.loads((Path(__file__).resolve().parents[1] / "deploy" / "config.example.toml").read_text())
+    assert make_cfg().edition("forever").talent_tree_columns == 4 and make_cfg().edition("retail").talent_tree_columns == 0
+    for bad in (1, 9, True, "4"):
+        r = copy.deepcopy(raw)
+        r["editions"][0]["talent_tree_columns"] = bad
+        with pytest.raises(ConfigError, match="talent_tree_columns"):
+            validate(r)

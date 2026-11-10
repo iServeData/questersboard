@@ -250,3 +250,25 @@ tr[hidden]{display:none}
 .wq-pets{list-style:none;padding-left:0}
 .wq-pets li{display:flex;align-items:center;gap:12px;margin:0 0 8px}
 .wq-pet-img{width:64px;height:64px;object-fit:cover;border:1px solid var(--line-strong);border-radius:var(--radius,2px);background:rgba(225,228,232,.06);flex:0 0 auto}
+
+/* Classic-style talent trees: one grid per specialization, talents placed by Blizzard's row/column. */
+.wq-trees{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:.4rem 0 .8rem}
+.wq-tree{border:1px solid rgba(255,255,255,.1);border-radius:6px;background:rgba(0,0,0,.22);padding:10px 12px 14px}
+.wq-tree-head{margin:0 0 10px;font-size:1rem}
+.wq-tree-grid{display:grid;grid-auto-rows:48px;gap:10px 12px;justify-content:center}
+.wq-cols-2{grid-template-columns:repeat(2,48px)}.wq-cols-3{grid-template-columns:repeat(3,48px)}.wq-cols-4{grid-template-columns:repeat(4,48px)}.wq-cols-5{grid-template-columns:repeat(5,48px)}.wq-cols-6{grid-template-columns:repeat(6,48px)}.wq-cols-7{grid-template-columns:repeat(7,48px)}.wq-cols-8{grid-template-columns:repeat(8,48px)}
+.wq-r1{grid-row:1}.wq-r2{grid-row:2}.wq-r3{grid-row:3}.wq-r4{grid-row:4}.wq-r5{grid-row:5}.wq-r6{grid-row:6}.wq-r7{grid-row:7}.wq-r8{grid-row:8}.wq-r9{grid-row:9}.wq-r10{grid-row:10}.wq-r11{grid-row:11}.wq-r12{grid-row:12}
+.wq-c1{grid-column:1}.wq-c2{grid-column:2}.wq-c3{grid-column:3}.wq-c4{grid-column:4}.wq-c5{grid-column:5}.wq-c6{grid-column:6}.wq-c7{grid-column:7}.wq-c8{grid-column:8}
+.wq-node .wq-item-btn{width:48px;height:48px;padding:3px;justify-content:center;position:relative;background:transparent;border:0}
+.wq-node .wq-icon{width:40px;height:40px;filter:grayscale(1) brightness(.55);border-color:#444}
+.wq-node-on .wq-icon{filter:none;border-color:#1eff00}
+.wq-node-max .wq-icon{border-color:#ffd100}
+.wq-node .wq-rank{right:-2px;bottom:-2px;color:#9aa0a6}
+.wq-node-on .wq-rank{color:#1eff00}.wq-node-max .wq-rank{color:#ffd100}
+.wq-node .wq-tip{left:calc(100% + 6px);top:0}
+.wq-node-right .wq-tip{left:auto;right:calc(100% + 6px)}
+.wq-tip-red{color:#ff4040}.wq-tip-next{margin-top:6px;color:#fff}
+@media (max-width:760px){
+  .wq-node .wq-tip{position:fixed;left:12px;right:12px;top:auto;bottom:12px;width:auto;z-index:1000}
+  .wq-node-right .wq-tip{left:12px;right:12px}
+}

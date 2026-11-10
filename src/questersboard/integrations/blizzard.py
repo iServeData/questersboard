@@ -340,6 +340,8 @@ class Blizzard:
             return None
         assets = [a for a in body.get("assets") or [] if isinstance(a, dict) and isinstance(a.get("value"), str)]
         icon = next((a for k in keys for a in assets if a.get("key") == k), None)
+        if icon is None and "zoom" in keys and len(assets) == 1:
+            icon = assets[0]                  # a creature display with its single picture under another key
         if icon is None:
             return None
         u = urlsplit(icon["value"])
