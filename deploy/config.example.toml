@@ -222,6 +222,7 @@ battlenet_profile_lookups = 25                # per login: max character-profile
 render_image_hosts = ["render.worldofwarcraft.com"]   # portraits and icons are fetched from these hosts only (served from QuestersBoard)
 detail_icons = true                           # gear and talent icons with "Import details" (icon links come from Blizzard's media answers)
 icon_lookups = 80                             # max icon lookups per import (cached like other static data)
+refresh_all_max = 10                          # My characters "Refresh all": at most this many characters per press (1-50)
 icon_cache_hours = 12                         # icon images kept in memory per web process (max 24; never written to disk)
 icon_cache_entries = 2000                     # about 3 KB each
 
@@ -265,6 +266,8 @@ api_status = { reference = "unsupported", character = "unverified", quests = "un
 # Optional plain links from item and talent tooltips (no third-party script). Empty = no link.
 item_link_template = "https://www.wowhead.com/forever/item={id}"
 spell_link_template = "https://www.wowhead.com/forever/spell={id}"
+# The weapon row under the gear columns; listed slots always show, empty or not.
+gear_bottom_slots = ["MAIN_HAND", "OFF_HAND", "RANGED", "AMMO"]
 
 [[editions]]
 key = "retail"
@@ -286,6 +289,7 @@ ruleset_realm_slugs = {}
 api_status = { reference = "unverified", character = "unverified", quests = "unverified", locations = "unverified", ownership = "unverified" }
 item_link_template = "https://www.wowhead.com/item={id}"
 spell_link_template = "https://www.wowhead.com/spell={id}"
+gear_bottom_slots = ["MAIN_HAND", "OFF_HAND"]
 
 # Classic editions use realms. Namespaces from Blizzard's API forums / community docs (unverified here):
 # Era/Hardcore/Season of Discovery = classic1x, TBC Anniversary = classicann, progression (Mists) = classic.

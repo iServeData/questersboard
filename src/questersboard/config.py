@@ -71,6 +71,9 @@ class Edition:
     # "https://www.wowhead.com/forever/item={id}". Empty = no link. Links only: no third-party script.
     item_link_template: str = ""
     spell_link_template: str = ""
+    # The weapon row under the gear columns, left to right; every listed slot is always shown (empty
+    # ones too) so every character's panel has the same shape. Retail has no ranged or ammo slot.
+    gear_bottom_slots: tuple[str, ...] = ("MAIN_HAND", "OFF_HAND", "RANGED")
 
     def item_link(self, item_id) -> str:
         return self.item_link_template.replace("{id}", str(int(item_id))) if self.item_link_template and \
@@ -497,6 +500,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(bz.get("detail_icons", True), bool):
         raise ConfigError("[blizzard] detail_icons must be true or false")
     _positive(bz.get("icon_lookups", 80), "[blizzard] icon_lookups", 0)
+    if _positive(bz.get("refresh_all_max", 10), "[blizzard] refresh_all_max") > 50:
+        raise ConfigError("[blizzard] refresh_all_max must be 50 or less")
     _positive(bz.get("icon_cache_entries", 2000), "[blizzard] icon_cache_entries", 0)
     ich = bz.get("icon_cache_hours", 12)
     if not isinstance(ich, (int, float)) or isinstance(ich, bool) or not 0 <= ich <= 24:
@@ -551,7 +556,9 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             difficulties=_difficulties(e.get("difficulties", ["Normal"]), where),
             ruleset_api_ids=_ruleset_ids(e.get("ruleset_api_ids", {}), rulesets, where),
             item_link_template=_link_template(e.get("item_link_template", ""), f"{where} item_link_template"),
-            spell_link_template=_link_template(e.get("spell_link_template", ""), f"{where} spell_link_template"))
+            spell_link_template=_link_template(e.get("spell_link_template", ""), f"{where} spell_link_template"),
+            gear_bottom_slots=_gear_slots(e.get("gear_bottom_slots", ["MAIN_HAND", "OFF_HAND", "RANGED"]),
+                                          f"{where} gear_bottom_slots"))
     r["_editions"] = parsed
 
     presets = []
@@ -583,6 +590,13 @@ def _link_template(v: Any, where: str) -> str:
             or len(v) > 200:
         raise ConfigError(f"{where} must be an https:// address containing {{id}}")
     return v
+
+
+def _gear_slots(v: Any, where: str) -> tuple[str, ...]:
+    if not isinstance(v, list) or not 1 <= len(v) <= 6 or len(set(v)) != len(v) or \
+            not all(isinstance(x, str) and re.fullmatch(r"[A-Z][A-Z0-9_]{1,23}", x) for x in v):
+        raise ConfigError(f"{where} must list 1 to 6 different Blizzard slot types, e.g. [\"MAIN_HAND\", \"OFF_HAND\"]")
+    return tuple(v)
 
 
 def _difficulties(v: Any, where: str) -> tuple[str, ...]:

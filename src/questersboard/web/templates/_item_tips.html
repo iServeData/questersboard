@@ -1,10 +1,14 @@
 {# Gear and talent tiles with tooltips (tap on phones and iPad, hover or keyboard focus on desktop).
    Icons are Blizzard's, served by QuestersBoard: /characters/{id}/icon/{group}/{ref}. #}
 {% macro coins(sell) %}{% if sell.gold != "0" %}{{ sell.gold }}<i class="wq-coin wq-coin-g" aria-label="gold"></i> {% endif %}{% if sell.silver != "0" %}{{ sell.silver }}<i class="wq-coin wq-coin-s" aria-label="silver"></i> {% endif %}{% if sell.copper != "0" %}{{ sell.copper }}<i class="wq-coin wq-coin-c" aria-label="copper"></i>{% endif %}{% endmacro %}
+{% macro ver() %}{{ d.fetched_at.strftime("%Y%m%d%H%M%S") }}{% endmacro %}
+{% macro empty(label, side) %}
+<div class="wq-item wq-item-{{ side }} wq-item-empty"><span class="wq-item-btn"><span class="wq-icon wq-icon-none" aria-hidden="true"></span><span class="wq-item-txt"><span class="wq-item-name">Empty</span><span class="note">{{ label }}</span></span></span></div>{% endmacro %}
+{% macro slot(n, i, label, side, ed) %}{% if i %}{{ item(n, i, side, ed) }}{% else %}{{ empty(label, side) }}{% endif %}{% endmacro %}
 {% macro item(n, i, side, ed) %}{% set t = i.tip or {} %}{% set q = i.quality or "common" %}
 <div class="wq-item wq-item-{{ side }} wq-q-{{ q }}" data-tip>
   <button type="button" class="wq-item-btn" aria-expanded="false">
-    {% if i.icon %}<img class="wq-icon" src="{{ mp }}/characters/{{ c.id }}/icon/gear/{{ n }}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif %}
+    {% if i.icon %}<img class="wq-icon" src="{{ mp }}/characters/{{ c.id }}/icon/gear/{{ n }}?v={{ ver() }}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif %}
     <span class="wq-item-txt"><span class="wq-item-name">{{ i.name }}</span><span class="note">{{ i.slot }}{% if i.item_level %} · ilvl {{ i.item_level }}{% endif %}</span></span>
   </button>
   <div class="wq-tip" role="tooltip">
@@ -29,7 +33,7 @@
 {% macro talent(ref, t, ed) %}
 <div class="wq-item wq-talent{% if t.rank %} wq-talent-on{% endif %}" data-tip>
   <button type="button" class="wq-item-btn" aria-expanded="false">
-    <span class="wq-talent-icon">{% if t.icon %}<img class="wq-icon" src="{{ mp }}/characters/{{ c.id }}/icon/talents/{{ ref }}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif %}{% if t.rank %}<span class="wq-rank">{{ t.rank }}</span>{% endif %}</span>
+    <span class="wq-talent-icon">{% if t.icon %}<img class="wq-icon" src="{{ mp }}/characters/{{ c.id }}/icon/talents/{{ ref }}?v={{ ver() }}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif %}{% if t.rank %}<span class="wq-rank">{{ t.rank }}</span>{% endif %}</span>
     <span class="wq-item-txt"><span class="wq-item-name">{{ t.name }}</span>{% if t.rank %}<span class="note">Rank {{ t.rank }}</span>{% endif %}</span>
   </button>
   <div class="wq-tip" role="tooltip">

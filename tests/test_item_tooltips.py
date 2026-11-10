@@ -96,9 +96,18 @@ def test_only_the_editions_static_namespace_or_a_pinned_copy_is_followed():
 
 
 def test_gear_columns_follow_the_character_sheet():
-    items = [{"slot_type": "RANGED"}, {"slot_type": "BACK"}, {"slot_type": "HANDS"}, {"slot_type": "HEAD"}, {}]
+    items = [{"slot_type": "RANGED"}, {"slot_type": "BACK"}, {"slot_type": "HANDS"}, {"slot_type": "HEAD"}, {},
+             {"slot": "Ring 1"}, {"slot_type": "AMMO", "slot": "Ammo"}]
     left, right, bottom = profiles.gear_columns(items)
-    assert [n for n, _ in left] == [3, 1] and [n for n, _ in right] == [2] and [n for n, _ in bottom] == [0, 4]
+    assert len(left) == len(right) == 8 and [x[2] for x in bottom] == ["Main Hand", "Off Hand", "Ranged", "Ammo", ""]
+    assert [n for n, _, _ in left] == [3, None, None, 1, None, None, None, None]      # every slot, empty ones too
+    assert [x[2] for x in left][:4] == ["Head", "Neck", "Shoulder", "Back"]
+    assert right[0][0] == 2 and right[4][0] == 5                                       # old import: slot name only
+    assert [n for n, _, _ in bottom] == [None, None, 0, 6, 4]                          # unlisted slots after weapons
+    l2, r2, b2 = profiles.gear_columns(items, ("MAIN_HAND", "OFF_HAND", "RANGED", "AMMO"))
+    assert [n for n, _, _ in b2] == [None, None, 0, 6, 4]
+    _, _, b3 = profiles.gear_columns([], ("MAIN_HAND", "OFF_HAND"))
+    assert [x[2] for x in b3] == ["Main Hand", "Off Hand"]                             # same shape with no gear
 
 
 def test_icon_url_reads_gear_and_talent_positions():
@@ -220,7 +229,7 @@ def test_portrait_sits_between_the_gear_columns(seeded, tmp_path, monkeypatch):
     assert c.post(f"/wow/quester/characters/{cid}/details",                # re-import without the portrait
                   data={"csrf": csrf(c), "groups": ["gear"]}).status_code == 303
     page2 = c.get(f"/wow/quester/characters/{cid}/view").text
-    assert "wq-gear-center" not in page2 and 'class="wq-gear"' in page2
+    assert "wq-gear-portrait" not in page2 and "Tick Portrait and press Refresh" in page2   # panel keeps its shape
 
 
 # ------------------------------------------------------------------ full-body render trimmed to the figure
@@ -271,3 +280,46 @@ def test_pets_are_their_own_group_with_their_own_sharing(seeded, tmp_path, monke
     page = c.get(f"/wow/quester/characters/{cid}/view").text
     assert "<summary>Pets" in page and "Fixture Pet" in page and "Fixture Family · level 17" in page
     assert profiles.GROUP_KEYS.index("progress") + 1 == profiles.GROUP_KEYS.index("pets")
+
+
+@needs_db
+def test_refresh_all_and_one_sharing_choice_for_every_character(seeded, tmp_path, monkeypatch):
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(144), "Zulmara Ashveil").id
+    c = login(a, 144)
+    assert "Refresh all from Blizzard" not in c.get("/wow/quester/characters").text     # nothing imported yet
+    c.post(f"/wow/quester/characters/{cid}/details", data={"csrf": csrf(c), "groups": ["gear", "talents"],
+                                                           "share_gear": "private", "share_talents": "private"})
+    page = c.get("/wow/quester/characters").text
+    assert "Refresh all from Blizzard" in page and "Save sharing only" in page
+
+    calls.clear()
+    r = c.post("/wow/quester/characters/details/all", data={"csrf": csrf(c), "action": "share", "share_level": "members"})
+    assert r.status_code == 303 and "bulk=shared&n=1" in r.headers["location"]
+    assert not calls                                                           # sharing only: no Blizzard calls
+    with seeded.tx() as s:
+        sh, t1 = s.execute(text("select shares, fetched_at from character_profiles where character_id=:i"),
+                           {"i": cid}).one()
+    assert sh == {"gear": "members", "talents": "members"}
+    assert "Sharing updated for 1 character." in c.get(r.headers["location"]).text
+
+    r = c.post("/wow/quester/characters/details/all", data={"csrf": csrf(c), "action": "refresh", "share_level": ""})
+    assert r.status_code == 303 and "bulk=refreshed&n=1&failed=0" in r.headers["location"]
+    with seeded.tx() as s:
+        g, sh, t2 = s.execute(text("select groups, shares, fetched_at from character_profiles where character_id=:i"),
+                              {"i": cid}).one()
+    assert set(g) == {"gear", "talents"} and sh == {"gear": "members", "talents": "members"} and t2 >= t1
+    page = c.get(r.headers["location"]).text
+    assert "Refreshed 1 character from Blizzard." in page
+    assert f'action="/wow/quester/characters/{cid}/details"' in page and 'name="share_gear"' in page  # still per character
+    assert c.post("/wow/quester/characters/details/all",
+                  data={"csrf": csrf(c), "action": "share", "share_level": "everyone"}).status_code in (400, 422)
+
+
+def test_bulk_refresh_keeps_groups_split_out_later():
+    class P:
+        groups = {"gear": [], "progress": {}}
+        shares = {"progress": "members"}
+    assert profiles._bulk_groups(P()) == {"gear", "progress", "pets"}
+    assert profiles.share_choice(P(), "pets") == "members" and profiles.share_choice(None, "pets") == "private"

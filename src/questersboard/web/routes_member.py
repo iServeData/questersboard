@@ -649,7 +649,8 @@ def router(cfg: Config) -> APIRouter:
 
     # ------------------------------------------------------------- characters
     @r.get(mp + "/characters")
-    def characters(request: Request, edit: int = 0, saved: int = 0, removed: int = 0):
+    def characters(request: Request, edit: int = 0, saved: int = 0, removed: int = 0, bulk: str = "",
+                   n: int = 0, failed: int = 0):
         sess, a = session_or_login(request)
         w = W(request)
         with w.db.tx() as s:
@@ -686,7 +687,10 @@ def router(cfg: Config) -> APIRouter:
                                                    "effective_share": profiles.effective_share,
                                                    "stat_sections": profiles.stat_sections,
                                                    "gear_columns": profiles.gear_columns, "gear_portrait_key": profiles.gear_portrait_key,
+                                                   "share_choice": profiles.share_choice,
                                                    "guild_links": guild_links, "saved": saved,
+                                                   "bulk": bulk if bulk in ("refreshed", "shared") else "",
+                                                   "bulk_n": max(0, n), "bulk_failed": max(0, failed),
                                                    "removed": removed})
 
     @r.post(mp + "/characters")
@@ -750,6 +754,20 @@ def router(cfg: Config) -> APIRouter:
                 raise Invalid("Blizzard's API didn't answer. Your character is unchanged; try again later.") from None
             audit.record(s, a, "character.lookup", "character", ch.id, found=m.found)
         return _redirect(mp + "/characters")
+
+    @r.post(mp + "/characters/details/all")
+    async def details_all(request: Request):
+        """Top of My characters: refresh every imported character, and/or one sharing choice for all."""
+        from ..domain import profiles
+        form, a = await post_guard(request, fresh=False)
+        w = W(request)
+        level = form.get("share_level") or ""
+        with w.db.tx() as s:
+            if form.get("action") == "share":
+                n = profiles.share_all(s, w.cfg, a, level)
+                return _redirect(f"{mp}/characters?bulk=shared&n={n}")
+            done, failed = profiles.refresh_all(s, w.cfg, w.bz, a, level)
+        return _redirect(f"{mp}/characters?bulk=refreshed&n={len(done)}&failed={len(failed)}")
 
     @r.post(mp + "/characters/{character_id}/details")
     async def import_details(request: Request, character_id: int):

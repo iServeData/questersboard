@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Refresh all and one sharing choice at the top of My characters.** One press re-imports every
+  imported character (same groups, oldest first, up to `[blizzard] refresh_all_max` per press), and
+  "Who can see it" can set every group of every character at once. Each character keeps its own
+  Refresh and per-group choices for fine-tuning afterwards.
+- **Fixed-shape gear panel.** Every character shows the same left, right and weapon columns; empty
+  slots appear as dimmed placeholders (hidden on phones), and the centre keeps its space even without
+  a picture. Older imports are laid out by slot name. Weapon-row slots are set per edition with
+  `gear_bottom_slots`.
+- **Fresh pictures and icons after a refresh.** Picture and icon addresses now change when the
+  character is refreshed, so browsers don't keep showing an old cached image.
+- **Pets follow Progress sharing.** A newly imported Pets group starts with the character's Progress
+  sharing choice instead of "Only me".
+
 - **Pets are their own group.** Hunter pets (name, family, level) moved out of Progress into a Pets
   group with its own tick box and sharing choice. Pets imported earlier under Progress are no longer
   shown; tick Pets and refresh to bring them back.

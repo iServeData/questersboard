@@ -396,15 +396,50 @@ GEAR_LEFT = ("HEAD", "NECK", "SHOULDER", "BACK", "CHEST", "SHIRT", "TABARD", "WR
 GEAR_RIGHT = ("HANDS", "WAIST", "LEGS", "FEET", "FINGER_1", "FINGER_2", "TRINKET_1", "TRINKET_2")
 
 
-def gear_columns(items) -> tuple[list, list, list]:
-    """Gear laid out like the in-game character sheet: (left, right, bottom) lists of (position, item).
-    Weapons, and items imported before slot types were kept, go in the bottom row."""
-    left, right, bottom = [], [], []
+GEAR_BOTTOM = ("MAIN_HAND", "OFF_HAND", "RANGED")
+SLOT_LABELS = {"HEAD": "Head", "NECK": "Neck", "SHOULDER": "Shoulder", "BACK": "Back", "CHEST": "Chest",
+               "SHIRT": "Shirt", "TABARD": "Tabard", "WRIST": "Wrist", "HANDS": "Hands", "WAIST": "Waist",
+               "LEGS": "Legs", "FEET": "Feet", "FINGER_1": "Ring 1", "FINGER_2": "Ring 2",
+               "TRINKET_1": "Trinket 1", "TRINKET_2": "Trinket 2", "MAIN_HAND": "Main Hand",
+               "OFF_HAND": "Off Hand", "RANGED": "Ranged", "AMMO": "Ammo"}
+# Items imported before slot types were kept only have Blizzard's English slot name.
+_SLOT_BY_LABEL = {**{v.lower(): k for k, v in SLOT_LABELS.items()}, "shoulders": "SHOULDER",
+                  "finger 1": "FINGER_1", "finger 2": "FINGER_2", "relic": "RANGED"}
+
+
+def _slot_type(i: dict) -> str:
+    st = i.get("slot_type")
+    if isinstance(st, str) and st:
+        return st
+    return _SLOT_BY_LABEL.get(str(i.get("slot") or "").strip().lower(), "")
+
+
+def gear_columns(items, bottom_slots=GEAR_BOTTOM) -> tuple[list, list, list]:
+    """Gear laid out like the in-game character sheet, always the same shape: (left, right, bottom)
+    lists of (position or None, item or None, slot label). Every slot is listed, empty ones too, so
+    characters with missing items (or imported before slot types were kept) line up the same way.
+    Items in slots that aren't listed are added after the weapon row."""
+    by_slot: dict[str, tuple[int, dict]] = {}
+    extra = []
     for n, i in enumerate(items or []):
-        st = i.get("slot_type") or ""
-        (left if st in GEAR_LEFT else right if st in GEAR_RIGHT else bottom).append((n, i))
-    left.sort(key=lambda x: GEAR_LEFT.index(x[1]["slot_type"]))
-    right.sort(key=lambda x: GEAR_RIGHT.index(x[1]["slot_type"]))
+        if not isinstance(i, dict):
+            continue
+        st = _slot_type(i)
+        if st and st not in by_slot:
+            by_slot[st] = (n, i)
+        else:
+            extra.append((n, i, i.get("slot") or ""))
+    bottom_slots = tuple(bottom_slots or GEAR_BOTTOM)
+
+    def col(slots):
+        out = []
+        for st in slots:
+            n, i = by_slot.pop(st, (None, None))
+            out.append((n, i, SLOT_LABELS.get(st, st.replace("_", " ").title())))
+        return out
+    left, right, bottom = col(GEAR_LEFT), col(GEAR_RIGHT), col(bottom_slots)
+    rest = sorted(by_slot.values(), key=lambda x: x[0])
+    bottom += [(n, i, i.get("slot") or "") for n, i in rest] + extra
     return left, right, bottom
 
 
@@ -477,6 +512,58 @@ def remove_profile(s: Session, cfg: Config, actor: Actor, character_id: int) -> 
     return bool(n)
 
 
+def _bulk_groups(prof: CharacterProfile) -> set[str]:
+    """The groups a refresh keeps: what was imported, plus groups since split out of those."""
+    got = set(prof.groups or {})
+    return {g for g in GROUP_KEYS if g in got or SHARE_INHERITS.get(g) in got}
+
+
+def refresh_all(s: Session, cfg: Config, bz, actor: Actor, level: str = "") -> tuple[list[str], list[str]]:
+    """Refresh every one of the member's imported characters from Blizzard, keeping each one's groups.
+    level: one sharing choice for every group of every character, or "" to keep each one's choices.
+    At most [blizzard] refresh_all_max characters (oldest import first). Returns (refreshed, failed)
+    character names; one character failing doesn't stop the others."""
+    from ..integrations.blizzard import ApiError, Unsupported
+    require_member(cfg, actor)
+    if level and level not in SHARE_LEVELS:
+        raise Invalid("Pick who can see it.")
+    rows = s.execute(select(CharacterProfile, Character).join(Character, Character.id == CharacterProfile.character_id)
+                     .where(CharacterProfile.member_id == actor.member_id, Character.archived_at.is_(None))
+                     .order_by(CharacterProfile.fetched_at)).all()
+    limit = cfg["blizzard"].get("refresh_all_max", 10)
+    done, failed = [], []
+    for prof, ch in rows:
+        if cfg.edition(ch.edition).capability("character") == "unsupported":
+            continue
+        if len(done) + len(failed) >= limit:
+            failed.append(ch.name)
+            continue
+        groups = _bulk_groups(prof)
+        shares = {g: (level or share_choice(prof, g)) for g in GROUP_KEYS}
+        try:
+            with s.begin_nested():
+                import_profile(s, cfg, bz, actor, ch.id, groups, shares)
+            done.append(ch.name)
+        except (Invalid, NotFound, ApiError, Unsupported):
+            failed.append(ch.name)
+    return done, failed
+
+
+def share_all(s: Session, cfg: Config, actor: Actor, level: str) -> int:
+    """One sharing choice for every imported group of every one of the member's characters (no
+    Blizzard calls). Beyond private still only applies while a character is verified as theirs."""
+    require_member(cfg, actor)
+    if level not in SHARE_LEVELS:
+        raise Invalid("Pick who can see it.")
+    n = 0
+    for prof in s.scalars(select(CharacterProfile).where(CharacterProfile.member_id == actor.member_id)):
+        prof.shares = {g: level for g in (prof.groups or {})}
+        n += 1
+    if n:
+        audit.record(s, actor, "character.profile_share_all", "member", actor.member_id, level=level, count=n)
+    return n
+
+
 def drop_for_character(s: Session, character_id: int) -> None:
     """Used when a character is archived or its identity changes: imported details no longer apply."""
     s.execute(delete(CharacterProfile).where(CharacterProfile.character_id == character_id))
@@ -485,6 +572,18 @@ def drop_for_character(s: Session, character_id: int) -> None:
 def profiles_for(s: Session, member_id: int) -> dict[int, CharacterProfile]:
     return {p.character_id: p for p in s.scalars(select(CharacterProfile)
                                                   .where(CharacterProfile.member_id == member_id))}
+
+
+# A group split out of another keeps that group's sharing until the member picks one.
+SHARE_INHERITS = {"pets": "progress"}
+
+
+def share_choice(prof: CharacterProfile | None, group: str) -> str:
+    """The sharing level to pre-select on the import form for a group."""
+    shares = (prof.shares or {}) if prof is not None else {}
+    if group in shares:
+        return shares[group]
+    return shares.get(SHARE_INHERITS.get(group, ""), "private")
 
 
 def effective_share(prof: CharacterProfile, ch: Character, group: str) -> str:

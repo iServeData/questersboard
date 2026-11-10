@@ -181,7 +181,7 @@ tr[hidden]{display:none}
 .wq-gear-bottom{grid-column:1/-1;display:flex;flex-wrap:wrap;justify-content:center;gap:6px 18px}
 .wq-gear-bottom>.wq-item{flex:0 1 calc(50% - 9px);min-width:0}
 .wq-gear.has-portrait{grid-template-columns:1fr minmax(160px,240px) 1fr}
-.wq-gear.has-portrait .wq-gear-bottom>.wq-item{flex-basis:300px}
+.wq-gear.has-portrait .wq-gear-bottom>.wq-item{flex:1 1 0;max-width:300px}
 .wq-gear-center{display:flex;align-items:center;justify-content:center;flex-direction:column;min-height:240px;border:1px solid rgba(255,255,255,.08);border-radius:6px;background:radial-gradient(ellipse at 50% 40%,rgba(255,255,255,.07),rgba(0,0,0,.25) 70%);overflow:hidden}
 .wq-gear-portrait{display:block;max-width:100%;max-height:440px;width:auto;height:auto;object-fit:contain}
 .wq-gear-center .note{padding:0 10px;text-align:center}
@@ -191,6 +191,7 @@ tr[hidden]{display:none}
 .wq-item-btn:focus-visible{outline:2px solid #fff;outline-offset:1px}
 .wq-icon{width:40px;height:40px;flex:none;border:2px solid #555;border-radius:4px;display:block;background:#111}
 .wq-icon-none{display:inline-block}
+.wq-item-empty .wq-item-btn{cursor:default;opacity:.45;border-style:dashed}.wq-item-empty .wq-item-btn:hover{border-color:rgba(255,255,255,.1)}
 .wq-item-txt{display:flex;flex-direction:column;line-height:1.2;min-width:0}
 .wq-item-name{font-weight:600;overflow-wrap:anywhere}
 .wq-item-r .wq-item-btn{flex-direction:row-reverse;text-align:right}.wq-item-r .wq-item-txt{align-items:flex-end}
@@ -220,9 +221,16 @@ tr[hidden]{display:none}
   .wq-gear,.wq-gear.has-portrait{grid-template-columns:1fr}
   .wq-gear-center{order:-1;min-height:0}
   .wq-gear-portrait{max-height:300px}
-  .wq-gear-bottom>.wq-item,.wq-gear.has-portrait .wq-gear-bottom>.wq-item{flex-basis:100%}
+  .wq-gear-bottom>.wq-item,.wq-gear.has-portrait .wq-gear-bottom>.wq-item{flex:1 1 100%;max-width:none}
+  .wq-item-empty{display:none}
+  .wq-gear-center:not(:has(img)){display:none}
   .wq-item-r .wq-item-btn{flex-direction:row;text-align:left}.wq-item-r .wq-item-txt{align-items:flex-start}
   .wq-tip,.wq-item-r .wq-tip{position:static;width:auto;margin-top:4px;box-shadow:none}
   .wq-item:hover .wq-tip{display:none}.wq-item.is-open .wq-tip,.wq-item:focus-within .wq-tip{display:block}
 }
 @media (hover:none){.wq-item:hover .wq-tip{display:none}.wq-item.is-open .wq-tip{display:block}}
+
+/* My characters: Refresh all and one sharing choice for every character */
+.wq-bulk{margin:0 0 1rem}
+.wq-bulk-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px}
+.wq-bulk-row label{display:flex;flex-direction:column;gap:4px;min-width:min(100%,260px)}
