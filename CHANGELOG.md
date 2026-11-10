@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Import character details from Blizzard.** On My characters, each character has "Import details
+  from Blizzard" with a checkbox per group (overview, guild, gear, talents, professions, stats,
+  portrait, PvP, progress), all ticked by default, plus a "Who can see it" choice for each: Only me,
+  My guild, or All QuestersBoard members. Sharing beyond "Only me" applies only while the character
+  is verified through Battle.net, and only takes effect as the member and guild pages arrive (see
+  docs/character_details_plan.md). Details are deleted after `data_ttl_days`, on Remove imported
+  details, when the character is removed, archived or renamed, and on Remove me. The privacy page
+  says so. Host: **database migration 0009** (new `character_profiles` table) and a new optional
+  `[blizzard] render_image_hosts` setting (portrait image hosts allowed by the page's security policy).
+- **probe-character** also checks the character's guild and guild roster pages (sizes only, never
+  other players' names). `--detail PAGE` prints one page's structure.
+
 - **Character page probe.** `questersboard-admin blizzard probe-character EDITION --name "First Last"`
   asks Blizzard for one public character's summary and 15 detail pages (equipment, specializations,
   professions, media, statistics, PvP, achievements, titles, reputations, dungeons, raids, quests,

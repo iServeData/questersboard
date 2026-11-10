@@ -23,7 +23,7 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import timedelta
-from urllib.parse import quote, urlencode
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 
 import httpx
 from cryptography.fernet import Fernet
@@ -164,6 +164,42 @@ def _shape(page: str, body: dict) -> str:
     return ", ".join(parts) + (f"  |  {'; '.join(hi)}" if hi else "")
 
 
+_TREE_SKIP = {"_links", "character", "key", "href", "guild_crest"}
+
+
+def _tree(v, depth: int = 0, max_depth: int = 6, max_items: int = 2) -> list[str]:
+    """An answer's structure for probe output: nested field names, list sizes (first items only),
+    numbers and short text. Links, the character block and crest art are left out."""
+    pad = "  " * depth
+    lines: list[str] = []
+    if depth > max_depth:
+        return [pad + "..."]
+    if isinstance(v, dict):
+        for k, x in v.items():
+            if k in _TREE_SKIP:
+                continue
+            if isinstance(x, (dict, list)):
+                lines.append(f"{pad}{k}{f'[{len(x)}]' if isinstance(x, list) else ''}:")
+                lines += _tree(x, depth + 1, max_depth, max_items)
+            else:
+                lines.append(f"{pad}{k}: {_leaf(x)}")
+    elif isinstance(v, list):
+        for i, x in enumerate(v[:max_items]):
+            lines.append(f"{pad}- [{i}]")
+            lines += _tree(x, depth + 1, max_depth, max_items)
+        if len(v) > max_items:
+            lines.append(f"{pad}  (+{len(v) - max_items} more)")
+    else:
+        lines.append(pad + _leaf(v))
+    return lines
+
+
+def _leaf(x) -> str:
+    if isinstance(x, str):
+        return repr(x if len(x) <= 40 else x[:37] + "...")
+    return repr(x)
+
+
 class Blizzard:
     def __init__(self, cfg: Config, http: httpx.Client | None = None, sleep=time.sleep):
         self.cfg = cfg
@@ -255,13 +291,7 @@ class Blizzard:
     def lookup_character(self, s: Session, ch: Character) -> CharacterMatch:
         ed = self.cfg.edition(ch.edition)
         ns = self.require(ed, "character", "profile", ch.region)
-        if ed.uses_realms:
-            realm = self.realm_for(ed, ch.ruleset, ch.realm_slug)
-            path = f"/profile/wow/character/{quote(realm)}/{quote(ch.name.lower())}"
-        else:
-            # Realmless (Forever): /profile/wow/character/{name}-{surname}. Characters only appear from
-            # level 10, after logging out once.
-            path = f"/profile/wow/character/{quote(char_slug(ch.name))}"
+        path = self.character_path(ed, ch)
         status, body = self.get(s, ch.region, path, ns, self.bz.get("cache_hours_profile", 6))
         if status == 404:
             extra = "" if ed.uses_realms else " Forever characters show up from level 10, after you log out once."
@@ -273,6 +303,14 @@ class Blizzard:
                               faction=((body.get("faction") or {}).get("type") or "").lower() or None,
                               external_id=str(body.get("id")) if body.get("id") else None, namespace=ns,
                               ruleset=None if ed.uses_realms else ruleset_key(ed, body.get("ruleset")))
+
+    def character_path(self, ed: Edition, ch: Character) -> str:
+        if ed.uses_realms:
+            realm = self.realm_for(ed, ch.ruleset, ch.realm_slug)
+            return f"/profile/wow/character/{quote(realm)}/{quote(ch.name.lower())}"
+        # Realmless (Forever): /profile/wow/character/{name}-{surname}. Characters only appear from
+        # level 10, after logging out once.
+        return f"/profile/wow/character/{quote(char_slug(ch.name))}"
 
     def apply_lookup(self, s: Session, ch: Character) -> CharacterMatch:
         """Look up and record the result on the character. Never sets ownership_verified."""
@@ -323,9 +361,12 @@ class Blizzard:
                      ("quests", "/quests/completed"), ("mounts", "/collections/mounts"),
                      ("appearance", "/appearance"), ("hunter-pets", "/hunter-pets"))
 
-    def probe_character(self, edition: str, region: str, name: str, realm: str | None = None) -> list[dict]:
+    def probe_character(self, edition: str, region: str, name: str, realm: str | None = None,
+                        detail: str | None = None) -> list[dict]:
         """Read-only: which profile pages Blizzard serves for one character, with the shape of each answer
-        (field names and list sizes, a few highlights). Uses the app token; saves nothing, uses no cache."""
+        (field names and list sizes, a few highlights). Uses the app token; saves nothing, uses no cache.
+        If the character is in a guild, the guild and guild roster pages are checked too (sizes only).
+        detail = a page name: that page's structure is added as row["tree"] (see _tree)."""
         if not self.bz.get("enabled"):
             raise Unsupported("Blizzard API lookups are turned off in this installation.")
         ed = self.cfg.edition(edition)
@@ -338,17 +379,36 @@ class Blizzard:
             base = f"/profile/wow/character/{quote(slug(realm))}/{quote(name.strip().lower())}"
         else:
             base = f"/profile/wow/character/{quote(char_slug(name))}"
-        out = []
+        out, summary_guild = [], ""
         for page, suffix in self.PROFILE_PAGES:
             row = {"page": page, "path": base + suffix, "namespace": ns}
-            try:
-                st, body = self.get(None, region, base + suffix, ns, 0)
-                row["status"] = str(st)
-                row["shape"] = _shape(page, body) if st == 200 else ""
-            except (ApiError, ValueError, httpx.HTTPError) as exc:
-                row["status"], row["shape"] = "error", (str(exc) or type(exc).__name__)[:160]
+            body = self._probe_row(row, region, base + suffix, ns, page)
+            if page == detail and row["status"] == "200":
+                row["tree"] = _tree(body)
+            if page == "summary" and row["status"] == "200":
+                href = ((body.get("guild") or {}).get("key") or {}).get("href") or ""
+                summary_guild = href
             out.append(row)
+        g = urlsplit(summary_guild) if out and out[0]["status"] == "200" and summary_guild else None
+        if g and g.path.startswith("/data/wow/guild/"):
+            gns = dict(parse_qsl(g.query)).get("namespace") or ed.namespace("profile", region) or ns
+            for page, path in (("guild", g.path), ("guild-roster", g.path.rstrip("/") + "/roster")):
+                row = {"page": page, "path": path, "namespace": gns}
+                body = self._probe_row(row, region, path, gns, page)
+                if page == detail == "guild" and row["status"] == "200":
+                    row["tree"] = _tree(body)        # the roster's tree is never shown: it lists other players
+                out.append(row)
         return out
+
+    def _probe_row(self, row: dict, region: str, path: str, ns: str, page: str) -> dict:
+        try:
+            st, body = self.get(None, region, path, ns, 0)
+            row["status"] = str(st)
+            row["shape"] = _shape(page, body) if st == 200 else ""
+            return body if st == 200 else {}
+        except (ApiError, ValueError, httpx.HTTPError) as exc:
+            row["status"], row["shape"] = "error", (str(exc) or type(exc).__name__)[:160]
+            return {}
 
     def import_reference(self, s: Session, edition: str, region: str) -> dict[str, int]:
         """Classes, races, quest areas, dungeon/raid instances. Rows marked source=blizzard, verified."""

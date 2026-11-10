@@ -103,6 +103,27 @@ class Character(Base):
     )
 
 
+SHARE_LEVELS = ("private", "guild", "members")
+
+
+class CharacterProfile(Base):
+    """Details imported from Blizzard's character pages, by group (gear, talents, professions...).
+    groups = {group: data}; shares = {group: private | guild | members}. Sharing beyond private only
+    counts while the character is ownership_verified (checked when shown, not stored). Deleted with the
+    character, when it's archived or its identity changes, on erasure, and after data_ttl_days."""
+    __tablename__ = "character_profiles"
+    character_id: Mapped[int] = mapped_column(ForeignKey("characters.id", ondelete="CASCADE"), primary_key=True)
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id"), nullable=False, index=True)
+    edition: Mapped[str] = mapped_column(String(32), nullable=False)
+    region: Mapped[str] = mapped_column(String(4), nullable=False)
+    guild_id: Mapped[str | None] = mapped_column(String(64))
+    guild_name: Mapped[str | None] = mapped_column(String(96))
+    groups: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    shares: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    fetched_at: Mapped[datetime] = _now()
+    __table_args__ = (Index("ix_char_profile_guild", "edition", "region", "guild_id"),)
+
+
 class ReferenceOption(Base):
     """Races, classes, race/class combos, specs, zones, quests, locations. Provenance recorded per row."""
     __tablename__ = "reference_options"

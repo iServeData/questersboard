@@ -215,6 +215,7 @@ battlenet_link_enabled = false                # optional ownership verification 
 battlenet_import_minutes = 60                 # after a Battle.net login, how long the "Add these characters" list stays usable
 data_ttl_days = 30                            # Blizzard checks not refreshed for this long are cleared (API terms: 30 max)
 battlenet_profile_lookups = 25                # per login: max character-profile reads to fill in a missing ruleset (0 = none)
+render_image_hosts = ["render.worldofwarcraft.com"]   # where imported character portraits may load from (page CSP)
 
 # ---------------------------------------------------------------------------
 # Game editions. Each QuestersBoard event and character belongs to exactly one.
@@ -249,8 +250,9 @@ profile_namespace = "profile-forever-{region}"
 ruleset_realm_slugs = {}
 # Blizzard's ruleset IDs (dynamic namespace /data/wow/ruleset/index), used by Battle.net sync.
 ruleset_api_ids = { pvp = 1, normal = 2, rp = 3, rp_pvp = 15 }
-# ownership = Battle.net login lists your characters; character = "Check with Blizzard"
-# (works in US; EU character pages were reported as 404 after launch).
+# ownership = Battle.net login lists your characters; character = "Check with Blizzard" and
+# "Import details". US: the profile and all 15 detail pages answered (probe-character, 2026-11-10).
+# EU character pages were reported as 404 after launch, so this stays "unverified" (it's per edition).
 api_status = { reference = "unsupported", character = "unverified", quests = "unsupported", locations = "unsupported", ownership = "unverified" }
 
 [[editions]]

@@ -265,3 +265,31 @@ def test_probe_character_records_errors_per_page():
     rows = {r["page"]: r for r in b.probe_character("forever", "us", "Zulmara Ashveil")}
     assert rows["titles"]["status"] == "error" and "403" in rows["titles"]["shape"]
     assert rows["summary"]["status"] == "404"
+
+
+def test_probe_character_follows_the_guild_and_shows_one_page_tree():
+    def h(req):
+        p = req.url.path
+        if p == "/profile/wow/character/zulmara-ashveil":
+            return httpx.Response(200, json={"name": "Zulmara Ashveil", "level": 22, "guild": {
+                "name": "Fixture Guild", "id": 7,
+                "key": {"href": "https://us.api.blizzard.com/data/wow/guild/fixture/fixture-guild?namespace=profile-forever-us"}}})
+        if p.endswith("/specializations"):
+            return httpx.Response(200, json={"character": {"name": "Zulmara Ashveil"}, "specialization_groups": [
+                {"is_active": True, "specializations": [{"specialization_name": "Fixture Tree", "spent_points": 5,
+                                                          "talents": [{"talent": {"name": "Fixture Talent"},
+                                                                       "talent_rank": 2}]}]}]})
+        if p == "/data/wow/guild/fixture/fixture-guild":
+            return httpx.Response(200, json={"name": "Fixture Guild", "member_count": 3})
+        if p == "/data/wow/guild/fixture/fixture-guild/roster":
+            return httpx.Response(200, json={"members": [{"character": {"name": "Someone Else"}}] * 3})
+        return httpx.Response(404)
+    b, calls = _bz(h)
+    rows = {r["page"]: r for r in b.probe_character("forever", "us", "Zulmara Ashveil", detail="specializations")}
+    assert rows["guild"]["status"] == "200" and rows["guild-roster"]["shape"].startswith("members[3]")
+    tree = "\n".join(rows["specializations"]["tree"])
+    assert "specialization_name: 'Fixture Tree'" in tree and "talent_rank: 2" in tree
+    assert "Zulmara" not in tree                                  # the character block is left out
+    assert "tree" not in rows["guild-roster"]                     # other players' names are never shown
+    g = [r for r in calls if r.url.path.startswith("/data/wow/guild/")]
+    assert all(r.url.params["namespace"] == "profile-forever-us" for r in g)

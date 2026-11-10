@@ -593,7 +593,8 @@ class Worker:
         - A Blizzard check (api_matched / ownership_verified) not refreshed within data_ttl_days is
           cleared: the character stays on the roster as the member entered it, marked self-reported,
           until they sync or check again.
-        - Cached API responses older than data_ttl_days are deleted whatever their cache time."""
+        - Cached API responses older than data_ttl_days are deleted whatever their cache time.
+        - Imported character details (character_profiles) older than data_ttl_days are deleted."""
         bz = self.cfg["blizzard"]
         days = min(int(bz.get("data_ttl_days", 30)), 30)
         s.execute(text("DELETE FROM battlenet_links WHERE linked_at < now() - make_interval(mins => :m)"),
@@ -603,6 +604,8 @@ class Worker:
             "api_refreshed_at = NULL, updated_at = now() WHERE verification <> 'self_reported' "
             "AND (api_refreshed_at IS NULL OR api_refreshed_at < now() - make_interval(days => :d))"), {"d": days})
         s.execute(text("DELETE FROM api_cache WHERE fetched_at < now() - make_interval(days => :d)"), {"d": days})
+        s.execute(text("DELETE FROM character_profiles WHERE fetched_at < now() - make_interval(days => :d)"),
+                  {"d": days})
 
     def sync_policy(self) -> None:
         with self.db.tx() as s:

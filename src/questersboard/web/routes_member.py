@@ -661,13 +661,20 @@ def router(cfg: Config) -> APIRouter:
             # The Battle.net list itself is deleted soon after the login; "verified" characters still count.
             bn_linked = (s.query(BattlenetLink.member_id).filter(BattlenetLink.member_id == a.member_id).first()
                          is not None or any(c.verification == "ownership_verified" for c in chars))
+            from ..domain import profiles
+            details = profiles.profiles_for(s, a.member_id)
+            for p in details.values():
+                s.expunge(p)
         bz = w.cfg["blizzard"]
         return render(request, "characters.html", {"title": "Characters", "chars": chars, "race_map": race_map,
                                                    "editions": w.cfg.editions, "presets": w.cfg.role_presets,
                                                    "bz_enabled": bool(bz.get("enabled")),
                                                    "bn_enabled": bool(bz.get("enabled") and bz.get("battlenet_link_enabled")),
                                                    "bn_linked": bn_linked, "editing": editing,
-                                                   "race_label": race_label, "class_label": class_label})
+                                                   "race_label": race_label, "class_label": class_label,
+                                                   "details": details, "detail_groups": profiles.GROUPS,
+                                                   "share_labels": profiles.SHARE_LABELS,
+                                                   "effective_share": profiles.effective_share})
 
     @r.post(mp + "/characters")
     async def add_character(request: Request):
@@ -729,6 +736,32 @@ def router(cfg: Config) -> APIRouter:
             except ApiError:
                 raise Invalid("Blizzard's API didn't answer. Your character is unchanged; try again later.") from None
             audit.record(s, a, "character.lookup", "character", ch.id, found=m.found)
+        return _redirect(mp + "/characters")
+
+    @r.post(mp + "/characters/{character_id}/details")
+    async def import_details(request: Request, character_id: int):
+        """Import the ticked groups of Blizzard character details, each with its own sharing choice."""
+        from ..domain import profiles
+        from ..integrations.blizzard import ApiError, Unsupported
+        form, a = await post_guard(request, fresh=False)
+        w = W(request)
+        groups, shares = profiles.parse_form(form)
+        with w.db.tx() as s:
+            try:
+                profiles.import_profile(s, w.cfg, w.bz, a, character_id, groups, shares)
+            except Unsupported as exc:
+                raise Invalid(str(exc)) from None
+            except ApiError:
+                raise Invalid("Blizzard's API didn't answer. Nothing was changed; try again later.") from None
+        return _redirect(f"{mp}/characters#details-{character_id}")
+
+    @r.post(mp + "/characters/{character_id}/details/remove")
+    async def remove_details(request: Request, character_id: int):
+        from ..domain import profiles
+        form, a = await post_guard(request, fresh=False)
+        w = W(request)
+        with w.db.tx() as s:
+            profiles.remove_profile(s, w.cfg, a, character_id)
         return _redirect(mp + "/characters")
 
     @r.get(mp + "/characters/battlenet")

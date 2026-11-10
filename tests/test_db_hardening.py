@@ -98,7 +98,7 @@ def test_admin_role_can_migrate_down_and_up(db):
     for args in (["downgrade", "base"], ["upgrade", "head"], ["current"]):
         r = subprocess.run(alembic + args, cwd=ROOT, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr[-2000:]
-    assert "0008 (head)" in r.stdout
+    assert "0009 (head)" in r.stdout
 
 
 def test_worker_heartbeat_grants_are_narrow():

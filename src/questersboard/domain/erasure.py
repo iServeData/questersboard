@@ -25,8 +25,8 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from ..config import Config
-from ..models import (Attendance, BattlenetLink, CalendarToken, Character, ChronicleCoauthor, ChronicleEntry,
-                      ChronicleRevision, ChronicleUpload, Event, EventCohost, Member, MemberReservation,
+from ..models import (Attendance, BattlenetLink, CalendarToken, Character, CharacterProfile, ChronicleCoauthor,
+                      ChronicleEntry, ChronicleRevision, ChronicleUpload, Event, EventCohost, Member, MemberReservation,
                       RateBucket, RecognitionRemoval, ReminderDelivery, Series, Signup)
 from ..models import Session as WebSession
 from . import audit, events, outbox, privacy, projections, signups
@@ -168,7 +168,9 @@ def erase(s: Session, cfg: Config, member_id: int, source: str = "web") -> dict:
             outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})   # card drops the name
     s.execute(delete(ChronicleCoauthor).where(ChronicleCoauthor.member_id == member_id))
 
-    # 4. characters
+    # 4. characters (imported Blizzard details go first, whatever happens to the character)
+    receipt["character_details"] = s.execute(delete(CharacterProfile)
+                                             .where(CharacterProfile.member_id == member_id)).rowcount
     for ch in list(s.scalars(select(Character).where(Character.member_id == member_id))):
         used = s.scalar(select(Signup.id).where(Signup.character_id == ch.id).limit(1)) or \
             s.scalar(select(Attendance.event_id).where(Attendance.character_id == ch.id).limit(1))

@@ -137,15 +137,19 @@ def cmd_blizzard(args):
             return 2
         region = args.region or cfg.edition(args.edition).default_region
         try:
-            rows = Blizzard(cfg).probe_character(args.edition, region, args.name, args.realm)
+            rows = Blizzard(cfg).probe_character(args.edition, region, args.name, args.realm, args.detail)
         except (Unsupported, ApiError) as exc:
             print(f"refused: {exc}", file=sys.stderr)
             return 3
         print(f"{args.edition} {region.upper()} {rows[0]['namespace']}  (read-only; nothing saved)")
         for r in rows:
             print(f"  {r['page']:<16} {r['status']:<6} {r['shape']}")
+            for line in r.get("tree") or []:
+                print(f"      {line}")
         ok = sum(r["status"] == "200" for r in rows)
         print(f"{ok} of {len(rows)} pages answered. 404 = not served for this character (or not public yet).")
+        if args.detail and not any(r.get("tree") for r in rows):
+            print(f"note: no structure shown for --detail {args.detail} (page not answered, or not allowed).")
         return 0
     from .integrations.blizzard import Blizzard
     db = _db(cfg, "app")
@@ -344,6 +348,7 @@ def main(argv=None) -> int:
     b.add_argument("--region")
     b.add_argument("--name", help="probe-character: the character's name (Forever: first name and surname)")
     b.add_argument("--realm", help="probe-character: realm, for editions that use realms")
+    b.add_argument("--detail", help="probe-character: show one page's structure (e.g. specializations)")
     b.set_defaults(fn=cmd_blizzard)
     sc = sub.add_parser("sync-commands")
     sc.add_argument("--yes", action="store_true")

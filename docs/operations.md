@@ -39,7 +39,7 @@ sudo -u questersboard questersboard-admin check-config    # after editing config
 | Install the default event cover art | `questersboard-admin default-cover /path/to/art.png` (re-encoded to `covers/default_cover.webp` under `[uploads] storage_dir`) |
 | Re-import Blizzard reference data | `questersboard-admin blizzard import-reference retail --region us` |
 | Check whether Forever's API exists yet | `questersboard-admin blizzard probe forever --region us` (reports, changes nothing) |
-| See which character pages Blizzard serves (equipment, talents, professions…) | `questersboard-admin blizzard probe-character forever --name "First Last" --region us` (Retail/Classic add `--realm`); read-only, uses the Blizzard credentials, saves nothing |
+| See which character pages Blizzard serves (equipment, talents, professions…) | `questersboard-admin blizzard probe-character forever --name "First Last" --region us` (Retail/Classic add `--realm`; `--detail specializations` shows one page's structure); read-only, uses the Blizzard credentials, saves nothing. In a guild, it also checks the guild and roster pages (sizes only) |
 | Backup now | `sudo systemctl start questersboard-backup.service` |
 | Restore drill | `backup_restore.md` |
 

@@ -252,6 +252,9 @@ def update_character(s: Session, cfg: Config, actor: Actor, character_id: int, d
         setattr(ch, k, v)
     if identity_changed and ch.verification != "self_reported":
         ch.verification, ch.api_external_id, ch.api_refreshed_at = "self_reported", None, None
+    if identity_changed:
+        from .profiles import drop_for_character
+        drop_for_character(s, ch.id)
     ch.updated_at = now()
     try:
         with s.begin_nested():
@@ -272,6 +275,8 @@ def archive_character(s: Session, cfg: Config, actor: Actor, character_id: int) 
                                              Signup.state.in_(("pending", "confirmed", "tentative", "waitlisted")))):
         signups.withdraw(s, cfg, actor, su.id, reason="character archived")
     ch.archived_at = now()
+    from .profiles import drop_for_character
+    drop_for_character(s, ch.id)
     audit.record(s, actor, "character.archive", "character", ch.id)
 
 

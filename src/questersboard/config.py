@@ -479,6 +479,10 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     if bz.get("battlenet_import_minutes", 60) > ttl * 24 * 60:
         raise ConfigError("[blizzard] battlenet_import_minutes must fit within data_ttl_days")
     _positive(bz.get("battlenet_profile_lookups", 25), "[blizzard] battlenet_profile_lookups", 0)
+    hosts = bz.get("render_image_hosts", ["render.worldofwarcraft.com"])
+    if not isinstance(hosts, list) or not all(isinstance(h, str) and re.fullmatch(r"[a-z0-9.-]{3,100}", h)
+                                              for h in hosts):
+        raise ConfigError("[blizzard] render_image_hosts must be a list of host names")
 
     # editions
     eds = r.get("editions")

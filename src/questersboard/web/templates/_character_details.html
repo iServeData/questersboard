@@ -1,0 +1,24 @@
+{# Imported Blizzard details for one character (d = CharacterProfile, c = Character). #}
+<div class="wq-details">
+  <p class="note">Imported from Blizzard {{ d.fetched_at.strftime("%Y-%m-%d") }}. Kept up to {{ cfg["blizzard"].get("data_ttl_days", 30) }} days unless you refresh it.</p>
+  {% set gd = d.groups %}
+  {% for g in detail_groups if g.key in gd %}{% set v = gd[g.key] %}
+  <details class="wq-detail-group">
+    <summary>{{ g.label }} <span class="note">· {{ share_labels[effective_share(d, c, g.key)] }}{% if effective_share(d, c, g.key) != (d.shares or {}).get(g.key, "private") %} (set to {{ share_labels[(d.shares or {}).get(g.key, "private")] }}, needs Battle.net verification){% endif %}</span></summary>
+    {% if g.key == "overview" %}<p>{% for k, x in v.items() %}{{ k.replace("_", " ")|capitalize }}: {{ x }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+    {% elif g.key == "guild" %}<p>{{ v.name }}</p>
+    {% elif g.key == "gear" %}<ul class="wq-detail-list">{% for i in v %}<li><span class="note">{{ i.slot }}</span> {{ i.name }}{% if i.item_level %} <span class="note">ilvl {{ i.item_level }}</span>{% endif %}{% if i.enchants %} <span class="note">· {{ i.enchants|join(", ") }}</span>{% endif %}</li>{% endfor %}</ul>
+    {% elif g.key == "talents" %}{% for grp in v.groups %}<p>{% if v.groups|length > 1 %}{{ "Active" if grp.active else "Other" }}: {% endif %}{% for sp in grp.specs %}{{ sp.name }}{% if sp.points is not none %} {{ sp.points }}{% endif %}{% if not loop.last %} / {% endif %}{% endfor %}</p>
+      {% for sp in grp.specs if sp.talents %}<p class="note">{{ sp.name }}: {% for t in sp.talents %}{{ t.name }}{% if t.rank %} {{ t.rank }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endfor %}{% endfor %}
+      {% if v.active %}<p>Active: {{ v.active }}</p>{% endif %}
+    {% elif g.key == "professions" %}<ul class="wq-detail-list">{% for p in v %}<li>{{ p.name }}{% if p.skill is not none %} {{ p.skill }}{% if p.max %}/{{ p.max }}{% endif %}{% endif %} <span class="note">{{ p.kind }}</span></li>{% endfor %}</ul>
+    {% elif g.key == "stats" %}<p>{% for k, x in v.items() %}{{ k.replace("_", " ")|capitalize }}: {{ x }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+    {% elif g.key == "portrait" %}<p>{% for a in v if a.key in ("avatar", "inset") %}<img src="{{ a.url }}" alt="Portrait of {{ c.name }}" loading="lazy" referrerpolicy="no-referrer" class="wq-portrait">{% endfor %}</p>
+    {% elif g.key == "pvp" %}<p>{% if v.honorable_kills is defined %}Honorable kills: {{ v.honorable_kills }}{% endif %}{% if v.pvp_rank is defined %} · Rank {{ v.pvp_rank }}{% endif %}</p>
+    {% elif g.key == "progress" %}<p>{% if v.quests_completed is defined %}Quests completed: {{ v.quests_completed }}{% endif %}{% if v.achievements is defined %} · Achievements: {{ v.achievements }}{% endif %}{% if v.mounts is defined %} · Mounts: {{ v.mounts }}{% endif %}</p>
+      {% if v.reputations %}<ul class="wq-detail-list">{% for r in v.reputations %}<li>{{ r.faction }} <span class="note">{{ r.standing }}{% if r.max %} {{ r.value }}/{{ r.max }}{% endif %}</span></li>{% endfor %}</ul>{% endif %}
+      {% if v.hunter_pets %}<p class="note">Pets: {% for p in v.hunter_pets %}{{ p.name }}{% if p.family %} ({{ p.family }}{% if p.level %} {{ p.level }}{% endif %}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+    {% endif %}
+  </details>
+  {% endfor %}
+</div>

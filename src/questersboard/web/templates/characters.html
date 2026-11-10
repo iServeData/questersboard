@@ -14,6 +14,22 @@
     {% set ed = editions[c.edition] %}
     {% if bz_enabled and ed.capability("character") != "unsupported" %}
     <form method="post" action="{{ mp }}/characters/{{ c.id }}/lookup">{{ csrf_field() }}<button class="linkish" type="submit">Check with Blizzard</button></form>
+    {% set d = details.get(c.id) %}
+    {% if d %}{% include "_character_details.html" %}{% endif %}
+    <details class="wq-import" id="details-{{ c.id }}"{% if not d %} data-new{% endif %}>
+      <summary>{{ "Refresh or change imported details" if d else "Import details from Blizzard" }}</summary>
+      <form method="post" action="{{ mp }}/characters/{{ c.id }}/details">{{ csrf_field() }}
+        <p class="note">Pick what to bring in and who can see it. Untick anything you'd rather keep out.{% if c.verification != "ownership_verified" %} Sharing with your guild or other members needs this character verified as yours: use Sync from Battle.net below. Until then everything stays visible only to you.{% endif %} Sharing takes effect on guild and member pages as they arrive.</p>
+        <table class="wq-import-table"><thead><tr><th scope="col">Import</th><th scope="col">Who can see it</th></tr></thead><tbody>
+        {% for g in detail_groups %}
+          <tr><td><label class="wq-check"><input type="checkbox" name="groups" value="{{ g.key }}"{% if not d or g.key in d.groups %} checked{% endif %}> {{ g.label }} <span class="note">({{ g.hint }})</span></label></td>
+          <td><select name="share_{{ g.key }}" aria-label="Who can see {{ g.label }}">{% for lv, lab in share_labels.items() %}<option value="{{ lv }}"{% if d and (d.shares or {}).get(g.key, "private") == lv %} selected{% endif %}{% if lv != "private" and c.verification != "ownership_verified" %} disabled{% endif %}>{{ lab }}</option>{% endfor %}</select></td></tr>
+        {% endfor %}
+        </tbody></table>
+        <p class="btns"><button class="btn" type="submit">{{ "Refresh from Blizzard" if d else "Import" }}</button></p>
+      </form>
+      {% if d %}<form method="post" action="{{ mp }}/characters/{{ c.id }}/details/remove">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Remove the details imported for {{ c.name }}?">Remove imported details</button></form>{% endif %}
+    </details>
     {% endif %}
     <p class="btns wq-card-actions"><a class="linkish" href="{{ mp }}/characters?edit={{ c.id }}#character-form">Edit</a></p>
     <form method="post" action="{{ mp }}/characters/{{ c.id }}/remove">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Remove {{ c.name }}? Characters with event history are archived instead.">Remove</button></form>
