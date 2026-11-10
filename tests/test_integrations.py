@@ -219,3 +219,49 @@ def test_retention_and_review_channel_validation():
     raw["web"]["bind"] = "0.0.0.0:8740"
     with pytest.raises(ConfigError):
         validate(raw)
+
+
+# ---- probe-character (FIXTURE responses; the live Forever answers are unverified)
+def test_probe_character_is_read_only_and_reports_each_page():
+    def h(req):
+        p = req.url.path
+        if p == "/profile/wow/character/zulmara-ashveil":
+            return httpx.Response(200, json={"_links": {}, "name": "Zulmara Ashveil", "level": 22,
+                                             "guild": {"name": "Fixture Guild", "id": 7},
+                                             "equipment": {"href": "https://fixture/equipment"}})
+        if p.endswith("/equipment"):
+            return httpx.Response(200, json={"equipped_items": [{"level": {"value": 20}}, {"level": {"value": 31}}]})
+        if p.endswith("/professions"):
+            return httpx.Response(200, json={"primaries": [{"profession": {"name": "Mining"},
+                                                            "tiers": [{"skill_points": 75}]}]})
+        return httpx.Response(404)
+    b, calls = _bz(h)
+    eds_ns = b.cfg.edition("forever").namespace("profile", "us")
+    rows = b.probe_character("forever", "us", "Zulmara  Ashveil")
+    by = {r["page"]: r for r in rows}
+    assert len(rows) == len(blizzard.Blizzard.PROFILE_PAGES)
+    assert by["summary"]["status"] == "200" and "guild=Fixture Guild" in by["summary"]["shape"]
+    assert "equipment->" in by["summary"]["shape"] and "Zulmara" not in by["summary"]["shape"]
+    assert "item levels 20-31" in by["equipment"]["shape"]
+    assert "Mining 75" in by["professions"]["shape"]
+    assert by["raids"]["status"] == "404"
+    prof = [r for r in calls if "/profile/" in r.url.path]
+    assert all(r.method == "GET" and r.url.params["namespace"] == eds_ns for r in prof)
+
+
+def test_probe_character_needs_a_realm_where_editions_use_realms():
+    b, calls = _bz(lambda r: httpx.Response(200, json={}))
+    with pytest.raises(blizzard.Unsupported):
+        b.probe_character("retail", "us", "Testchar")
+    assert not [r for r in calls if "/profile/" in r.url.path]
+
+
+def test_probe_character_records_errors_per_page():
+    def h(req):
+        if req.url.path.endswith("/titles"):
+            return httpx.Response(403)
+        return httpx.Response(404)
+    b, _ = _bz(h)
+    rows = {r["page"]: r for r in b.probe_character("forever", "us", "Zulmara Ashveil")}
+    assert rows["titles"]["status"] == "error" and "403" in rows["titles"]["shape"]
+    assert rows["summary"]["status"] == "404"

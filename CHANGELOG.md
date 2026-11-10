@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Character page probe.** `questersboard-admin blizzard probe-character EDITION --name "First Last"`
+  asks Blizzard for one public character's summary and 15 detail pages (equipment, specializations,
+  professions, media, statistics, PvP, achievements, titles, reputations, dungeons, raids, quests,
+  mounts, appearance, hunter pets) and prints each page's status and field names. Read-only: no
+  database, no cache, nothing saved. Used to decide what a future character import can offer.
+
 - **Difficulty lists per edition.** `difficulties = []` hides the event form's Difficulty choice for
   editions with a single difficulty; the example config now uses it for WoW: Forever and Classic Era
   (TBC Anniversary, Mists Classic and Retail keep their lists). Saving an event in such an edition

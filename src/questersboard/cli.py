@@ -129,6 +129,24 @@ def cmd_seed_catalog(args):
 
 def cmd_blizzard(args):
     cfg = _cfg(args)
+    if args.action == "probe-character":
+        from .integrations.blizzard import ApiError, Blizzard, Unsupported
+        if not args.name:
+            print("usage: questersboard-admin blizzard probe-character EDITION --name \"First Last\" [--region us]",
+                  file=sys.stderr)
+            return 2
+        region = args.region or cfg.edition(args.edition).default_region
+        try:
+            rows = Blizzard(cfg).probe_character(args.edition, region, args.name, args.realm)
+        except (Unsupported, ApiError) as exc:
+            print(f"refused: {exc}", file=sys.stderr)
+            return 3
+        print(f"{args.edition} {region.upper()} {rows[0]['namespace']}  (read-only; nothing saved)")
+        for r in rows:
+            print(f"  {r['page']:<16} {r['status']:<6} {r['shape']}")
+        ok = sum(r["status"] == "200" for r in rows)
+        print(f"{ok} of {len(rows)} pages answered. 404 = not served for this character (or not public yet).")
+        return 0
     from .integrations.blizzard import Blizzard
     db = _db(cfg, "app")
     bz = Blizzard(cfg)
@@ -321,9 +339,11 @@ def main(argv=None) -> int:
     m.set_defaults(fn=cmd_migrate)
     sub.add_parser("seed-catalog").set_defaults(fn=cmd_seed_catalog)
     b = sub.add_parser("blizzard")
-    b.add_argument("action", choices=("probe", "import-reference"))
+    b.add_argument("action", choices=("probe", "import-reference", "probe-character"))
     b.add_argument("edition")
     b.add_argument("--region")
+    b.add_argument("--name", help="probe-character: the character's name (Forever: first name and surname)")
+    b.add_argument("--realm", help="probe-character: realm, for editions that use realms")
     b.set_defaults(fn=cmd_blizzard)
     sc = sub.add_parser("sync-commands")
     sc.add_argument("--yes", action="store_true")

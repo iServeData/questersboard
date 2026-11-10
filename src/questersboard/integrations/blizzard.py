@@ -125,6 +125,45 @@ def _label(v) -> str:
     return str(v or "").strip()
 
 
+def _shape(page: str, body: dict) -> str:
+    """Field names and list sizes of an answer, plus a few non-personal highlights, for probe output."""
+    if not isinstance(body, dict):
+        return type(body).__name__
+    parts = []
+    for k, v in body.items():
+        if k == "_links":
+            continue
+        if isinstance(v, list):
+            parts.append(f"{k}[{len(v)}]")
+        elif isinstance(v, dict) and set(v) == {"href"}:
+            parts.append(f"{k}->")          # the summary links to a detail page
+        else:
+            parts.append(k)
+    hi = []
+    if page == "summary":
+        hi += [f"level={body.get('level')}"] if "level" in body else []
+        hi += [f"guild={_label(body['guild'])}"] if isinstance(body.get("guild"), dict) else ["no guild"]
+        for k in ("average_item_level", "equipped_item_level"):
+            if k in body:
+                hi.append(f"{k}={body[k]}")
+        if isinstance(body.get("active_spec"), dict):
+            hi.append(f"active_spec={_label(body['active_spec'])}")
+    elif page == "equipment" and isinstance(body.get("equipped_items"), list):
+        lv = [((i.get("level") or {}).get("value")) for i in body["equipped_items"] if isinstance(i, dict)]
+        lv = [x for x in lv if isinstance(x, int)]
+        if lv:
+            hi.append(f"item levels {min(lv)}-{max(lv)}")
+    elif page == "professions":
+        for grp in ("primaries", "secondaries"):
+            for p in body.get(grp) or []:
+                tiers = p.get("tiers") or [p]
+                pts = [t.get("skill_points") for t in tiers if isinstance(t, dict) and t.get("skill_points")]
+                hi.append(f"{_label(p.get('profession'))}{(' ' + str(max(pts))) if pts else ''}")
+    elif page == "specializations" and isinstance(body.get("active_specialization"), dict):
+        hi.append(f"active={_label(body['active_specialization'])}")
+    return ", ".join(parts) + (f"  |  {'; '.join(hi)}" if hi else "")
+
+
 class Blizzard:
     def __init__(self, cfg: Config, http: httpx.Client | None = None, sleep=time.sleep):
         self.cfg = cfg
@@ -272,6 +311,43 @@ class Blizzard:
                 index_elements=[ApiProbe.edition, ApiProbe.region, ApiProbe.capability],
                 set_={k: v for k, v in vals.items() if k not in ("edition", "region", "capability")}))
         out["ownership"] = "unsupported" if not ed.namespace("profile", region) else "needs_oauth"
+        return out
+
+    # The character profile and its detail pages. Forever's are undocumented; probe_character reports
+    # which ones answer so the roster/guild features only use pages that really work.
+    PROFILE_PAGES = (("summary", ""), ("equipment", "/equipment"), ("specializations", "/specializations"),
+                     ("professions", "/professions"), ("character-media", "/character-media"),
+                     ("statistics", "/statistics"), ("pvp-summary", "/pvp-summary"),
+                     ("achievements", "/achievements"), ("titles", "/titles"), ("reputations", "/reputations"),
+                     ("dungeons", "/encounters/dungeons"), ("raids", "/encounters/raids"),
+                     ("quests", "/quests/completed"), ("mounts", "/collections/mounts"),
+                     ("appearance", "/appearance"), ("hunter-pets", "/hunter-pets"))
+
+    def probe_character(self, edition: str, region: str, name: str, realm: str | None = None) -> list[dict]:
+        """Read-only: which profile pages Blizzard serves for one character, with the shape of each answer
+        (field names and list sizes, a few highlights). Uses the app token; saves nothing, uses no cache."""
+        if not self.bz.get("enabled"):
+            raise Unsupported("Blizzard API lookups are turned off in this installation.")
+        ed = self.cfg.edition(edition)
+        ns = ed.namespace("profile", region)
+        if not ns:
+            raise Unsupported(f"No profile namespace is configured for {ed.name} ({region.upper()}).")
+        if ed.uses_realms:
+            if not realm:
+                raise Unsupported(f"{ed.name} uses realms: add --realm.")
+            base = f"/profile/wow/character/{quote(slug(realm))}/{quote(name.strip().lower())}"
+        else:
+            base = f"/profile/wow/character/{quote(char_slug(name))}"
+        out = []
+        for page, suffix in self.PROFILE_PAGES:
+            row = {"page": page, "path": base + suffix, "namespace": ns}
+            try:
+                st, body = self.get(None, region, base + suffix, ns, 0)
+                row["status"] = str(st)
+                row["shape"] = _shape(page, body) if st == 200 else ""
+            except (ApiError, ValueError, httpx.HTTPError) as exc:
+                row["status"], row["shape"] = "error", (str(exc) or type(exc).__name__)[:160]
+            out.append(row)
         return out
 
     def import_reference(self, s: Session, edition: str, region: str) -> dict[str, int]:
