@@ -641,7 +641,7 @@ def router(cfg: Config) -> APIRouter:
 
     # ------------------------------------------------------------- characters
     @r.get(mp + "/characters")
-    def characters(request: Request, edit: int = 0):
+    def characters(request: Request, edit: int = 0, saved: int = 0, removed: int = 0):
         sess, a = session_or_login(request)
         w = W(request)
         with w.db.tx() as s:
@@ -677,7 +677,8 @@ def router(cfg: Config) -> APIRouter:
                                                    "share_labels": profiles.SHARE_LABELS,
                                                    "effective_share": profiles.effective_share,
                                                    "stat_sections": profiles.stat_sections,
-                                                   "guild_links": guild_links})
+                                                   "guild_links": guild_links, "saved": saved,
+                                                   "removed": removed})
 
     @r.post(mp + "/characters")
     async def add_character(request: Request):
@@ -756,7 +757,7 @@ def router(cfg: Config) -> APIRouter:
                 raise Invalid(str(exc)) from None
             except ApiError:
                 raise Invalid("Blizzard's API didn't answer. Nothing was changed; try again later.") from None
-        return _redirect(f"{mp}/characters#details-{character_id}")
+        return _redirect(f"{mp}/characters?saved={character_id}#char-{character_id}")
 
     def _details_ctx(w):
         from ..domain import profiles
@@ -850,7 +851,7 @@ def router(cfg: Config) -> APIRouter:
         w = W(request)
         with w.db.tx() as s:
             profiles.remove_profile(s, w.cfg, a, character_id)
-        return _redirect(mp + "/characters")
+        return _redirect(f"{mp}/characters?removed={character_id}#char-{character_id}")
 
     @r.get(mp + "/characters/battlenet")
     def battlenet_start(request: Request, edition: str = "", region: str = ""):

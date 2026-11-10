@@ -7,7 +7,8 @@
 <div class="wq-grid">
 <section>
   {% for c in chars %}
-  <div class="panel wq-card{% if editing and editing.id == c.id %} wq-editing{% endif %}">
+  <div class="panel wq-card{% if editing and editing.id == c.id %} wq-editing{% endif %}" id="char-{{ c.id }}">
+    {% if saved == c.id %}<p class="wq-saved" role="status">Saved. Imported details and sharing are updated for {{ c.name }}.</p>{% elif removed == c.id %}<p class="wq-saved" role="status">Imported details removed for {{ c.name }}.</p>{% endif %}
     <h3><a class="wq-char-link" href="{{ mp }}/characters?edit={{ c.id }}#character-form" title="Edit {{ c.name }}">{{ c.name }}</a> <span class="note">{{ editions[c.edition].name }}{% if c.ruleset %} · {{ editions[c.edition].ruleset_label(c.ruleset) }}{% endif %}{% if c.realm_slug %} · {{ c.realm_name or c.realm_slug }}{% endif %}</span></h3>
     <p>{{ c.faction|title }} {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} · level {{ c.level }}{% endif %}{% if c.spec %} · {{ c.spec }}{% endif %}</p>
     <p class="note">Roles: {{ c.eligible_roles|join(", ") or "—" }}{% if c.preferred_role %} (prefers {{ c.preferred_role }}){% endif %}{% if c.focus_tags %} · Interests: {{ c.focus_tags|join(", ") }}{% endif %}</p>

@@ -170,7 +170,8 @@ tr[hidden]{display:none}
 .wq-roster-filters{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:.6em 0}
 .wq-roster-filters label{display:flex;flex-direction:column;font-size:.85rem;min-width:120px}
 .wq-roster-filters input{max-width:110px}
-.wq-roster{width:100%;border-collapse:collapse}
-.wq-roster th,.wq-roster td{text-align:left;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
-.wq-roster th{font-weight:600;font-size:.85rem}
-@media (max-width:700px){.wq-roster thead{display:none}.wq-roster tr{display:block;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)}.wq-roster td{display:block;border:0;padding:1px 0}.wq-roster td[data-label]:not(:first-child)::before{content:attr(data-label) ": ";opacity:.7}}
+.wq-roster-table{width:100%;border-collapse:collapse}
+.wq-roster-table th,.wq-roster-table td{text-align:left;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+.wq-roster-table th{font-weight:600;font-size:.85rem}
+@media (max-width:700px){.wq-roster-table thead{display:none}.wq-roster-table tr{display:block;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)}.wq-roster-table td{display:block;border:0;padding:1px 0}.wq-roster-table td[data-label]:not(:first-child)::before{content:attr(data-label) ": ";opacity:.7}}
+.wq-saved{margin:0 0 .6em;padding:6px 10px;border-left:3px solid #4caf50;background:rgba(76,175,80,.12)}

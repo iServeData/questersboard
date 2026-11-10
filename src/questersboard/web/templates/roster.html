@@ -20,7 +20,7 @@
 </form>
 <p class="note">{{ rows|length }} of {{ total }} character{{ "s" if total != 1 }}.</p>
 {% if rows %}
-<table class="wq-roster">
+<table class="wq-roster-table">
   <thead><tr><th scope="col">Character</th><th scope="col">Class</th><th scope="col">Level</th><th scope="col">Spec</th><th scope="col">Item level</th><th scope="col">Roles</th><th scope="col">Professions</th></tr></thead>
   <tbody>
   {% for r in rows %}

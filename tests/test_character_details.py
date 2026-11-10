@@ -351,3 +351,18 @@ def test_roster_and_view_link_back_to_my_characters(seeded, tmp_path, monkeypatc
         page = c.get(url).text
         assert 'href="/wow/quester/characters">My characters' in page and "Fixture Guild roster" in page, url
     assert 'name="share_all"' in c.get("/wow/quester/characters").text
+
+
+@needs_db
+def test_saving_details_returns_to_the_character_with_a_note(seeded, tmp_path, monkeypatch):
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(96), "Zulmara Ashveil").id
+    c = login(a, 96)
+    r = c.post(f"/wow/quester/characters/{cid}/details", data={"csrf": csrf(c), "groups": ["gear"]},
+               follow_redirects=False)
+    assert r.headers["location"].endswith(f"/characters?saved={cid}#char-{cid}")
+    page = c.get(r.headers["location"]).text
+    assert f'id="char-{cid}"' in page and "Saved. Imported details and sharing are updated for Zulmara Ashveil." in page
+    r = c.post(f"/wow/quester/characters/{cid}/details/remove", data={"csrf": csrf(c)}, follow_redirects=False)
+    assert r.headers["location"].endswith(f"?removed={cid}#char-{cid}")

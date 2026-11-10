@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- After Import or Refresh from Blizzard (or Remove imported details), My characters returns to the top
+  of that character's card with a "Saved" note, instead of below it. Roster tables on the guild and
+  Shared characters pages line up with their headings again (a style name clashed with the event roster).
+
 - Guild roster, character and Shared characters pages have a bar back to My characters and to your
   other roster pages. The import form has a "Set all" row that applies one "Who can see it" choice to
   every group (works without JavaScript too).
