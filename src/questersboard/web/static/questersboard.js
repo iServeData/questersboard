@@ -364,4 +364,13 @@
     });
     showTop();
   }
+  // Imported portraits: if Blizzard has no picture (broken image), say so instead of an empty box.
+  document.querySelectorAll("img[data-portrait]").forEach(function (img) {
+    var miss = function () {
+      img.hidden = true;
+      var p = img.parentNode, note = p && p.querySelector("[data-portrait-missing]");
+      if (note && !p.querySelector("img[data-portrait]:not([hidden])")) note.hidden = false;
+    };
+    if (img.complete && img.naturalWidth === 0) { miss(); } else { img.addEventListener("error", miss); }
+  });
 })();

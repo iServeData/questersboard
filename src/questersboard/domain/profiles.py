@@ -174,8 +174,7 @@ def _progress(pages: dict[str, dict | None]) -> dict:
         out["mounts"] = len(m.get("mounts") or [])
     hp = pages.get("/hunter-pets")
     if hp is not None:
-        out["hunter_pets"] = [{"name": p.get("name"), "level": p.get("level"),
-                               "family": _label(p.get("creature_family"))}
+        out["hunter_pets"] = [{"name": p.get("name"), "level": p.get("level"), "family": pet_family(p)}
                               for p in hp.get("hunter_pets") or [] if isinstance(p, dict)]
     return out
 
@@ -285,3 +284,205 @@ def effective_share(prof: CharacterProfile, ch: Character, group: str) -> str:
     if level == "guild" and not prof.guild_id:
         return "private"
     return level
+
+
+# ------------------------------------------------------------------ hunter pets, stats display
+def pet_family(p: dict) -> str:
+    """Forever/Classic pets carry the beast as `creature`; Retail as `creature_family`."""
+    return _label(p.get("creature_family")) or _label(p.get("creature")) or _label(p.get("family"))
+
+
+PERCENT_STATS = {"melee_crit", "ranged_crit", "spell_crit", "melee_hit", "ranged_hit", "spell_hit", "dodge", "parry",
+                 "block"}
+STAT_SECTIONS = (
+    ("Basics", ("health", "power")),
+    ("Attributes", ("strength", "agility", "stamina", "intellect", "spirit")),
+    ("Melee", ("attack_power", "melee_crit", "melee_hit", "expertise")),
+    ("Ranged", ("ranged_attack_power", "ranged_crit", "ranged_hit")),
+    ("Spell", ("spell_power", "spell_healing", "spell_crit", "spell_hit", "mana_regen")),
+    ("Defense", ("armor", "defense", "dodge", "parry", "block")),
+    ("Resistances", ("fire_resistance", "frost_resistance", "nature_resistance", "shadow_resistance",
+                     "arcane_resistance")),
+)
+STAT_LABELS = {"attack_power": "Attack power", "ranged_attack_power": "Attack power", "melee_crit": "Crit",
+               "ranged_crit": "Crit", "spell_crit": "Crit", "melee_hit": "Hit", "ranged_hit": "Hit", "spell_hit": "Hit",
+               "spell_power": "Spell power", "spell_healing": "Healing", "mana_regen": "Mana regen",
+               "fire_resistance": "Fire", "frost_resistance": "Frost", "nature_resistance": "Nature",
+               "shadow_resistance": "Shadow", "arcane_resistance": "Arcane"}
+
+
+def stat_sections(stats: dict) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Stats grouped for display; zeros are left out and crit, hit, dodge, parry and block show as %."""
+    out = []
+    for title, keys in STAT_SECTIONS:
+        rows = []
+        for k in keys:
+            v = stats.get(k)
+            if not isinstance(v, (int, float)) or v == 0:
+                continue
+            label = STAT_LABELS.get(k, k.replace("_", " ").capitalize())
+            if k == "power" and stats.get("power_type"):
+                label = str(stats["power_type"])
+            if k in PERCENT_STATS:
+                text = f"{v:.2f}%".replace(".00%", "%")
+            elif isinstance(v, float) and not v.is_integer():
+                text = f"{v:.1f}"
+            else:
+                text = f"{int(v):,}"
+            rows.append((label, text))
+        if rows:
+            out.append((title, rows))
+    return out
+
+
+# ------------------------------------------------------------------ who sees what
+def viewer_guilds(s: Session, member_id: int) -> set[tuple[str, str, str]]:
+    """(edition, region, guild_id) the viewer is confirmed in and listed on: a Battle.net-verified
+    character of theirs whose imported guild is shared (My guild or All members). Seeing a guild page
+    means being on it."""
+    q = (select(Character, CharacterProfile).join(CharacterProfile, CharacterProfile.character_id == Character.id)
+         .where(CharacterProfile.member_id == member_id, CharacterProfile.guild_id.is_not(None),
+                Character.archived_at.is_(None), Character.verification == "ownership_verified"))
+    return {(p.edition, p.region, p.guild_id) for ch, p in s.execute(q)
+            if "guild" in (p.groups or {}) and effective_share(p, ch, "guild") != "private"}
+
+
+def visible_groups(prof: CharacterProfile, ch: Character, viewer_id: int,
+                   vguilds: set[tuple[str, str, str]]) -> list[str]:
+    if ch.member_id == viewer_id:
+        return [g for g in GROUP_KEYS if g in (prof.groups or {})]
+    same_guild = bool(prof.guild_id) and (prof.edition, prof.region, prof.guild_id) in vguilds
+    out = []
+    for g in GROUP_KEYS:
+        if g not in (prof.groups or {}):
+            continue
+        lv = effective_share(prof, ch, g)
+        if lv == "members" or (lv == "guild" and same_guild):
+            out.append(g)
+    return out
+
+
+def view_character(s: Session, cfg: Config, actor: Actor, character_id: int):
+    """(character, profile, visible groups) for someone looking at a character. NotFound unless at least
+    one group is visible to them, so a private character's existence isn't revealed."""
+    require_member(cfg, actor)
+    ch = s.get(Character, character_id)
+    prof = s.get(CharacterProfile, character_id) if ch is not None else None
+    if ch is None or prof is None or ch.archived_at is not None:
+        raise NotFound("Character not found.")
+    vis = visible_groups(prof, ch, actor.member_id, viewer_guilds(s, actor.member_id))
+    if not vis:
+        raise NotFound("Character not found.")
+    return ch, prof, vis
+
+
+def _best_spec(talents: dict | None) -> str:
+    if not talents:
+        return ""
+    if talents.get("active"):
+        return talents["active"]
+    groups = talents.get("groups") or []
+    grp = next((g for g in groups if g.get("active")), groups[0] if groups else None)
+    specs = [sp for sp in (grp or {}).get("specs", []) if sp.get("name")]
+    return max(specs, key=lambda sp: sp.get("points") or 0)["name"] if specs else ""
+
+
+@dataclass
+class RosterRow:
+    ch: Character
+    prof: CharacterProfile
+    visible: list[str]
+    item_level: int | None
+    spec: str
+    professions: list[str]
+
+
+def _row(ch: Character, prof: CharacterProfile, vis: list[str]) -> RosterRow:
+    g = prof.groups or {}
+    ilvl = (g.get("overview") or {}).get("equipped_item_level") if "overview" in vis else None
+    spec = (_best_spec(g.get("talents")) if "talents" in vis else "") or (ch.spec or "")
+    profs = [p["name"] for p in g.get("professions") or [] if p.get("name")] if "professions" in vis else []
+    return RosterRow(ch, prof, vis, ilvl, spec, profs)
+
+
+def guild_roster(s: Session, cfg: Config, actor: Actor, edition: str, region: str, guild_id: str):
+    """Characters that shared their guild membership, for confirmed members of that guild only.
+    Returns (guild name, rows). NotFound for anyone outside the guild or when nobody shared."""
+    require_member(cfg, actor)
+    vg = viewer_guilds(s, actor.member_id)
+    if (edition, region, guild_id) not in vg:
+        raise NotFound("Guild page not found.")
+    rows, name = [], ""
+    q = (select(Character, CharacterProfile).join(CharacterProfile, CharacterProfile.character_id == Character.id)
+         .where(CharacterProfile.edition == edition, CharacterProfile.region == region,
+                CharacterProfile.guild_id == guild_id, Character.archived_at.is_(None),
+                Character.verification == "ownership_verified").order_by(Character.name))
+    for ch, prof in s.execute(q):
+        if "guild" not in (prof.groups or {}) or effective_share(prof, ch, "guild") == "private":
+            continue                       # listed only when they shared their guild membership
+        vis = visible_groups(prof, ch, actor.member_id, vg)
+        rows.append(_row(ch, prof, vis))
+        name = name or (prof.guild_name or "")
+    if not rows:
+        raise NotFound("Guild page not found.")
+    return name, rows
+
+
+def shared_with_members(s: Session, cfg: Config, actor: Actor) -> list[RosterRow]:
+    """Characters with at least one group shared with all QuestersBoard members."""
+    require_member(cfg, actor)
+    vg = viewer_guilds(s, actor.member_id)
+    q = (select(Character, CharacterProfile).join(CharacterProfile, CharacterProfile.character_id == Character.id)
+         .where(Character.archived_at.is_(None), Character.verification == "ownership_verified")
+         .order_by(Character.name))
+    out = []
+    for ch, prof in s.execute(q):
+        if any(effective_share(prof, ch, g) == "members" for g in (prof.groups or {})):
+            out.append(_row(ch, prof, visible_groups(prof, ch, actor.member_id, vg)))
+    return out
+
+
+def filter_rows(rows: list[RosterRow], f: dict) -> list[RosterRow]:
+    """Filters from the query string: class, role, spec, profession, min_level, min_ilvl, edition."""
+    def num(k):
+        try:
+            return int(f.get(k) or 0)
+        except ValueError:
+            return 0
+    out = []
+    for r in rows:
+        if f.get("edition") and r.ch.edition != f["edition"]:
+            continue
+        if f.get("class") and r.ch.class_key != f["class"]:
+            continue
+        if f.get("role") and f["role"] not in (r.ch.eligible_roles or []):
+            continue
+        if f.get("spec") and r.spec != f["spec"]:
+            continue
+        if f.get("profession") and f["profession"] not in r.professions:
+            continue
+        if num("min_level") and (r.ch.level or 0) < num("min_level"):
+            continue
+        if num("min_ilvl") and (r.item_level or 0) < num("min_ilvl"):
+            continue
+        out.append(r)
+    return out
+
+
+def filter_options(rows: list[RosterRow]) -> dict[str, list[str]]:
+    return {"class": sorted({r.ch.class_key for r in rows}),
+            "role": sorted({x for r in rows for x in (r.ch.eligible_roles or [])}),
+            "spec": sorted({r.spec for r in rows if r.spec}),
+            "profession": sorted({p for r in rows for p in r.professions}),
+            "edition": sorted({r.ch.edition for r in rows})}
+
+
+def my_guild_links(s: Session, member_id: int) -> list[dict]:
+    """Guild pages the member can open (confirmed in the guild and someone has shared)."""
+    out = []
+    for e, r, g in sorted(viewer_guilds(s, member_id)):
+        name = s.scalar(select(CharacterProfile.guild_name).where(CharacterProfile.edition == e,
+                                                                  CharacterProfile.region == r,
+                                                                  CharacterProfile.guild_id == g).limit(1))
+        out.append({"edition": e, "region": r, "guild_id": g, "name": name or "Guild"})
+    return out

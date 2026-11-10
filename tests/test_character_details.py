@@ -117,7 +117,8 @@ def test_import_all_groups_then_untick_some(seeded, tmp_path, monkeypatch):
     assert "Fixture Vest" in page and "Leatherworking 95/150" in page and "Refresh from Blizzard" in page
     assert "needs Battle.net verification" in page                       # gear asked for guild, still private
     csp = c.get("/wow/quester/characters").headers["content-security-policy"]
-    assert "img-src 'self' data: https://render.worldofwarcraft.com;" in csp
+    assert "img-src 'self' data:;" in csp                               # portraits are served by QuestersBoard
+    assert f"/wow/quester/characters/{cid}/portrait/avatar" in page and "render.worldofwarcraft.com" not in page
 
     calls.clear()
     r = c.post(f"/wow/quester/characters/{cid}/details", data={"csrf": csrf(c), "groups": ["gear"]})
@@ -210,3 +211,122 @@ def test_worker_cannot_read_imported_details():
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             c.execute("select groups from character_profiles")
         c.rollback()
+
+
+# ------------------------------------------------------------------ display helpers
+def test_stat_sections_hide_zeros_and_show_percentages():
+    secs = dict(profiles.stat_sections({"health": 488, "power": 495, "power_type": "Mana", "spell_power": 0,
+                                        "melee_crit": 9.96, "dodge": 9.92, "parry": 4.0, "block": 0.0,
+                                        "mana_regen": 42.0, "armor": 1458}))
+    assert secs["Basics"] == [("Health", "488"), ("Mana", "495")]
+    assert ("Crit", "9.96%") in secs["Melee"] and ("Parry", "4%") in secs["Defense"]
+    assert ("Armor", "1,458") in secs["Defense"] and all(lab != "Block" for lab, _ in secs["Defense"])
+    assert "Spell" in secs and ("Mana regen", "42") in secs["Spell"]
+    assert "Resistances" not in secs
+
+
+def test_pet_family_reads_forever_and_retail_shapes():
+    assert profiles.pet_family({"creature": {"name": "Cat"}}) == "Cat"
+    assert profiles.pet_family({"creature_family": {"name": "Wolf"}, "creature": {"name": "Gray Wolf"}}) == "Wolf"
+    assert profiles.pet_family({}) == ""
+
+
+# ------------------------------------------------------------------ sharing: views, guild page, members list
+def _shared(seeded, cfg, n, name, guild="9001", shares=None, verified=True, groups=None):
+    import json
+    groups = groups or {"overview": {"equipped_item_level": 20 + n % 10}, "guild": {"id": guild, "name": "Fixture Guild"},
+                        "gear": [{"slot": "Head", "name": f"Fixture Cap {n}", "item_level": 12}],
+                        "professions": [{"name": "Skinning", "kind": "primary", "skill": 10, "max": 75}],
+                        "talents": {"groups": [{"active": True, "specs": [{"name": "Marksmanship", "points": 8,
+                                                                            "talents": []}]}]},
+                        "portrait": [{"key": "avatar", "url": "https://render.worldofwarcraft.com/forever-us/fixture.jpg"}]}
+    with seeded.tx() as s:
+        ch = char(s, cfg, actor(n), name, eligible_roles=["damage"])
+        if verified:
+            s.execute(text("update characters set verification='ownership_verified', api_external_id=:x, "
+                           "api_refreshed_at=now() where id=:i"), {"i": ch.id, "x": str(1000 + n)})
+        s.execute(text("insert into character_profiles (character_id, member_id, edition, region, guild_id, guild_name, "
+                       "groups, shares) values (:c, :m, 'forever', 'us', :g, 'Fixture Guild', cast(:gr as jsonb), "
+                       "cast(:sh as jsonb))"),
+                  {"c": ch.id, "m": ch.member_id, "g": guild if "guild" in groups else None,
+                   "gr": json.dumps(groups), "sh": json.dumps(shares or {})})
+        return ch.id
+
+
+@needs_db
+def test_character_view_shows_only_what_is_shared(seeded, tmp_path, monkeypatch):
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    cid = _shared(seeded, cfg, 80, "Shared Hunter", shares={"gear": "members", "talents": "guild", "guild": "guild"})
+    hidden = _shared(seeded, cfg, 81, "Private Hunter")                          # nothing shared
+    unver = _shared(seeded, cfg, 82, "Unverified Hunter", shares={"gear": "members"}, verified=False)
+    stranger = login(a, 83)
+    page = stranger.get(f"/wow/quester/characters/{cid}/view")
+    assert page.status_code == 200 and "Fixture Cap 80" in page.text
+    assert "Marksmanship" not in page.text and "Skinning" not in page.text       # guild-only and private groups
+    assert stranger.get(f"/wow/quester/characters/{hidden}/view").status_code == 404
+    assert stranger.get(f"/wow/quester/characters/{unver}/view").status_code == 404   # needs Battle.net verification
+    owner = login(a, 81)
+    own = owner.get(f"/wow/quester/characters/{hidden}/view")
+    assert own.status_code == 200 and "Skinning" in own.text and "This is your character" in own.text
+
+
+@needs_db
+def test_guild_page_is_for_confirmed_guild_members_only(seeded, tmp_path, monkeypatch):
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    full = {g: "guild" for g in profiles.GROUP_KEYS}
+    m1 = _shared(seeded, cfg, 84, "Guild Hunter", shares=full)
+    _shared(seeded, cfg, 85, "Guild Lurker", shares={"gear": "guild"})           # guild membership not shared
+    _shared(seeded, cfg, 86, "Otherguild Hunter", guild="9002", shares=full)
+    _shared(seeded, cfg, 87, "Fake Member", shares=full, verified=False)         # not verified: not a member
+    url = "/wow/quester/guilds/forever/us/9001"
+    c = login(a, 84)
+    page = c.get(url)
+    assert page.status_code == 200 and "Fixture Guild roster" in page.text
+    assert "Guild Hunter" in page.text and "Guild Lurker" not in page.text and "Otherguild" not in page.text
+    assert "Fake Member" not in page.text and "Skinning" in page.text and f"/characters/{m1}/view" in page.text
+    assert "Fixture Guild roster" in c.get("/wow/quester/characters").text       # link from My characters
+    assert c.get(url + "?profession=Tailoring").text.count("/view") == 0
+    assert c.get(url + "?class=warrior&min_ilvl=20").text.count("/view") == 1
+    for n in (85, 86, 87, 88):                                                    # lurker, other guild, unverified, nobody
+        assert login(a, n).get(url).status_code == 404, n
+    other = login(a, 86)
+    assert other.get(f"/wow/quester/characters/{m1}/view").status_code == 404    # guild-only, different guild
+
+
+@needs_db
+def test_shared_characters_lists_member_shares(seeded, tmp_path, monkeypatch):
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    _shared(seeded, cfg, 89, "Open Hunter", shares={"overview": "members", "gear": "members"})
+    _shared(seeded, cfg, 90, "Guildonly Hunter", shares={"gear": "guild", "guild": "guild"})
+    page = login(a, 91).get("/wow/quester/players").text
+    assert "Open Hunter" in page and "Guildonly Hunter" not in page
+
+
+@needs_db
+def test_portrait_is_served_by_questersboard(seeded, tmp_path, monkeypatch):
+    def h(req):
+        if req.url.host == "render.worldofwarcraft.com":
+            return httpx.Response(200, content=b"\x89PNG-fixture", headers={"content-type": "image/png"})
+        return _handler(req)
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, h)
+    cid = _shared(seeded, cfg, 92, "Portrait Hunter", shares={"portrait": "members"})
+    priv = _shared(seeded, cfg, 93, "Shy Hunter", shares={"gear": "members"})
+    c = login(a, 94)
+    r = c.get(f"/wow/quester/characters/{cid}/portrait/avatar")
+    assert r.status_code == 200 and r.content == b"\x89PNG-fixture" and r.headers["content-type"] == "image/png"
+    assert "private" in r.headers["cache-control"]
+    assert c.get(f"/wow/quester/characters/{priv}/portrait/avatar").status_code == 404   # portrait not shared
+    assert c.get(f"/wow/quester/characters/{cid}/portrait/main-raw").status_code == 404  # no such image
+
+
+def test_fetch_image_refuses_other_hosts():
+    from questersboard.integrations.blizzard import Blizzard
+    from conftest import make_cfg
+    seen = []
+    b = Blizzard(make_cfg(blizzard={"enabled": True}),
+                 http=httpx.Client(transport=httpx.MockTransport(lambda r: seen.append(r) or httpx.Response(
+                     200, content=b"x", headers={"content-type": "image/png"}))))
+    assert b.fetch_image("https://elsewhere.example.org/a.png") is None
+    assert b.fetch_image("http://render.worldofwarcraft.com/a.png") is None
+    assert not seen
+    assert b.fetch_image("https://render.worldofwarcraft.com/a.png") == (b"x", "image/png")

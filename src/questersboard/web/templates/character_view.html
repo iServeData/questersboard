@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-head"><h1>{{ c.name }}</h1></div>
+<p>{{ c.faction|title }} {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} · level {{ c.level }}{% endif %}{% if c.spec %} · {{ c.spec }}{% endif %} <span class="note">· {{ editions[c.edition].name }}{% if c.ruleset %} · {{ editions[c.edition].ruleset_label(c.ruleset) }}{% endif %}</span></p>
+<p class="note">Roles: {{ c.eligible_roles|join(", ") or "—" }}{% if c.preferred_role %} (prefers {{ c.preferred_role }}){% endif %}{% if guild_ok %} · <a href="{{ mp }}/guilds/{{ d.edition }}/{{ d.region }}/{{ d.guild_id }}">{{ d.guild_name or "Guild" }} roster</a>{% endif %}</p>
+{% if owner_view %}<p class="note">This is your character. Others see only the groups you share; change that on <a href="{{ mp }}/characters#details-{{ c.id }}">My characters</a>.</p>{% endif %}
+<div class="panel wq-card">
+{% include "_character_details.html" %}
+</div>
+<p class="note">Character details use data from Blizzard Entertainment's Battle.net API. QuestersBoard isn't made, endorsed or supported by Blizzard.</p>
+{% endblock %}

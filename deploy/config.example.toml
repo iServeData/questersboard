@@ -215,7 +215,7 @@ battlenet_link_enabled = false                # optional ownership verification 
 battlenet_import_minutes = 60                 # after a Battle.net login, how long the "Add these characters" list stays usable
 data_ttl_days = 30                            # Blizzard checks not refreshed for this long are cleared (API terms: 30 max)
 battlenet_profile_lookups = 25                # per login: max character-profile reads to fill in a missing ruleset (0 = none)
-render_image_hosts = ["render.worldofwarcraft.com"]   # where imported character portraits may load from (page CSP)
+render_image_hosts = ["render.worldofwarcraft.com"]   # imported portraits are fetched from these hosts only (served from QuestersBoard)
 
 # ---------------------------------------------------------------------------
 # Game editions. Each QuestersBoard event and character belongs to exactly one.

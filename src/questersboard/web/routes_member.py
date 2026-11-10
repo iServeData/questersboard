@@ -665,6 +665,7 @@ def router(cfg: Config) -> APIRouter:
             details = profiles.profiles_for(s, a.member_id)
             for p in details.values():
                 s.expunge(p)
+            guild_links = profiles.my_guild_links(s, a.member_id)
         bz = w.cfg["blizzard"]
         return render(request, "characters.html", {"title": "Characters", "chars": chars, "race_map": race_map,
                                                    "editions": w.cfg.editions, "presets": w.cfg.role_presets,
@@ -674,7 +675,9 @@ def router(cfg: Config) -> APIRouter:
                                                    "race_label": race_label, "class_label": class_label,
                                                    "details": details, "detail_groups": profiles.GROUPS,
                                                    "share_labels": profiles.SHARE_LABELS,
-                                                   "effective_share": profiles.effective_share})
+                                                   "effective_share": profiles.effective_share,
+                                                   "stat_sections": profiles.stat_sections,
+                                                   "guild_links": guild_links})
 
     @r.post(mp + "/characters")
     async def add_character(request: Request):
@@ -754,6 +757,86 @@ def router(cfg: Config) -> APIRouter:
             except ApiError:
                 raise Invalid("Blizzard's API didn't answer. Nothing was changed; try again later.") from None
         return _redirect(f"{mp}/characters#details-{character_id}")
+
+    def _details_ctx(w):
+        from ..domain import profiles
+        return {"detail_groups": profiles.GROUPS, "share_labels": profiles.SHARE_LABELS,
+                "effective_share": profiles.effective_share, "stat_sections": profiles.stat_sections,
+                "editions": w.cfg.editions}
+
+    @r.get(mp + "/characters/{character_id}/view")
+    def character_view(request: Request, character_id: int):
+        """A character's shared details, as this viewer may see them (owner: everything)."""
+        from ..domain import profiles
+        sess, a = session_or_login(request)
+        w = W(request)
+        with w.db.tx() as s:
+            ch, prof, vis = profiles.view_character(s, w.cfg, a, character_id)
+            owner = ch.member_id == a.member_id
+            guild_ok = bool(prof.guild_id) and "guild" in vis and \
+                (prof.edition, prof.region, prof.guild_id) in profiles.viewer_guilds(s, a.member_id)
+            s.expunge(ch)
+            s.expunge(prof)
+        return render(request, "character_view.html", {"title": ch.name, "c": ch, "d": prof, "visible": vis,
+                                                      "owner_view": owner, "open_groups": True,
+                                                      "portrait_key": "main-raw", "guild_ok": guild_ok,
+                                                      **_details_ctx(w)})
+
+    @r.get(mp + "/characters/{character_id}/portrait/{key}")
+    def character_portrait(request: Request, character_id: int, key: str):
+        """The portrait, fetched from Blizzard by QuestersBoard (visitors' browsers never contact Blizzard)."""
+        from fastapi.responses import Response
+
+        from ..domain import profiles
+        sess, a = session_or_login(request)
+        w = W(request)
+        with w.db.tx() as s:
+            ch, prof, vis = profiles.view_character(s, w.cfg, a, character_id)
+            url = next((x["url"] for x in (prof.groups or {}).get("portrait") or [] if x.get("key") == key), None)
+        if "portrait" not in vis or not url:
+            raise NotFound("Picture not found.")
+        got = w.bz.fetch_image(url)
+        if got is None:
+            raise NotFound("Blizzard didn't send a picture.")
+        body, ctype = got
+        return Response(body, media_type=ctype, headers={"Cache-Control": "private, max-age=86400"})
+
+    def _roster_page(request, w, a, title, rows, scope, guild=None):
+        from ..domain import profiles
+        f = {k: request.query_params.get(k, "") for k in ("class", "role", "spec", "profession", "min_level",
+                                                           "min_ilvl", "edition")}
+        shown = profiles.filter_rows(rows, f)
+        return render(request, "roster.html", {"title": title, "rows": shown, "total": len(rows), "f": f,
+                                               "opts": profiles.filter_options(rows), "scope": scope,
+                                               "guild": guild, "editions": w.cfg.editions,
+                                               "presets": {p.key: p.label for p in w.cfg.role_presets}})
+
+    @r.get(mp + "/guilds/{edition}/{region}/{guild_id}")
+    def guild_page(request: Request, edition: str, region: str, guild_id: str):
+        """Guild roster: only characters that shared their guild, only for confirmed members of it."""
+        from ..domain import profiles
+        sess, a = session_or_login(request)
+        w = W(request)
+        with w.db.tx() as s:
+            name, rows = profiles.guild_roster(s, w.cfg, a, edition, region, guild_id)
+            for r_ in rows:
+                s.expunge(r_.ch)
+                s.expunge(r_.prof)
+        return _roster_page(request, w, a, f"{name or 'Guild'} roster", rows, "guild",
+                            {"name": name, "edition": edition, "region": region})
+
+    @r.get(mp + "/players")
+    def shared_players(request: Request):
+        """Characters with details shared with all QuestersBoard members."""
+        from ..domain import profiles
+        sess, a = session_or_login(request)
+        w = W(request)
+        with w.db.tx() as s:
+            rows = profiles.shared_with_members(s, w.cfg, a)
+            for r_ in rows:
+                s.expunge(r_.ch)
+                s.expunge(r_.prof)
+        return _roster_page(request, w, a, "Shared characters", rows, "members")
 
     @r.post(mp + "/characters/{character_id}/details/remove")
     async def remove_details(request: Request, character_id: int):

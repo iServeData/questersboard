@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-head"><h1>{{ title }}</h1></div>
+{% if scope == "guild" %}
+<p class="note">Characters whose owners shared their guild membership. Only QuestersBoard members verified in this guild through Battle.net can see this page. Each character shows only what its owner shared.</p>
+{% else %}
+<p class="note">Characters whose owners shared at least one group of details with all QuestersBoard members.</p>
+{% endif %}
+<form method="get" class="wq-roster-filters" aria-label="Filter characters">
+  {% macro pick(name, label, values, pretty=false) %}<label>{{ label }}<select name="{{ name }}"><option value="">Any</option>{% for v in values %}<option value="{{ v }}"{% if f[name] == v %} selected{% endif %}>{{ v.replace('_', ' ')|title if pretty else v }}</option>{% endfor %}</select></label>{% endmacro %}
+  {% if opts.edition|length > 1 %}<label>Edition<select name="edition"><option value="">Any</option>{% for v in opts.edition %}<option value="{{ v }}"{% if f.edition == v %} selected{% endif %}>{{ editions[v].name }}</option>{% endfor %}</select></label>{% endif %}
+  {{ pick("class", "Class", opts["class"], true) }}
+  {{ pick("role", "Role", opts.role, true) }}
+  {{ pick("spec", "Spec", opts.spec) }}
+  {{ pick("profession", "Profession", opts.profession) }}
+  <label>Min level<input type="number" name="min_level" min="1" max="90" value="{{ f.min_level }}"></label>
+  <label>Min item level<input type="number" name="min_ilvl" min="1" max="999" value="{{ f.min_ilvl }}"></label>
+  <button class="btn" type="submit">Filter</button>{% if f.values()|select|list %} <a class="linkish" href="{{ request.url.path }}">Clear</a>{% endif %}
+</form>
+<p class="note">{{ rows|length }} of {{ total }} character{{ "s" if total != 1 }}.</p>
+{% if rows %}
+<table class="wq-roster">
+  <thead><tr><th scope="col">Character</th><th scope="col">Class</th><th scope="col">Level</th><th scope="col">Spec</th><th scope="col">Item level</th><th scope="col">Roles</th><th scope="col">Professions</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td><a href="{{ mp }}/characters/{{ r.ch.id }}/view">{{ r.ch.name }}</a>{% if scope == "members" and r.prof.guild_name and "guild" in r.visible %} <span class="note">{{ r.prof.guild_name }}</span>{% endif %}</td>
+    <td data-label="Class">{{ r.ch.race_key.replace('_',' ')|title }} {{ r.ch.class_key.replace('_',' ')|title }}</td>
+    <td data-label="Level">{{ r.ch.level or "—" }}</td>
+    <td data-label="Spec">{{ r.spec or "—" }}</td>
+    <td data-label="Item level">{{ r.item_level or "—" }}</td>
+    <td data-label="Roles">{{ r.ch.eligible_roles|join(", ") or "—" }}</td>
+    <td data-label="Professions">{{ r.professions|join(", ") or "—" }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="note">No characters match.</p>{% endif %}
+{% endblock %}

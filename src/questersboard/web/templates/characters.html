@@ -2,6 +2,7 @@
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
 <div class="section-head"><h1>My characters</h1></div>
+{% if guild_links or bz_enabled %}<p class="btns">{% for g in guild_links %}<a class="btn ghost" href="{{ mp }}/guilds/{{ g.edition }}/{{ g.region }}/{{ g.guild_id }}">{{ g.name }} roster</a> {% endfor %}{% if bz_enabled %}<a class="btn ghost" href="{{ mp }}/players">Shared characters</a>{% endif %}</p>{% endif %}
 <p class="note">Characters are self-reported. A Blizzard API match (where available) confirms the character exists; it does not prove it's yours.{% if bz_enabled %} Character checks use data from Blizzard Entertainment's Battle.net API. QuestersBoard isn't made, endorsed or supported by Blizzard.{% endif %}</p>
 <div class="wq-grid">
 <section>
@@ -15,7 +16,8 @@
     {% if bz_enabled and ed.capability("character") != "unsupported" %}
     <form method="post" action="{{ mp }}/characters/{{ c.id }}/lookup">{{ csrf_field() }}<button class="linkish" type="submit">Check with Blizzard</button></form>
     {% set d = details.get(c.id) %}
-    {% if d %}{% include "_character_details.html" %}{% endif %}
+    {% if d %}{% set owner_view = true %}{% set visible = none %}{% include "_character_details.html" %}
+    <p class="note"><a href="{{ mp }}/characters/{{ c.id }}/view">Open its character page</a> (what others see depends on your sharing choices){% if d.guild_id and "guild" in d.groups and effective_share(d, c, "guild") != "private" %} · <a href="{{ mp }}/guilds/{{ d.edition }}/{{ d.region }}/{{ d.guild_id }}">{{ d.guild_name or "Guild" }} roster</a>{% endif %}</p>{% endif %}
     <details class="wq-import" id="details-{{ c.id }}"{% if not d %} data-new{% endif %}>
       <summary>{{ "Refresh or change imported details" if d else "Import details from Blizzard" }}</summary>
       <form method="post" action="{{ mp }}/characters/{{ c.id }}/details">{{ csrf_field() }}

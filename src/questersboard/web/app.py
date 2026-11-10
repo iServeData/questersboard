@@ -250,11 +250,8 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "same-origin")
         resp.headers.setdefault("X-Frame-Options", "DENY")
-        bz = holder.cfg["blizzard"]
-        imgs = "".join(f" https://{h}" for h in bz.get("render_image_hosts", ["render.worldofwarcraft.com"])) \
-            if bz.get("enabled") else ""
         resp.headers.setdefault("Content-Security-Policy",
-                                f"default-src 'self'; img-src 'self' data:{imgs}; style-src 'self'; script-src 'self'; "
+                                "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
                                 "form-action 'self' https://discord.com; frame-ancestors 'none'; base-uri 'none'")
         return resp
 

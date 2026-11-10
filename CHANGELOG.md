@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Character pages and guild roster.** "Open its character page" shows a character as others see it:
+  only the groups shared with the viewer. A guild roster page (`/guilds/...`) appears once a verified
+  member shares their guild, visible only to members verified in that guild, filterable by class,
+  role, spec, profession, level and item level. "Shared characters" (`/players`) lists characters
+  shared with all members.
+- **Portraits are served by QuestersBoard.** The site fetches the picture from Blizzard (hosts on
+  `[blizzard] render_image_hosts` only, images only, 2 MB cap) so browsers never contact Blizzard and
+  the page security policy stays `img-src 'self'`. This fixes the empty portrait box.
+- Stats are shown as labelled sections, hiding zeros, with % for crit, hit and defenses. Hunter pets
+  show their family (re-import to fill it in).
+
 - **Import character details from Blizzard.** On My characters, each character has "Import details
   from Blizzard" with a checkbox per group (overview, guild, gear, talents, professions, stats,
   portrait, PvP, progress), all ticked by default, plus a "Who can see it" choice for each: Only me,

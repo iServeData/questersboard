@@ -304,6 +304,24 @@ class Blizzard:
                               external_id=str(body.get("id")) if body.get("id") else None, namespace=ns,
                               ruleset=None if ed.uses_realms else ruleset_key(ed, body.get("ruleset")))
 
+    def fetch_image(self, url: str, max_bytes: int = 2_000_000) -> tuple[bytes, str] | None:
+        """A character render from Blizzard's image server, fetched by QuestersBoard so visitors'
+        browsers never contact Blizzard (and the site's image policy can stay 'self'). Only https URLs
+        on [blizzard] render_image_hosts; images only; size capped. None when it can't be fetched."""
+        u = urlsplit(url)
+        if u.scheme != "https" or u.hostname not in set(self.bz.get("render_image_hosts",
+                                                                     ["render.worldofwarcraft.com"])):
+            return None
+        try:
+            r = self.http.get(url, follow_redirects=False)
+        except httpx.HTTPError:
+            return None
+        ctype = r.headers.get("content-type", "").split(";")[0].strip().lower()
+        if r.status_code != 200 or ctype not in ("image/jpeg", "image/png", "image/webp") or \
+                len(r.content) > max_bytes:
+            return None
+        return r.content, ctype
+
     def character_path(self, ed: Edition, ch: Character) -> str:
         if ed.uses_realms:
             realm = self.realm_for(ed, ch.ruleset, ch.realm_slug)

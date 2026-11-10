@@ -1,6 +1,6 @@
 # Character details, sharing and guild pages
 
-Status: phases 1–3 built on prototype; phases 4–5 planned.
+Status: phases 1–5 built.
 
 ## Why
 
@@ -34,7 +34,7 @@ EU is unverified.
 | Talents | /specializations | per group: active flag, tree names, points, talent names and ranks |
 | Professions | /professions | name, primary/secondary, skill and maximum |
 | Stats | /statistics | a fixed list (health, attributes, armor, crit, hit, defenses, resistances) |
-| Portrait | /character-media | image URLs on `[blizzard] render_image_hosts` only |
+| Portrait | /character-media | image URLs on `[blizzard] render_image_hosts` only; QuestersBoard fetches the picture and serves it, so browsers never contact Blizzard |
 | PvP | /pvp-summary | honorable kills, rank |
 | Progress | /reputations, /quests/completed, /achievements, /collections/mounts, /hunter-pets | standings; counts of quests, achievements, mounts; pet name, level, family |
 
@@ -44,10 +44,12 @@ EU is unverified.
 2. **Config** (done): Forever's comment records the US result; the status stays per edition.
 3. **Import with checkboxes and sharing choices** (done): on My characters, per character. Stored in
    `character_profiles` (migration 0009).
-4. **Members' view** (next): a read-only character page showing the groups shared with the viewer.
-   "All QuestersBoard members" groups become visible to signed-in members.
-5. **Guild roster page**: `/guilds/<id>`, created automatically once a verified member shares guild
-   membership, and visible only to verified members of that guild. It lists the shared characters
+4. **Members' view** (done): `/characters/<id>/view`, a read-only page showing only the groups shared
+   with the viewer (the owner sees everything). Nothing shared with you: 404. `/players` lists
+   characters with groups shared with all members.
+5. **Guild roster page** (done): `/guilds/<edition>/<region>/<guild id>`, there automatically once a
+   verified member shares guild membership, and visible only to members who have a verified character
+   that shares the same guild (to see the page you must be on it). It lists the shared characters
    and filters by class, role, spec, level, item level and profession. Clicking a character opens the
    phase 4 view.
 
