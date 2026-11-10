@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ title }} — {{ b.site_name }}</title>
 <meta name="robots" content="{{ 'index,follow' if indexable else 'noindex,nofollow' }}">
-{% if indexable and seo %}<meta name="description" content="{{ seo.description }}">
-<link rel="canonical" href="{{ seo.url }}">
+{% if (indexable or preview) and seo %}<meta name="description" content="{{ seo.description }}">
+{% if indexable %}<link rel="canonical" href="{{ seo.url }}">{% endif %}
 <meta property="og:site_name" content="{{ seo.site_name }}">
 <meta property="og:type" content="{{ seo.type }}">
 <meta property="og:url" content="{{ seo.url }}">

@@ -41,7 +41,8 @@ def render(request: Request, name: str, ctx: dict, status: int = 200, public: bo
                            and permissions.on_probation(cfg, a) else ""))
     base.update(ctx)
     base["indexable"] = public and status == 200 and not ctx.get("noindex")   # errors, notices, guest links: no
-    if not base["indexable"]:
+    base["preview"] = bool(ctx.get("preview") and ctx.get("seo"))   # link-preview card only, never indexed
+    if not base["indexable"] and not base["preview"]:
         base["seo"] = None
     elif "seo" not in base:
         base["seo"] = seo.meta(request)
@@ -1161,7 +1162,41 @@ def install_login_redirect(app, cfg: Config) -> None:
     async def _to_login(request: Request, exc: _Login):
         if request.headers.get("accept", "").startswith("application/json"):
             return JSONResponse({"error": "login_required"}, status_code=401)
+        ua = request.headers.get("user-agent", "").lower()
+        agents = cfg["web"].get("link_preview_agents", DEFAULT_PREVIEW_AGENTS)
+        if request.method == "GET" and ua and any(x.lower() in ua for x in agents):
+            return _preview_card(request, mp)
         return _redirect(f"{mp}/login?next={request.url.path}")
+
+
+# Link-preview fetchers (Discord, Slack...) don't log in. Without this they follow the login redirect to
+# Discord's own site and the chat shows Discord's card. They get a small generic card instead: the page's
+# name and what it's for, never anyone's characters, guild names or other member data.
+DEFAULT_PREVIEW_AGENTS = ("Discordbot", "Slackbot", "facebookexternalhit", "Twitterbot", "TelegramBot",
+                          "WhatsApp", "LinkedInBot", "redditbot", "Applebot", "SkypeUriPreview")
+_PREVIEW_PAGES = (  # (path prefix after the member path, title, what the page is for)
+    ("/characters/", "Character page", "A member's character details, showing only what its owner chose to share."),
+    ("/characters", "My characters", "Add your WoW characters, import gear, talents and professions from "
+                                     "Blizzard, and choose who can see each part."),
+    ("/guilds/", "Guild roster", "Your guild's shared characters, filterable by class, role, spec, profession, "
+                                 "level and item level. Visible only to verified guild members."),
+    ("/players", "Shared characters", "Characters whose owners shared their details with all members."),
+    ("/events", "Events", "Join guild events with the character and role you're bringing."),
+)
+
+
+def _preview_card(request: Request, mp: str):
+    from . import seo
+    rest = request.url.path[len(mp):]
+    title, desc = next(((t, d) for p, t, d in _PREVIEW_PAGES if rest.startswith(p)),
+                       ("Members' area", "Sign in with Discord to plan WoW events, sign up with your characters "
+                                         "and see characters your guild has shared."))
+    site = request.app.state.web.cfg["branding"]["site_name"]
+    return render(request, "message.html", {
+        "title": title, "preview": True, "noindex": True,
+        "seo": seo.meta(request, description=f"{desc} Sign in with Discord on {site}'s QuestersBoard."),
+        "message": f"{desc} Log in with Discord to open it.",
+        "retry_url": f"{mp}/login?next={request.url.path}"}, public=True)
 
 
 __all__ = ["router", "render", "install_login_redirect", "now"]

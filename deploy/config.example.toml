@@ -161,6 +161,9 @@ member_path = "/wow/quester"
 session_hours = 72
 cookie_secure = true
 assets_base = "/assets"                       # the existing site's CSS/fonts
+# Link-preview fetchers that get a generic card (page name and purpose, no member data) for member-only
+# links instead of following the Discord login. Optional; this is the default list.
+link_preview_agents = ["Discordbot", "Slackbot", "facebookexternalhit", "Twitterbot", "TelegramBot", "WhatsApp", "LinkedInBot", "redditbot", "Applebot", "SkypeUriPreview"]
 
 [branding]                                    # restart. Page chrome only; all values site-specific.
 site_name = "Example Community"

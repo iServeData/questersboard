@@ -328,6 +328,9 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     if not str(w.get("member_path", "")).startswith("/"):
         raise ConfigError("[web] member_path must start with /")
     _positive(w.get("session_hours", 72), "[web] session_hours")
+    lpa = w.get("link_preview_agents")
+    if lpa is not None and (not isinstance(lpa, list) or not all(isinstance(x, str) and x.strip() for x in lpa)):
+        raise ConfigError("[web] link_preview_agents must be a list of user-agent names, e.g. [\"Discordbot\"]")
 
     ret = r.setdefault("retention", {})
     for k, dflt in (("outbox_done_days", 14), ("api_cache_days", 30), ("audit_days", 400),

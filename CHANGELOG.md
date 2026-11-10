@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Link previews for member pages.** Links to My characters, guild rosters, character pages and other
+  member-only pages used to preview as Discord's own card, because the preview fetcher followed the
+  login redirect. Known preview fetchers (`[web] link_preview_agents`, optional) now get a small card
+  with the page's name and purpose, never member data, and it isn't indexed. People still go to login.
+  How it works' preview text mentions character details and guild rosters.
+
 - How it works has a new "Character details and guild pages" section (shown when Blizzard is enabled),
   and Remove me now mentions imported character details.
 

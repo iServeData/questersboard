@@ -225,7 +225,8 @@ def router(cfg: Config) -> APIRouter:
     def help_page(request: Request):
         return render(request, "help.html", {"title": "How QuestersBoard works", "seo": seo.meta(
             request, description=f"How to use {web(request).cfg['branding']['site_name']}'s WoW event tools: "
-                                 "characters, events, voice, guest links and Chronicle stories.")}, public=True)
+                                 "characters, Blizzard character details, guild rosters, events, voice, guest links and "
+                                 "Chronicle stories.")}, public=True)
 
     @r.get(mp + "/terms")
     def terms(request: Request):

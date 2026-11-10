@@ -9,6 +9,7 @@ import pytest
 from conftest import actor, needs_db
 from helpers import char
 from sqlalchemy import text
+from fastapi.testclient import TestClient
 from test_web import _bz_app, csrf, login
 
 from questersboard.domain import erasure, profiles, roster
@@ -374,3 +375,29 @@ def test_help_page_explains_character_details(seeded, tmp_path, monkeypatch):
     page = login(a, 97).get("/wow/quester/help").text
     assert 'id="details"' in page and 'href="#details"' in page and "Set all" in page
     assert "deleted after 30 days" in page
+
+
+# ------------------------------------------------------------------ link previews of member-only pages
+@needs_db
+def test_link_preview_bots_get_a_generic_card_not_discord(seeded, tmp_path, monkeypatch):
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    cid = _shared(seeded, cfg, 98, "Preview Hunter", shares={g: "guild" for g in profiles.GROUP_KEYS})
+    bot = TestClient(a, base_url="https://community.example.org",
+                     headers={"user-agent": "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)"})
+    r = bot.get("/wow/quester/characters", follow_redirects=False)
+    assert r.status_code == 200
+    assert '<meta property="og:title" content="My characters' in r.text and "import gear, talents" in r.text
+    assert 'name="robots" content="noindex,nofollow"' in r.text and 'rel="canonical"' not in r.text
+    g = bot.get("/wow/quester/guilds/forever/us/9001", follow_redirects=False)
+    assert g.status_code == 200 and "Guild roster" in g.text and "Fixture Guild" not in g.text   # no member data
+    v = bot.get(f"/wow/quester/characters/{cid}/view", follow_redirects=False)
+    assert "Preview Hunter" not in v.text and "Fixture Cap" not in v.text
+    human = TestClient(a, base_url="https://community.example.org", headers={"user-agent": "Mozilla/5.0 Safari"})
+    assert human.get("/wow/quester/characters", follow_redirects=False).status_code == 303   # people still log in
+
+
+def test_link_preview_agents_must_be_a_list():
+    from conftest import make_cfg
+    from questersboard.config import ConfigError
+    with pytest.raises(ConfigError, match="link_preview_agents"):
+        make_cfg(web={"link_preview_agents": "Discordbot"})
