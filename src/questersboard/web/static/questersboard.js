@@ -404,6 +404,12 @@
       b.setAttribute("aria-expanded", open ? "true" : "false");
       if (!open) { b.blur(); }
     });
+    // With a mouse, a clicked tooltip closes when the pointer leaves the tile (hover still shows it).
+    t.addEventListener("mouseleave", function () {
+      if (!window.matchMedia || !window.matchMedia("(hover: hover)").matches) { return; }
+      closeAll(null);
+      if (t.contains(document.activeElement)) { document.activeElement.blur(); }
+    });
   });
   if (tips.length) {
     document.addEventListener("click", function (ev) { if (!ev.target.closest("[data-tip]")) { closeAll(null); } });

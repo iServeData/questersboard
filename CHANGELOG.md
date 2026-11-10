@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Portrait between the gear columns.** When Gear and Portrait are both imported and visible to the
+  viewer, the character's full-body picture sits between the two gear columns like the in-game panel,
+  with weapons centred below; on phones it sits above the list. The Portrait group then says it's shown
+  in Gear, so it isn't repeated. Someone who can see Gear but not Portrait sees no picture.
+- **Tooltips on desktop.** A clicked tooltip now closes when the mouse leaves the item.
 - **Reused login link.** Opening a Discord login link again while already signed in (refresh, back
   button, a second tab) now goes to Quests instead of showing "That login link expired". The reused
   code is ignored.

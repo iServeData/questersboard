@@ -685,7 +685,7 @@ def router(cfg: Config) -> APIRouter:
                                                    "share_labels": profiles.SHARE_LABELS,
                                                    "effective_share": profiles.effective_share,
                                                    "stat_sections": profiles.stat_sections,
-                                                   "gear_columns": profiles.gear_columns,
+                                                   "gear_columns": profiles.gear_columns, "gear_portrait_key": profiles.gear_portrait_key,
                                                    "guild_links": guild_links, "saved": saved,
                                                    "removed": removed})
 
@@ -772,7 +772,7 @@ def router(cfg: Config) -> APIRouter:
         from ..domain import profiles
         return {"detail_groups": profiles.GROUPS, "share_labels": profiles.SHARE_LABELS,
                 "effective_share": profiles.effective_share, "stat_sections": profiles.stat_sections,
-                "gear_columns": profiles.gear_columns, "editions": w.cfg.editions}
+                "gear_columns": profiles.gear_columns, "gear_portrait_key": profiles.gear_portrait_key, "editions": w.cfg.editions}
 
     @r.get(mp + "/characters/{character_id}/view")
     def character_view(request: Request, character_id: int):

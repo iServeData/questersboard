@@ -183,3 +183,41 @@ def test_detail_icons_off_skips_media_lookups(seeded, tmp_path, monkeypatch):
     with seeded.tx() as s:
         groups = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar_one()
     assert not any("icon" in i or "_media" in i for i in groups["gear"]) and groups["gear"][1]["tip"]["armor"]
+
+
+# ------------------------------------------------------------------ portrait between the gear columns
+def test_gear_portrait_needs_both_groups_visible_and_prefers_the_full_body_render():
+    g = {"gear": [], "portrait": [{"key": "avatar", "url": "x"}, {"key": "main-raw", "url": "y"}]}
+    assert profiles.gear_portrait_key(g) == "main-raw"
+    assert profiles.gear_portrait_key(g, {"gear", "portrait"}) == "main-raw"
+    assert profiles.gear_portrait_key(g, {"gear"}) is None              # portrait not shared with this viewer
+    assert profiles.gear_portrait_key({"gear": []}) is None
+    assert profiles.gear_portrait_key({"gear": [], "portrait": [{"key": "inset"}, {"key": "avatar"}]}) == "inset"
+    assert profiles.gear_portrait_key({"gear": [], "portrait": [{"key": "other"}]}) is None
+
+
+def _media_handler(req):
+    if req.url.path == BASE + "/character-media":
+        return httpx.Response(200, json={"assets": [{"key": "avatar", "value": f"{ICON_HOST}/fixture-avatar.jpg"},
+                                                    {"key": "main-raw", "value": f"{ICON_HOST}/fixture-main-raw.png"}]})
+    return _handler(req)
+
+
+@needs_db
+def test_portrait_sits_between_the_gear_columns(seeded, tmp_path, monkeypatch):
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, _media_handler)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(142), "Zulmara Ashveil").id
+    c = login(a, 142)
+    assert c.post(f"/wow/quester/characters/{cid}/details",
+                  data={"csrf": csrf(c), "groups": ["gear", "portrait"]}).status_code == 303
+    page = c.get(f"/wow/quester/characters/{cid}/view").text
+    assert 'class="wq-gear has-portrait"' in page and "Shown in the middle of Gear." in page
+    centre = page.split('class="wq-gear-center"', 1)[1].split("</div>", 1)[0]
+    assert f"/wow/quester/characters/{cid}/portrait/main-raw" in centre
+    assert page.index("Fixture Cloak") < page.index("wq-gear-center") < page.index("Fixture Bow")  # left, centre, weapons
+    assert page.count("wq-gear-portrait") == 1                             # not repeated in the Portrait group
+    assert c.post(f"/wow/quester/characters/{cid}/details",                # re-import without the portrait
+                  data={"csrf": csrf(c), "groups": ["gear"]}).status_code == 303
+    page2 = c.get(f"/wow/quester/characters/{cid}/view").text
+    assert "wq-gear-center" not in page2 and 'class="wq-gear"' in page2

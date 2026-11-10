@@ -404,6 +404,20 @@ def gear_columns(items) -> tuple[list, list, list]:
     return left, right, bottom
 
 
+GEAR_PORTRAIT_KEYS = ("main-raw", "main", "inset", "avatar")
+
+
+def gear_portrait_key(groups, visible=None) -> str | None:
+    """The portrait shown between the gear columns: only when both Gear and Portrait are visible to
+    this viewer. Prefers the full-body render, like the in-game character panel."""
+    if not isinstance(groups, dict) or "gear" not in groups or "portrait" not in groups:
+        return None
+    if visible is not None and not {"gear", "portrait"} <= set(visible):
+        return None
+    keys = [a.get("key") for a in groups.get("portrait") or [] if isinstance(a, dict)]
+    return next((k for k in GEAR_PORTRAIT_KEYS if k in keys), None)
+
+
 def icon_url(data, group: str, ref: str) -> str | None:
     """The stored icon URL for a gear position ("3") or a talent ("0-1-4": group, spec, talent)."""
     try:
