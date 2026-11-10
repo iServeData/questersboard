@@ -42,8 +42,9 @@ GROUPS: tuple[Group, ...] = (
     Group("stats", "Stats", "health, attributes, armor, crit, hit, resistances", ("/statistics",)),
     Group("portrait", "Portrait", "Blizzard's character images", ("/character-media",)),
     Group("pvp", "PvP", "honorable kills and rank", ("/pvp-summary",)),
-    Group("progress", "Progress", "reputations, quests, achievements, mounts, hunter pets",
-          ("/reputations", "/quests/completed", "/achievements", "/collections/mounts", "/hunter-pets")),
+    Group("progress", "Progress", "reputations, quests, achievements, mounts",
+          ("/reputations", "/quests/completed", "/achievements", "/collections/mounts")),
+    Group("pets", "Pets", "hunter pets: name, family and level (hunters only)", ("/hunter-pets",)),
 )
 GROUP_KEYS = tuple(g.key for g in GROUPS)
 SHARE_LABELS = {"private": "Only me", "guild": "My guild", "members": "All QuestersBoard members"}
@@ -259,11 +260,14 @@ def _progress(pages: dict[str, dict | None]) -> dict:
     m = pages.get("/collections/mounts")
     if m is not None:
         out["mounts"] = len(m.get("mounts") or [])
-    hp = pages.get("/hunter-pets")
-    if hp is not None:
-        out["hunter_pets"] = [{"name": p.get("name"), "level": p.get("level"), "family": pet_family(p)}
-                              for p in hp.get("hunter_pets") or [] if isinstance(p, dict)]
     return out
+
+
+def _pets(body) -> list | None:
+    """Hunter pets (their own group, so they can be shared separately from Progress)."""
+    pets = [{"name": p.get("name"), "level": p.get("level"), "family": pet_family(p)}
+            for p in body.get("hunter_pets") or [] if isinstance(p, dict) and p.get("name")]
+    return pets or None
 
 
 def extract(group: str, pages: dict[str, dict | None]):
@@ -279,7 +283,7 @@ def extract(group: str, pages: dict[str, dict | None]):
     if body is None:
         return None
     return {"gear": _gear, "talents": _talents, "professions": _professions, "stats": _stats,
-            "portrait": _portrait, "pvp": _pvp}[group](body)
+            "portrait": _portrait, "pvp": _pvp, "pets": _pets}[group](body)
 
 
 # ------------------------------------------------------------------ member actions
@@ -402,6 +406,36 @@ def gear_columns(items) -> tuple[list, list, list]:
     left.sort(key=lambda x: GEAR_LEFT.index(x[1]["slot_type"]))
     right.sort(key=lambda x: GEAR_RIGHT.index(x[1]["slot_type"]))
     return left, right, bottom
+
+
+TRIM_MAX_PIXELS = 4_000_000
+
+
+def trim_render(body: bytes, ctype: str, margin: float = 0.04) -> tuple[bytes, str]:
+    """Blizzard's full-body render is a large transparent canvas with the character small in the
+    middle; crop it to the character (plus a small margin) so it fills the space beside the gear.
+    Anything that isn't a transparent PNG, or can't be read, is returned unchanged."""
+    if ctype != "image/png":
+        return body, ctype
+    import io
+
+    from PIL import Image
+    try:
+        with Image.open(io.BytesIO(body)) as im:
+            if im.format != "PNG" or im.width * im.height > TRIM_MAX_PIXELS or "A" not in im.getbands():
+                return body, ctype
+            box = im.getchannel("A").getbbox()
+            if not box:
+                return body, ctype
+            pad = int(max(box[2] - box[0], box[3] - box[1]) * margin)
+            box = (max(0, box[0] - pad), max(0, box[1] - pad), min(im.width, box[2] + pad), min(im.height, box[3] + pad))
+            if box == (0, 0, im.width, im.height):
+                return body, ctype
+            out = io.BytesIO()
+            im.crop(box).save(out, "PNG", compress_level=6)
+            return out.getvalue(), "image/png"
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return body, ctype
 
 
 GEAR_PORTRAIT_KEYS = ("main-raw", "main", "inset", "avatar")

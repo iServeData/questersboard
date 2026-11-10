@@ -27,7 +27,7 @@
     {% elif g.key == "pvp" %}<p>{% if v.honorable_kills is defined %}Honorable kills: {{ v.honorable_kills }}{% endif %}{% if v.pvp_rank is defined %} · Rank {{ v.pvp_rank }}{% endif %}</p>
     {% elif g.key == "progress" %}<p>{% if v.quests_completed is defined %}Quests completed: {{ v.quests_completed }}{% endif %}{% if v.achievements is defined %} · Achievements: {{ v.achievements }}{% endif %}{% if v.mounts is defined %} · Mounts: {{ v.mounts }}{% endif %}</p>
       {% if v.reputations %}<ul class="wq-detail-list">{% for r in v.reputations %}<li>{{ r.faction }} <span class="note">{{ r.standing }}{% if r.max %} {{ r.value }}/{{ r.max }}{% endif %}</span></li>{% endfor %}</ul>{% endif %}
-      {% if v.hunter_pets %}<p class="note">Pets: {% for p in v.hunter_pets %}{{ p.name }}{% if p.family %} ({{ p.family }}{% if p.level %} {{ p.level }}{% endif %}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+    {% elif g.key == "pets" %}<ul class="wq-detail-list">{% for p in v %}<li>{{ p.name }}{% if p.family or p.level %} <span class="note">{% if p.family %}{{ p.family }}{% endif %}{% if p.level %}{% if p.family %} · {% endif %}level {{ p.level }}{% endif %}</span>{% endif %}</li>{% endfor %}</ul>
     {% endif %}
   </details>
   {% endfor %}

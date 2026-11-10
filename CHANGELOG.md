@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Pets are their own group.** Hunter pets (name, family, level) moved out of Progress into a Pets
+  group with its own tick box and sharing choice. Pets imported earlier under Progress are no longer
+  shown; tick Pets and refresh to bring them back.
+- **Portrait fills the space.** Blizzard's full-body render is a large transparent canvas with the
+  character small in the middle; QuestersBoard now crops it to the character before showing it.
 - **Portrait between the gear columns.** When Gear and Portrait are both imported and visible to the
   viewer, the character's full-body picture sits between the two gear columns like the in-game panel,
   with weapons centred below; on phones it sits above the list. The Portrait group then says it's shown

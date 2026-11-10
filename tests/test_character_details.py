@@ -73,7 +73,9 @@ def test_extract_keeps_a_curated_summary_of_each_page():
     assert st == {"health": 410, "strength": 34, "melee_crit": 5.12, "power_type": "Mana"}   # no unlisted stats
     pr = profiles.extract("progress", pages)
     assert pr["quests_completed"] == 3 and pr["mounts"] == 1 and pr["achievements"] == 2
-    assert pr["hunter_pets"] == [{"name": "Fang", "level": 16, "family": "Wolf"}]
+    assert "hunter_pets" not in pr                                       # pets are their own group now
+    assert profiles.extract("pets", pages) == [{"name": "Fang", "level": 16, "family": "Wolf"}]
+    assert profiles.extract("pets", {"/hunter-pets": {"hunter_pets": []}}) is None
     assert "name" not in profiles.extract("overview", pages)          # the character's name isn't copied
 
 

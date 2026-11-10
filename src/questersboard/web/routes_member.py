@@ -810,7 +810,7 @@ def router(cfg: Config) -> APIRouter:
         got = w.bz.fetch_image(url)
         if got is None:
             raise NotFound("Blizzard didn't send a picture.")
-        body, ctype = got
+        body, ctype = profiles.trim_render(*got)
         return Response(body, media_type=ctype, headers={"Cache-Control": "private, max-age=86400"})
 
     @r.get(mp + "/characters/{character_id}/icon/{group}/{ref}")

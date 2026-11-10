@@ -221,3 +221,53 @@ def test_portrait_sits_between_the_gear_columns(seeded, tmp_path, monkeypatch):
                   data={"csrf": csrf(c), "groups": ["gear"]}).status_code == 303
     page2 = c.get(f"/wow/quester/characters/{cid}/view").text
     assert "wq-gear-center" not in page2 and 'class="wq-gear"' in page2
+
+
+# ------------------------------------------------------------------ full-body render trimmed to the figure
+def _png(size, box=None, mode="RGBA"):
+    import io
+
+    from PIL import Image, ImageDraw
+    im = Image.new(mode, size, (0, 0, 0, 0) if mode == "RGBA" else (0, 0, 0))
+    if box:
+        ImageDraw.Draw(im).rectangle(box, fill=(200, 180, 150, 255) if mode == "RGBA" else (200, 180, 150))
+    out = io.BytesIO()
+    im.save(out, "PNG")
+    return out.getvalue()
+
+
+def test_render_is_cropped_to_the_character_with_a_small_margin():
+    import io
+
+    from PIL import Image
+    body, ctype = profiles.trim_render(_png((1600, 1200), (700, 300, 899, 1099)), "image/png")
+    assert ctype == "image/png"
+    w, h = Image.open(io.BytesIO(body)).size
+    assert 800 < h < 900 and 200 < w < 300                                  # figure 200x800 plus ~4 %
+    jpg = b"\xff\xd8FIXTURE"
+    assert profiles.trim_render(jpg, "image/jpeg") == (jpg, "image/jpeg")   # avatars untouched
+    rgb = _png((40, 40), (5, 5, 10, 10), mode="RGB")
+    assert profiles.trim_render(rgb, "image/png") == (rgb, "image/png")     # no transparency: unchanged
+    empty = _png((40, 40))
+    assert profiles.trim_render(empty, "image/png") == (empty, "image/png")
+    assert profiles.trim_render(b"not a png", "image/png") == (b"not a png", "image/png")
+
+
+@needs_db
+def test_pets_are_their_own_group_with_their_own_sharing(seeded, tmp_path, monkeypatch):
+    def h(req):
+        if req.url.path == BASE + "/hunter-pets":
+            return httpx.Response(200, json={"hunter_pets": [{"name": "Fixture Pet", "level": 17,
+                                                              "creature_family": {"name": "Fixture Family"}}]})
+        return _handler(req)
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, h)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(143), "Zulmara Ashveil").id
+    c = login(a, 143)
+    me = c.get("/wow/quester/characters").text
+    assert 'value="pets"' in me and 'name="share_pets"' in me
+    assert c.post(f"/wow/quester/characters/{cid}/details",
+                  data={"csrf": csrf(c), "groups": ["pets", "progress"]}).status_code == 303
+    page = c.get(f"/wow/quester/characters/{cid}/view").text
+    assert "<summary>Pets" in page and "Fixture Pet" in page and "Fixture Family · level 17" in page
+    assert profiles.GROUP_KEYS.index("progress") + 1 == profiles.GROUP_KEYS.index("pets")
