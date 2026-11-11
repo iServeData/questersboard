@@ -22,6 +22,8 @@ class FakeDiscord:
         self.voice_states: dict[str, str] = {}   # FIXTURE user id -> voice channel they are in
         self.member_roles: dict[str, list] = {}  # FIXTURE user id -> role ids
         self.disconnects: list[str] = []
+        self.app_emojis: dict[str, str] = {}     # FIXTURE the application's own emojis, name -> id
+        self.emoji_uploads: list[tuple[str, str]] = []
         self.bot_id = "b" + "1" * 17               # FIXTURE bot user id (not a real snowflake)
         self.bot_role = "r" + "2" * 17             # FIXTURE the bot's own role
         self.member_roles[self.bot_id] = [self.bot_role]
@@ -43,6 +45,14 @@ class FakeDiscord:
             return httpx.Response(code, json={"retry_after": 0.01, "message": "fixture"})
         parts = path.strip("/").split("/")
         body = json.loads(req.content or b"{}")
+        if parts[0] == "applications" and parts[2:] == ["emojis"]:
+            if req.method == "POST":
+                assert body["image"].startswith("data:image/png;base64,") and body["name"] not in self.app_emojis
+                eid = "e" + str(next(self.ids))
+                self.app_emojis[body["name"]] = eid
+                self.emoji_uploads.append((parts[1], body["name"]))
+                return httpx.Response(201, json={"id": eid, "name": body["name"]})
+            return httpx.Response(200, json={"items": [{"id": i, "name": n} for n, i in self.app_emojis.items()]})
         if req.method == "GET" and parts == ["users", "@me"]:
             return httpx.Response(200, json={"id": self.bot_id})
         if parts[0] == "guilds" and parts[2:] == ["channels"] and req.method == "POST":

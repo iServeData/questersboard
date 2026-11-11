@@ -6,7 +6,11 @@
 
 [[release]]
 date = "2026-11-11"
-title = "One account menu, a simpler My characters, recipe icons and a new footer"
+title = "One account menu, a simpler My characters, recipe and role icons and a new footer"
+[[release.change]]
+area = "Events"
+kind = "new"
+text = "Event posts and event pages show a shield, a healing cross or crossed swords next to Tank, Healer and Damage."
 [[release.change]]
 area = "Site"
 kind = "new"

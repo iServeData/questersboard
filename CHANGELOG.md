@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+No database migration. No config change needed: the role icons are on by default and appear once the
+emojis are uploaded.
+
+- **Role icons on event posts.** A shield, a healing cross and crossed swords (QuestersBoard's own
+  artwork, `web/static/roles/`) start each role's line of names on the Discord post (`[event_posts]
+  role_icons`, role key -> emoji name; `role_icon_position = "line"` or `"heading"`). They are the
+  application's own emojis, so they work in every server the bot is in without Use External Emojis. The
+  worker looks them up at most every 30 minutes; a role without an uploaded emoji, or a failed lookup,
+  stays plain text. The event page shows the same icons. `role_icons = {}` turns them off.
+- **`questersboard-admin role-emojis`** lists which icons are uploaded and which would be (read-only);
+  `--yes` with `QUESTERSBOARD_APPROVED_CHANGE=role-emojis` uploads the missing ones. It never replaces
+  or deletes an emoji. `--art DIR` uploads your own `<role key>.png` pictures (for custom roles too).
+  FIXTURE-tested only: the live upload and how Discord shows the icons are unverified.
+
+## 2026-11-11
+
 - **One account menu.** Every member page has a menu under the member's name: the Discord login, each
   Battle.net region (connected, last synced, how many characters verified, Sync now, Disconnect, add
   another region), My characters, My signups, My settings, Sharing and privacy, How it works, Log out

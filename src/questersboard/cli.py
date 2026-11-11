@@ -210,6 +210,60 @@ def cmd_sync_commands(args):
     return 0
 
 
+def cmd_role_emojis(args):
+    """Upload the role icons as the bot's own Discord emojis. Read-only (lists what is there and what
+    would be uploaded) unless --yes with QUESTERSBOARD_APPROVED_CHANGE=role-emojis. Never replaces or
+    deletes an emoji: one that already exists under the configured name is kept as it is."""
+    from pathlib import Path
+    from .integrations.discord_rest import DiscordError, DiscordRest
+    cfg = _cfg(args)
+    icons = cfg["event_posts"].get("role_icons", {})
+    if not icons:
+        print("[event_posts] role_icons is empty: role icons are off, nothing to upload.")
+        return 0
+    art = Path(args.art) if args.art else Path(__file__).parent / "web" / "static" / "roles"
+    app = cfg["discord"]["application_id"]
+    try:
+        rest = DiscordRest()
+        have = rest.app_emojis(app)
+    except DiscordError as exc:
+        print(f"Discord lookup failed: {exc}", file=sys.stderr)
+        return 1
+    todo = []
+    for key, name in icons.items():
+        f = art / f"{key}.png"
+        if name in have:
+            print(f"  {key}: {name} is already uploaded")
+        elif not f.is_file():
+            print(f"  {key}: no picture {f.name} in {art}; this role stays plain text")
+        elif f.stat().st_size > 256 * 1024:
+            print(f"  {key}: {f.name} is over Discord's 256 KB emoji limit; skipped")
+        else:
+            print(f"  {key}: would upload {f.name} as {name}")
+            todo.append((key, name, f))
+    if not todo:
+        print("Nothing to upload.")
+        return 0
+    if not args.yes:
+        print(f"Dry run: {len(todo)} emoji(s) would be uploaded. Uploading is a live Discord change and needs "
+              "approval:", file=sys.stderr)
+        print("  QUESTERSBOARD_APPROVED_CHANGE=role-emojis questersboard-admin role-emojis --yes", file=sys.stderr)
+        return 0
+    if getenv("APPROVED_CHANGE") != "role-emojis":
+        print("refusing: set QUESTERSBOARD_APPROVED_CHANGE=role-emojis after approval", file=sys.stderr)
+        return 3
+    for key, name, f in todo:
+        try:
+            rest.create_app_emoji(app, name, f.read_bytes())
+        except DiscordError as exc:
+            print(f"  {key}: upload failed: {exc}", file=sys.stderr)
+            return 1
+        print(f"  {key}: uploaded as {name}")
+    print("Done. New and edited event posts show the icons within 30 minutes; "
+          "`questersboard-admin refresh-posts --yes` updates the current posts.")
+    return 0
+
+
 def cmd_discord_permissions(args):
     """Read-only: effective permissions in the WoW category and slash-command registration."""
     cfg = _cfg(args)
@@ -417,6 +471,10 @@ def main(argv=None) -> int:
     sc.add_argument("--yes", action="store_true")
     sc.add_argument("--dry-run", action="store_true")
     sc.set_defaults(fn=cmd_sync_commands)
+    re_ = sub.add_parser("role-emojis", help="upload the role icons as the bot's Discord emojis (dry run unless --yes)")
+    re_.add_argument("--yes", action="store_true")
+    re_.add_argument("--art", help="folder with <role key>.png pictures (default: the built-in icons)")
+    re_.set_defaults(fn=cmd_role_emojis)
     dp = sub.add_parser("discord-permissions", help="read-only check of WoW channel permissions and slash commands")
     dp.add_argument("--category", help="category channel ID (default: the event channel's category)")
     dp.set_defaults(fn=cmd_discord_permissions)

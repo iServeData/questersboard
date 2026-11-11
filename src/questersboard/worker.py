@@ -130,6 +130,25 @@ class Worker:
             raise dr.Transient("Discord bot token not installed")
         return self.rest
 
+    _emoji_cache: tuple[float, dict] = (0.0, {})
+
+    def _role_emojis(self, rest) -> dict[str, str]:
+        """The bot's own emoji names -> ids, looked up at most every 30 minutes (5 after a failure).
+        Any problem just means plain-text roles; it never stops a post."""
+        import time
+        if not self.cfg["event_posts"].get("role_icons") or not self.cfg["discord"].get("application_id"):
+            return {}
+        at, cached = self._emoji_cache
+        if time.monotonic() < at:
+            return cached
+        try:
+            cached, wait = rest.app_emojis(self.cfg["discord"]["application_id"]), 1800
+        except Exception as exc:  # noqa: BLE001
+            log.info("role icons unavailable (%s); posting plain role names", type(exc).__name__)
+            wait = 300
+        self._emoji_cache = (time.monotonic() + wait, cached)
+        return cached
+
     def _url(self, *parts: str) -> str:
         base = self.cfg["community"]["public_base_url"].rstrip("/") + self.cfg["web"]["member_path"].rstrip("/")
         return "/".join([base, *parts])
@@ -153,7 +172,7 @@ class Worker:
             log.info("event %s: no event channel configured; post skipped", ev.id)
             return
         rest = self._need_rest()
-        payload = event_message(s, self.cfg, ev)
+        payload = event_message(s, self.cfg, ev, self._role_emojis(rest))
         if self.cfg["event_threads"]["enabled"]:
             outbox.enqueue(s, "discord.sync_thread", str(ev.id), {"event_id": ev.id})
         if ev.discord_message_id:

@@ -28,7 +28,7 @@
   {% set confirmed = rows|selectattr("state", "equalto", "confirmed")|list %}
   {% for r in groups %}
     {% set conf = rows|selectattr("state", "equalto", "confirmed")|selectattr("role_key", "equalto", r.key if r else none)|list %}
-    <h3 class="wq-role">{{ r.label if r else "Players" }} <span class="note">{{ conf|length }}{% if r %}/{{ r.quantity }}{% elif ev.participant_limit %}/{{ ev.participant_limit }}{% endif %}</span></h3>
+    <h3 class="wq-role">{% if r and role_icon(r.key) %}<img class="wq-role-ic" src="{{ mp }}/static/roles/{{ r.key }}.svg?v={{ static_v }}" alt="" width="20" height="20">{% endif %}{{ r.label if r else "Players" }} <span class="note">{{ conf|length }}{% if r %}/{{ r.quantity }}{% elif ev.participant_limit %}/{{ ev.participant_limit }}{% endif %}</span></h3>
     <ul class="wq-roster">
     {% for su in conf %}<li>{% if su.recognition or show_names %}{{ su.character.name }}{% else %}<span class="note">a {{ (r.label if r else "player")|lower }}</span>{% endif %}{% if show_names and not su.recognition %} <span class="note">(not named publicly)</span>{% endif %}</li>{% else %}<li class="note">Nobody yet</li>{% endfor %}
     </ul>

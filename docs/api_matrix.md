@@ -62,6 +62,7 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | Slash commands | `/quest list · my · join · leave · create` (create saves a draft), `/character add · list · edit · remove`; edition autocomplete |
 | Components | persistent buttons on the canonical event post (`wq:ev:<action>:<event_id>`), re-registered at startup |
 | Messages | worker only, via REST: one canonical post per event (edited in place, recreated if deleted); DMs for reminders, approvals, review results; `allowed_mentions` empty |
+| Role icons | `GET /applications/{app}/emojis` (worker, at most every 30 min); `POST /applications/{app}/emojis` only from `questersboard-admin role-emojis --yes` after approval. FIXTURE-tested; live unverified |
 | Event threads (off by default) | `POST /channels/{ch}/messages/{msg}/threads` (public) or `POST /channels/{ch}/threads` type 12 (private); `PUT`/`DELETE /channels/{thread}/thread-members/{user}`; `PATCH /channels/{thread}` `archived`+`locked`. Needs Create Public/Private Threads, Send Messages in Threads, Manage Threads. FIXTURE-tested; live unverified |
 | Registration | `questersboard-admin sync-commands` is a dry run unless `--yes` and `QUESTERSBOARD_APPROVED_CHANGE=sync-commands` |
 

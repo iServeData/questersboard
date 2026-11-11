@@ -236,6 +236,10 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
                            ruleset_label=lambda r: RULESET_LABELS.get(r or "", (r or "").replace("_", " ").title()))
     from ..domain import profiles as _profiles
     sil = frozenset(f.stem for f in (HERE / "static" / "silhouettes").glob("*.svg"))
+    role_art = frozenset(f.stem for f in (HERE / "static" / "roles").glob("*.svg"))
+    # The event page shows the same role icons as the Discord post, for roles that have one set up.
+    tpl.env.globals["role_icon"] = lambda key: bool(
+        key in role_art and key in holder.cfg["event_posts"].get("role_icons", {}))
     from .. import build as _build
     from . import account as _account
     tpl.env.globals.update(build=_build.info(), ago=_account.ago)

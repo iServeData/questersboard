@@ -70,7 +70,11 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   `field_spacing` (default true: a blank line between the post's headings),
   `default_cover` (a file in `<[uploads] storage_dir>/covers`, installed with
   `questersboard-admin default-cover FILE`) and optional `activity_covers` per activity type. A missing file
-  just means no image.
+  just means no image. `role_icons` maps a role key to one of the bot's own Discord emoji names
+  (default `{ tank = "qb_tank", healer = "qb_healer", damage = "qb_damage" }`; `{}` turns icons off on the
+  post and the event page) and `role_icon_position` puts the icon at the start of the role's line of
+  names (`"line"`, default) or before its heading (`"heading"`). Upload the pictures with
+  `questersboard-admin role-emojis`; until then roles are plain text.
 - **Event chat threads** (`[event_threads]`, restart): `enabled` (default false), `private` (invite-only
   threads), `archive_after_hours` (24), `reminders_in_thread` (true), `name_suffix`. The bot needs Create
   Public (or Private) Threads, Send Messages in Threads and Manage Threads in the event channel; run

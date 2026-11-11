@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Healer</title>
+  <defs><linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fdc7c"/><stop offset="1" stop-color="#1f8a3e"/></linearGradient></defs>
+  <path d="M46 8 H82 V46 H120 V82 H82 V120 H46 V82 H8 V46 H46 Z" fill="#14161a" stroke="#14161a" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M49 13 H79 V49 H115 V79 H79 V115 H49 V79 H13 V49 H49 Z" fill="#c9a227" stroke="#c9a227" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M55 20 H73 V55 H108 V73 H73 V108 H55 V73 H20 V55 H55 Z" fill="url(#h)" stroke="url(#h)" stroke-width="4" stroke-linejoin="round"/>
+</svg>

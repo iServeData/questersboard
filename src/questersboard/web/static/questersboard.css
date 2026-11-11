@@ -61,6 +61,7 @@ textarea{resize:vertical;max-width:100%;min-height:3.2em}
 .wq-table th{font:500 .7rem var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .wq-roster{list-style:none;padding:0;margin:0 0 14px;display:flex;flex-wrap:wrap;gap:6px 16px}
 .wq-role{margin:16px 0 6px;font-size:1rem}
+.wq-role-ic{width:20px;height:20px;margin-right:6px;vertical-align:-4px}
 .wq-rec{padding:8px 0;border-bottom:1px solid var(--line)}
 .wq-rec:last-child{border-bottom:0}
 .wq-desc{white-space:pre-line;margin-top:18px}

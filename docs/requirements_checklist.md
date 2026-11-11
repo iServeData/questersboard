@@ -110,6 +110,7 @@ Test file names refer to `tests/`.
 | Live Discord threads | Externally unverified | off by default; needs bot thread permissions and approval |
 | Blizzard instance difficulties/minimum level | Done, fixture-tested; live unverified | `test_blizzard_instance_details_fixture` |
 | Re-render current events in the new layout | Done, tested | `test_refresh_posts_is_dry_run_unless_yes` |
+| Role icons at the start of each role's line; upload command gated and never replaces | Done, fixture-tested; live unverified | `test_role_icons.py` |
 
 ## Reliability and security
 

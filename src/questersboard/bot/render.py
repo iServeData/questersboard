@@ -92,7 +92,15 @@ def color(cfg: Config, ev: Event) -> int:
     return COLOR.get(ev.state, 0)
 
 
-def event_message(s: Session, cfg: Config, ev: Event) -> dict:
+def role_emoji(cfg: Config, emojis: dict[str, str] | None, role_key: str) -> str:
+    """The chat form of a role's icon (<:qb_tank:id>), or "" when it isn't configured or uploaded."""
+    name = cfg["event_posts"].get("role_icons", {}).get(role_key)
+    eid = (emojis or {}).get(name) if name else None
+    return f"<:{name}:{eid}>" if eid else ""
+
+
+def event_message(s: Session, cfg: Config, ev: Event, emojis: dict[str, str] | None = None) -> dict:
+    """emojis: the bot's own emoji names -> ids (the worker looks them up); without them roles are plain text."""
     ed = cfg.edition(ev.edition)
     where = ed.name + (f" · {ed.ruleset_label(ev.ruleset)}" if ev.ruleset else "") + \
         (f" · {ev.realm_slug}" if ev.realm_slug else "") + (f" · {ev.faction.title()}" if ev.faction else "")
@@ -124,8 +132,13 @@ def event_message(s: Session, cfg: Config, ev: Event) -> dict:
     if ev.roles:
         for r in ev.roles:
             names, others = _who(s, ev, "confirmed", r.key)
-            fields.append({"name": f"{r.label} ({len(names) + others}/{r.quantity})",
-                           "value": _line(names, others)[:1024], "inline": True})
+            icon = role_emoji(cfg, emojis, r.key)
+            head, line = f"{r.label} ({len(names) + others}/{r.quantity})", _line(names, others)
+            if icon and cfg["event_posts"].get("role_icon_position", "line") == "heading":
+                head = f"{icon} {head}"
+            elif icon:
+                line = f"{icon} {line}"
+            fields.append({"name": head[:256], "value": line[:1024], "inline": True})
     else:
         names, others = _who(s, ev, "confirmed", None)
         cap = f"/{ev.participant_limit}" if ev.participant_limit else ""

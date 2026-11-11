@@ -32,6 +32,9 @@ RULESET_LABELS = {"normal": "Normal", "pvp": "PvP", "rp": "RP", "rp_pvp": "RP-Pv
 # Largest group per activity type (WoW group sizes). Override in [signups.party_size_max]; others cap at 80.
 DEFAULT_PARTY_SIZE = {"quest": 5, "dungeon": 5, "arena": 5, "raid": 40, "battleground": 40}
 DEFAULT_FACTION_COLORS = {"horde": "#C41E3A", "alliance": "#1F6FD8", "any": "#C9A227"}
+# The bot's own Discord emojis shown next to role names on event posts (questersboard-admin role-emojis).
+DEFAULT_ROLE_ICONS = {"tank": "qb_tank", "healer": "qb_healer", "damage": "qb_damage"}
+EMOJI_NAME = re.compile(r"^[A-Za-z0-9_]{2,32}$")
 COVER_NAME = re.compile(r"^[A-Za-z0-9_-]{1,60}\.(webp|png|jpg|jpeg)$")
 
 LIVE_SECTIONS = ("roles", "publishing", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status",
@@ -397,6 +400,13 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
                               "like default_cover.webp (letters, digits, - and _ ; png, jpg or webp)")
     if not isinstance(ep.setdefault("field_spacing", True), bool):
         raise ConfigError("[event_posts] field_spacing must be true or false")
+    icons = ep.setdefault("role_icons", dict(DEFAULT_ROLE_ICONS))
+    if not isinstance(icons, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) and EMOJI_NAME.match(v) for k, v in icons.items()):
+        raise ConfigError("[event_posts] role_icons maps a role key to the bot's emoji name, e.g. "
+                          "{ tank = \"qb_tank\" } (2-32 letters, digits or _); {} turns the icons off")
+    if ep.setdefault("role_icon_position", "line") not in ("line", "heading"):
+        raise ConfigError("[event_posts] role_icon_position must be \"line\" or \"heading\"")
     th = r.setdefault("event_threads", {})
     th.setdefault("enabled", False)
     th.setdefault("private", False)

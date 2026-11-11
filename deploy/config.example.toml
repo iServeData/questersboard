@@ -108,6 +108,11 @@ faction_colors = { horde = "#C41E3A", alliance = "#1F6FD8", any = "#C9A227" }
 default_cover = "default_cover.webp"
 activity_covers = {}                          # optional per type, e.g. { raid = "raid_cover.webp" }
 field_spacing = true                          # a blank line between the post's headings (Time, Duration, ...)
+# Role icons: the bot's own Discord emojis (role key -> emoji name), shown next to each role. Upload the
+# built-in shield, cross and swords with `questersboard-admin role-emojis` (dry run first; live change).
+# A role without an uploaded emoji stays plain text. {} turns the icons off, on the event page too.
+role_icons = { tank = "qb_tank", healer = "qb_healer", damage = "qb_damage" }
+role_icon_position = "line"                   # "line": at the start of the names line; "heading": before "Tank (1/2)"
 
 [event_threads]                               # restart. One Discord chat thread per event (off until approved)
 enabled = false                               # needs Create Public Threads, Send Messages in Threads, Manage Threads

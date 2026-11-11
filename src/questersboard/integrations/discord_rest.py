@@ -206,6 +206,18 @@ class DiscordRest:
         return [{"id": str(r["user"]["id"]), "username": r["user"].get("username", ""),
                  "global_name": r["user"].get("global_name") or ""} for r in rows or [] if r.get("user")]
 
+    # The application's own emojis (Developer Portal -> Emojis). The bot can use them in every server
+    # it is in, without Use External Emojis. Uploading is a live change: questersboard-admin role-emojis.
+    def app_emojis(self, application_id: str) -> dict[str, str]:
+        """name -> id of the application's emojis."""
+        res = self._call("GET", f"/applications/{application_id}/emojis") or {}
+        return {e["name"]: str(e["id"]) for e in res.get("items", []) if e.get("name") and e.get("id")}
+
+    def create_app_emoji(self, application_id: str, name: str, png: bytes) -> str:
+        import base64
+        img = "data:image/png;base64," + base64.b64encode(png).decode()
+        return str(self._call("POST", f"/applications/{application_id}/emojis", {"name": name, "image": img})["id"])
+
     def put_commands(self, application_id: str, guild_id: str, commands: list[dict]) -> list[dict]:
         """Registers slash commands. Only called by `questersboard-admin sync-commands --yes` (approval required)."""
         return self._call("PUT", f"/applications/{application_id}/guilds/{guild_id}/commands", commands)

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Tank</title>
+  <defs><linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f86d0"/><stop offset="1" stop-color="#1d3d70"/></linearGradient></defs>
+  <path d="M64 6 L114 20 V58 C114 92 92 113 64 123 C36 113 14 92 14 58 V20 Z" fill="#14161a"/>
+  <path d="M64 13 L107 25 V58 C107 87 88 105 64 115 C40 105 21 87 21 58 V25 Z" fill="#c9a227"/>
+  <path d="M64 22 L98 31 V58 C98 82 83 97 64 105 C45 97 30 82 30 58 V31 Z" fill="url(#t)"/>
+  <path d="M64 34 L84 40 V58 C84 74 75 84 64 90 C53 84 44 74 44 58 V40 Z" fill="none" stroke="#c9a227" stroke-width="6" stroke-linejoin="round"/>
+</svg>
