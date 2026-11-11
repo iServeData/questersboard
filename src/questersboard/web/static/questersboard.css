@@ -76,7 +76,9 @@ textarea{resize:vertical;max-width:100%;min-height:3.2em}
 .wq-checks{display:grid;gap:.35rem;border:0;padding:0;margin:0 0 .75rem}
 .wq-checks label{display:flex;gap:.5rem;align-items:center}
 .shot img,.wq-story img{max-width:100%;height:auto;display:block}
-.wq-foot{padding:30px 24px 50px;border-top:1px solid var(--line)}
+.wq-foot{padding:30px 24px calc(clamp(18px,3vw,32px) + 56px);border-top:1px solid var(--line)}
+/* The Top button stays at the bottom: leave room so it never covers the footer links. */
+body:has(.wq-fab) .wq-foot{padding-bottom:calc(clamp(18px,3vw,32px) + 108px)}
 .wq-foot a{white-space:nowrap}
 .wq .nav{position:relative}
 .wq-state-in_progress{border-color:var(--accent,#c4493c)}

@@ -376,7 +376,7 @@ def test_help_page_explains_character_details(seeded, tmp_path, monkeypatch):
     a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
     page = login(a, 97).get("/wow/quester/help").text
     assert 'id="details"' in page and 'href="#details"' in page and "Set all" in page
-    assert "deleted after 30 days" in page
+    assert "deleted 30 days after their last refresh" in page
 
 
 # ------------------------------------------------------------------ link previews of member-only pages

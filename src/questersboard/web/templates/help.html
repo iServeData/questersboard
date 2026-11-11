@@ -30,21 +30,23 @@
 
   <h2 class="sub" id="characters">Your characters</h2>
   <ul>
-    <li>Add the characters you play under <a href="{{ mp }}/characters">My characters</a>, or with <code>/character add</code> in Discord.</li>
+    <li>Add the characters you play under <a href="{{ mp }}/characters">My characters</a> with <strong>Add a character</strong> (at the top of the page, or the button that stays at the bottom right as you scroll), or with <code>/character add</code> in Discord.</li>
     <li>Pick the game edition, then the realm or ruleset, faction, race and class. Suggestions follow what you choose, and a pairing that can't exist in that edition is pointed out.</li>
     <li>Set the roles you can play (for example tank, healer or damage). Events use these when you join.</li>
     {% if cfg["blizzard"]["enabled"] and cfg["blizzard"]["battlenet_link_enabled"] %}<li><strong>Sync from Battle.net</strong> (on My characters) reads the characters on your Battle.net account once: ones you already have here are marked as verified and get their level updated, and you can tick the others to add them. QuestersBoard doesn't keep your Battle.net login, so sync again to refresh. WoW: Forever characters only show up from level 10, after you log out with them once.</li>{% endif %}
-    <li>Click a character to change it. Some details lock once the character has been in an event, so past events stay accurate; you can add it again as a new character instead.</li>
+    <li>Click a character, or its <strong>Edit</strong> link, to change it in the same form. Some details lock once the character has been in an event, so past events stay accurate; you can add it again as a new character instead.</li>
   </ul>
 {% if bz_on %}
   <h2 class="sub" id="details">Character details and guild pages</h2>
   <ul>
     <li><strong>Refresh from Blizzard</strong> (on My characters, under each character, and on your character's page) brings in its gear, talents, professions, stats, portrait, PvP, progress, hunter pets and guild from Blizzard's public character pages. Every group is ticked; untick anything you'd rather keep out. Nothing is brought in until you press it. Refresh all from Blizzard at the top of My characters does every character at once.</li>
     <li><strong>Who can see it</strong> is set per group: Only me, My guild, or All QuestersBoard members. <strong>Set all</strong> changes every group at once. Sharing beyond Only me needs the character verified as yours with Sync from Battle.net; until then everything stays private.</li>
-    <li><strong>Open its character page</strong> shows the character the way others see it: only the groups shared with them.</li>
+    <li><strong>Open its character page</strong> shows the character the way others see it: only the groups shared with them. Details are grouped into tabs (Character, Talents, Professions, Progress and, for hunters, Pets); talent trees are laid out like the game's, and you can tap or hover a talent or an item for its description.</li>
     <li><strong>Guild roster</strong>: once you share your guild, your guild gets a roster page. Only members with a verified character in that guild who also share their guild can see it. It lists only characters whose owners shared them, and filters by class, role, spec, profession, level and item level. Click a name to see what that player shared, so guildmates can help with builds and plan crafting.</li>
     <li><strong>Shared characters</strong> lists characters with details shared with all QuestersBoard members.</li>
-    <li>Imported details are deleted after {{ cfg["blizzard"].get("data_ttl_days", 30) }} days unless you press Refresh from Blizzard. <strong>Remove imported details</strong> deletes them at once. Portraits are fetched by QuestersBoard, so your browser doesn't contact Blizzard.</li>
+    <li>Blizzard updates a character's public pages after you log out with it in the game, so a refresh shows the character as of your last logout. If something looks out of date, log out in the game, then press Refresh from Blizzard.</li>
+    <li>After a QuestersBoard update, the organisers may refresh everyone's imported details so they keep displaying correctly. You don't need to do anything: your groups and sharing choices stay exactly as you set them, and characters you haven't imported details for aren't touched.</li>
+    <li>Imported details are deleted {{ cfg["blizzard"].get("data_ttl_days", 30) }} days after their last refresh. <strong>Remove imported details</strong> deletes them at once. Portraits, pet pictures and icons are fetched by QuestersBoard, so your browser doesn't contact Blizzard.</li>
   </ul>
 {% endif %}
 

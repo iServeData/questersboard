@@ -336,26 +336,23 @@
     window.addEventListener("resize", spy);
     spy();
   }
-  // Back to top on long pages, like the rest of the site: shown after scrolling more than a screen,
-  // hidden over the footer, instant when reduced motion is on.
+  // Back to top on long pages, like the rest of the site: shown after scrolling more than a screen
+  // and kept there down to the very bottom (this footer has nothing in the corner for it to cover);
+  // instant when reduced motion is on.
   if (!document.querySelector(".to-top")) {
     var top = document.createElement("a");
     top.className = "to-top"; top.href = "#top"; top.setAttribute("aria-label", "Back to top");
     top.innerHTML = '<span aria-hidden="true">&uarr;</span> Top';
     document.body.appendChild(top);
-    var nearEnd = false, topTick = false;
+    var topTick = false;
     var showTop = function () {
       topTick = false;
-      var on = (window.scrollY || document.documentElement.scrollTop || 0) > window.innerHeight * 1.2 && !nearEnd;
+      var on = (window.scrollY || document.documentElement.scrollTop || 0) > window.innerHeight * 1.2;
       top.classList.toggle("is-shown", on);
       document.body.classList.toggle("has-to-top", on);   // lets a floating button step above it
     };
     window.addEventListener("scroll", function () { if (!topTick) { topTick = true; requestAnimationFrame(showTop); } }, { passive: true });
     window.addEventListener("resize", showTop);
-    var foot = document.querySelector("body > footer");
-    if (foot && "IntersectionObserver" in window) {
-      new IntersectionObserver(function (es) { nearEnd = es[0].isIntersecting; showTop(); }).observe(foot);
-    }
     top.addEventListener("click", function (ev) {
       ev.preventDefault();
       var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;

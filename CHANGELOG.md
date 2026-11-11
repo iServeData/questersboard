@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Top button stays at the bottom.** It no longer hides over the footer; the footer leaves room so
+  the button (and the floating Add a character button) never covers its links.
+- **Privacy and How it works updated.** Privacy explains refreshes (yours, and organiser refreshes after
+  an update that keep each person's groups and sharing), that pictures and icons are shown from this
+  site, the 30-day clock running from the last refresh, and adds a Recent changes section. How it works
+  covers the Add a character button and dialog, detail tabs and trees, and logging out in game before
+  refreshing.
+
 - **`questersboard-admin refresh-details`.** Refreshes every character's imported Blizzard details from
   the server, as if each owner pressed Refresh from Blizzard (same groups, same sharing), so nobody
   comes back to trees stored by an older release. Dry run unless `--yes`; characters without imported

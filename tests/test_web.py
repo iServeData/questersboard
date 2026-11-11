@@ -424,6 +424,17 @@ def test_privacy_and_terms_render_public_from_config(app, wcfg):
     assert 'href="/wow/quester/privacy"' in c.get("/wow/chronicle/").text
 
 
+def test_privacy_and_help_explain_refreshes_and_recent_changes(seeded, tmp_path, monkeypatch):
+    import httpx
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, lambda req: httpx.Response(404))
+    c = TestClient(a, base_url="https://community.example.org", follow_redirects=False)
+    p = c.get("/wow/quester/privacy").text
+    assert 'id="changes"' in p and 'href="#changes"' in p
+    assert "never shares anything more widely" in p and "after its last refresh" in p
+    h = c.get("/wow/quester/help").text
+    assert "You don't need to do anything" in h and "Add a character" in h and "log out in the game" in h
+
+
 def test_privacy_and_terms_have_a_table_of_contents_with_remove_me(app):
     import re as _re
     c = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
