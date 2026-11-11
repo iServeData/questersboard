@@ -506,6 +506,9 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     if _positive(bz.get("refresh_all_max", 10), "[blizzard] refresh_all_max") > 50:
         raise ConfigError("[blizzard] refresh_all_max must be 50 or less")
     _positive(bz.get("icon_cache_entries", 2000), "[blizzard] icon_cache_entries", 0)
+    pause = bz.get("operator_refresh_pause_seconds", 1)
+    if isinstance(pause, bool) or not isinstance(pause, (int, float)) or not 0 <= pause <= 10:
+        raise ConfigError("[blizzard] operator_refresh_pause_seconds must be a number from 0 to 10")
     ich = bz.get("icon_cache_hours", 12)
     if not isinstance(ich, (int, float)) or isinstance(ich, bool) or not 0 <= ich <= 24:
         raise ConfigError("[blizzard] icon_cache_hours must be between 0 and 24")

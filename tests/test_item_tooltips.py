@@ -449,6 +449,28 @@ def test_trees_are_only_as_wide_as_their_talents(seeded, tmp_path, monkeypatch):
     assert 'wq-cols-2 ' in c.get(f"/wow/quester/characters/{cid}/view").text
 
 
+@needs_db
+def test_operator_refresh_rebuilds_everyones_details_with_their_sharing(seeded, tmp_path, monkeypatch):
+    # FIXTURE: the server-side refresh-details command does what each owner's Refresh would do.
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, _tree_handler)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(149), "Zulmara Ashveil").id
+        other = char(s, cfg, actor(150), "Fixture Other").id          # nothing imported: left alone
+    c = login(a, 149)
+    c.post(f"/wow/quester/characters/{cid}/details",
+           data={"csrf": csrf(c), "groups": ["talents"], "share_talents": "members"})
+    with seeded.tx() as s:          # make it look like data stored by an older release
+        s.execute(text("update character_profiles set groups = jsonb_set(groups, '{talents,trees}', '[]') "
+                       "where character_id=:i"), {"i": cid})
+        ids = [r[0] for r in profiles.operator_refresh_list(s, cfg)]
+    assert cid in ids and other not in ids
+    with seeded.tx() as s:
+        profiles.operator_refresh(s, cfg, a.state.web.bz, cid)
+    with seeded.tx() as s:
+        g, sh = s.execute(text("select groups, shares from character_profiles where character_id=:i"), {"i": cid}).one()
+    assert [t["name"] for t in g["talents"]["trees"]] == ["Fixture Arms", "Fixture Fury"] and sh == {"talents": "members"}
+
+
 def test_talent_tree_columns_are_validated():
     from pathlib import Path
     import tomllib

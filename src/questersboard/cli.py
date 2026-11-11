@@ -323,6 +323,43 @@ def cmd_refresh_posts(args):
     return 0
 
 
+def cmd_refresh_details(args):
+    """Refresh every character's imported Blizzard details (after an upgrade changes how they're stored),
+    as if each owner pressed Refresh from Blizzard: same groups, same sharing. Characters without
+    imported details are left alone. Read-only toward Discord. Dry run unless --yes."""
+    import time
+    from .domain import profiles
+    from .domain.errors import Invalid, NotFound
+    from .integrations.blizzard import ApiError, Blizzard, Unsupported
+    cfg = _cfg(args)
+    db = _db(cfg, "app")
+    with db.tx() as s:
+        rows = profiles.operator_refresh_list(s, cfg)
+    owners = len({m for _c, _n, m in rows})
+    if not args.yes:
+        for cid, name, _m in rows:
+            print(f"  #{cid} {name}")
+        print(f"dry run: {len(rows)} character(s) of {owners} member(s) would be refreshed from Blizzard. "
+              "Re-run with --yes to refresh them.")
+        return 0
+    bz = Blizzard(cfg)
+    pause = float(cfg["blizzard"].get("operator_refresh_pause_seconds", 1))
+    done, failed = 0, []
+    for i, (cid, name, _m) in enumerate(rows):
+        if i and pause:
+            time.sleep(pause)
+        try:
+            with db.tx() as s:
+                profiles.operator_refresh(s, cfg, bz, cid)
+            done += 1
+            print(f"  ok      #{cid} {name}", flush=True)
+        except (Invalid, NotFound, ApiError, Unsupported) as exc:
+            failed.append(name)
+            print(f"  failed  #{cid} {name}: {exc}", flush=True)
+    print(f"refreshed {done} of {len(rows)} character(s)" + (f"; {len(failed)} failed (kept as they were)" if failed else ""))
+    return 1 if failed and not done else 0
+
+
 def cmd_cover(args):
     """Install the community's default cover art (re-encoded to WebP) as covers/default_cover.webp."""
     from .domain import covers
@@ -393,6 +430,9 @@ def main(argv=None) -> int:
     rp = sub.add_parser("refresh-posts", help="re-render upcoming events' Discord posts (dry run unless --yes)")
     rp.add_argument("--yes", action="store_true")
     rp.set_defaults(fn=cmd_refresh_posts)
+    rd = sub.add_parser("refresh-details", help="refresh everyone's imported Blizzard details (dry run unless --yes)")
+    rd.add_argument("--yes", action="store_true")
+    rd.set_defaults(fn=cmd_refresh_details)
     cv = sub.add_parser("default-cover", help="install the default event cover art from an image file")
     cv.add_argument("file")
     cv.set_defaults(fn=cmd_cover)

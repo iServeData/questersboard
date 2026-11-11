@@ -179,3 +179,9 @@ def test_default_cover_installs_webp(cfg_file, tmp_path, capsys):
     assert (tmp_path / "covers" / "default_cover.webp").is_file()
     src.write_bytes(b"nope")
     assert cli.main(["--config", cfg_file, "default-cover", str(src)]) == 1
+
+
+@needs_db
+def test_refresh_details_is_a_dry_run_without_yes(cfg_file, capsys):
+    assert cli.main(["--config", cfg_file, "refresh-details"]) == 0
+    assert "dry run:" in capsys.readouterr().out

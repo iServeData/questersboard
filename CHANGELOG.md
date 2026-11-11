@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **`questersboard-admin refresh-details`.** Refreshes every character's imported Blizzard details from
+  the server, as if each owner pressed Refresh from Blizzard (same groups, same sharing), so nobody
+  comes back to trees stored by an older release. Dry run unless `--yes`; characters without imported
+  details are left alone. New `[blizzard] operator_refresh_pause_seconds` (default 1) spaces the calls.
+
 - **Talent trees centred.** Each tree's grid is now only as wide as the columns its talents use
   (the same width for every tree), so the talents sit in the middle of their frame instead of the left.
 - **Top button alongside the floating Add button.** The Top button (shown after scrolling a little

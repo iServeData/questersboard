@@ -802,6 +802,28 @@ def refresh_one(s: Session, cfg: Config, bz, actor: Actor, character_id: int) ->
                           {g: share_choice(prof, g) for g in GROUP_KEYS})
 
 
+def operator_refresh_list(s: Session, cfg: Config) -> list[tuple[int, str, int]]:
+    """(character id, name, member id) for every imported character the operator command can refresh:
+    not archived, on an edition whose character pages Blizzard serves. Oldest import first."""
+    rows = s.execute(select(CharacterProfile, Character).join(Character, Character.id == CharacterProfile.character_id)
+                     .where(Character.archived_at.is_(None)).order_by(CharacterProfile.fetched_at)).all()
+    return [(ch.id, ch.name, ch.member_id) for _p, ch in rows
+            if cfg.edition(ch.edition).capability("character") != "unsupported"]
+
+
+def operator_refresh(s: Session, cfg: Config, bz, character_id: int) -> CharacterProfile:
+    """questersboard-admin refresh-details: refresh one imported character from Blizzard on its owner's
+    behalf, with the same groups and sharing choices (exactly what their own Refresh would do). Runs as
+    the system actor scoped to the owner, so it never changes who owns or can see anything."""
+    prof = s.get(CharacterProfile, character_id)
+    if prof is None:
+        raise NotFound("Nothing imported for this character.")
+    from .actor import SYSTEM
+    actor = SYSTEM.with_member(prof.member_id)
+    return import_profile(s, cfg, bz, actor, character_id, _bulk_groups(prof),
+                          {g: share_choice(prof, g) for g in GROUP_KEYS})
+
+
 def share_all(s: Session, cfg: Config, actor: Actor, level: str) -> int:
     """One sharing choice for every imported group of every one of the member's characters (no
     Blizzard calls). Beyond private still only applies while a character is verified as theirs."""

@@ -36,6 +36,7 @@ sudo -u questersboard questersboard-admin check-config    # after editing config
 | Remove a member who can't log in (same as "Remove me") | `questersboard-admin erase-member <discord id>` shows the plan; add `--yes` to carry it out |
 | Prune old audit rows / signups / sessions | `questersboard-admin prune` (admin role; monthly is plenty) |
 | Re-render current events' Discord posts (after a layout change) | `questersboard-admin refresh-posts` lists them (dry run); `--yes` queues in-place edits (app role credential, like `seed-catalog`) |
+| Refresh everyone's imported Blizzard details (after an upgrade changes how they're stored) | `questersboard-admin refresh-details` lists them (dry run); `--yes` refreshes each one with its owner's same groups and sharing, pausing `[blizzard] operator_refresh_pause_seconds` between characters (app role plus the Blizzard credentials). Characters without imported details are left alone; nothing is posted to Discord |
 | Install the default event cover art | `questersboard-admin default-cover /path/to/art.png` (re-encoded to `covers/default_cover.webp` under `[uploads] storage_dir`) |
 | Re-import Blizzard reference data | `questersboard-admin blizzard import-reference retail --region us` |
 | Check whether Forever's API exists yet | `questersboard-admin blizzard probe forever --region us` (reports, changes nothing) |
