@@ -531,6 +531,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(bz.get("detail_icons", True), bool):
         raise ConfigError("[blizzard] detail_icons must be true or false")
     _positive(bz.get("icon_lookups", 120), "[blizzard] icon_lookups", 0)
+    if _positive(bz.get("recipe_lookups", 80), "[blizzard] recipe_lookups", 0) > 500:
+        raise ConfigError("[blizzard] recipe_lookups must be 500 or less")
     if _positive(bz.get("refresh_all_max", 10), "[blizzard] refresh_all_max") > 50:
         raise ConfigError("[blizzard] refresh_all_max must be 50 or less")
     _positive(bz.get("icon_cache_entries", 2000), "[blizzard] icon_cache_entries", 0)

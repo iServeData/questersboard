@@ -859,13 +859,13 @@ def router(cfg: Config) -> APIRouter:
         from fastapi.responses import Response
 
         from ..domain import profiles
-        if group not in ("gear", "talents", "pets", "tree") or not re.fullmatch(r"\d{1,3}(-\d{1,3}){0,2}", ref):
+        if group not in ("gear", "talents", "pets", "tree", "recipes") or not re.fullmatch(r"\d{1,3}(-\d{1,3}){0,2}", ref):
             raise NotFound("Icon not found.")
         sess, a = session_or_login(request, bucket="i")
         w = W(request)
         with w.db.tx() as s:
             ch, prof, vis = profiles.view_character(s, w.cfg, a, character_id)
-            owner = "talents" if group == "tree" else group     # tree icons follow the Talents sharing
+            owner = {"tree": "talents", "recipes": "professions"}.get(group, group)   # follow that group's sharing
             url = profiles.icon_url((prof.groups or {}).get(owner), group, ref) if owner in vis else None
         if not url:
             raise NotFound("Icon not found.")

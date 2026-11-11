@@ -230,6 +230,7 @@ detail_icons = true                           # gear and talent icons with "Impo
 icon_lookups = 120                            # max icon lookups per import: gear, talent trees, pets (cached like other static data)
 refresh_all_max = 10                          # My characters "Refresh all": at most this many characters per press (1-50)
 known_recipes_max = 500                       # known recipes kept per profession (0-2000; 0 = skill levels only)
+recipe_lookups = 80                           # new known recipes looked up per import for icon and tooltip (0-500); later refreshes fill in the rest
 operator_refresh_pause_seconds = 1            # questersboard-admin refresh-details: pause between characters (0-10)
 icon_cache_hours = 12                         # icon images kept in memory per web process (max 24; never written to disk)
 icon_cache_entries = 2000                     # about 3 KB each

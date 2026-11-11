@@ -6,7 +6,7 @@
 
 [[release]]
 date = "2026-11-11"
-title = "Sortable tables and a new footer"
+title = "Recipe icons, sortable tables and a new footer"
 [[release.change]]
 area = "Guild"
 kind = "improved"
@@ -15,6 +15,10 @@ text = "Roster tables keep their headings and filters in view while you scroll, 
 area = "Guild"
 kind = "improved"
 text = "On phones, filters fold into one Filter and sort button."
+[[release.change]]
+area = "Characters"
+kind = "new"
+text = "Known recipes show what they make, with its icon and a tooltip like gear, where Blizzard links one. Press Refresh from Blizzard to fill them in."
 [[release.change]]
 area = "Site"
 kind = "new"

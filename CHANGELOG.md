@@ -12,6 +12,12 @@
   column headings in view while scrolling; every heading sorts (in the browser, or by link with
   `?sort=<column>&dir=desc` without scripts). Phones fold the filters into "Filter and sort" with a
   "Sort by" picker.
+- **Recipe icons and tooltips.** At import, each known recipe is looked up: the recipe's crafted item
+  (or else the item named exactly like the recipe), giving the icon, quality colour and an item tooltip;
+  recipes without an item use the recipe's own icon if Blizzard has one. Results are kept across
+  refreshes; each import looks up at most `[blizzard] recipe_lookups` new recipes (default 80), and
+  recipes with nothing found are retried after a week. Off with `detail_icons = false`. The
+  recipe-to-item link is unverified against WoW: Forever until `probe-media --detail recipes` is run.
 - **Gear says "Item level"** instead of "ilvl".
 - **Fix: race silhouettes were missing from installs.** The package only included files directly in
   `static/`; `static/silhouettes/` is now packaged.

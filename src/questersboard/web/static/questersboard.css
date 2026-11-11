@@ -267,8 +267,14 @@ th[aria-sort="descending"] .wq-sort-ind::after{content:"\25BC";opacity:1;color:v
 .wq-recipes{margin:4px 0 8px}
 .wq-recipes>summary{cursor:pointer;font-size:.9em;opacity:.85}
 .wq-recipes>summary:hover{opacity:1}
-.wq-recipe-list{margin:6px 0 0;padding:0;list-style:none;columns:3 200px;column-gap:20px;font-size:.92em}
+.wq-recipe-list{margin:6px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:2px 16px;font-size:.92em}
 .wq-recipe-list>li{break-inside:avoid;margin:0;padding:2px 0}
+.wq-recipe .wq-item-btn{padding:2px 4px;gap:8px;min-height:0;background:none;border-color:transparent}
+.wq-recipe .wq-item-btn:hover,.wq-recipe.is-open .wq-item-btn{border-color:var(--line-strong,rgba(225,228,232,.24))}
+.wq-recipe .wq-icon,.wq-recipe-plain .wq-icon{width:28px;height:28px;flex:0 0 28px}
+.wq-recipe .wq-item-name{font-size:.95em;font-weight:500}
+.wq-recipe-plain{display:inline-flex;align-items:center;gap:8px;padding:2px 4px}
+.wq-recipe-plain .wq-icon{opacity:.35}
 .wq-gear-center .note{padding:0 10px;text-align:center}
 /* No picture yet: an outline of the character's race on the stand, with a short note over it. */
 .wq-placeholder .wq-silhouette{max-height:380px;opacity:.9}

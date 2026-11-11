@@ -121,7 +121,7 @@ def test_import_all_groups_then_untick_some(seeded, tmp_path, monkeypatch):
     assert [x["key"] for x in groups["portrait"]] == ["avatar"]          # only allowed image hosts
     page = c.get("/wow/quester/characters").text
     assert "Fixture Vest" in page and "Leatherworking 95/150" in page and "Refresh from Blizzard" in page
-    assert "2 known recipes</summary>" in page and "<li>Fixture Boots</li>" in page   # collapsed under the skill
+    assert "2 known recipes</summary>" in page and "Fixture Boots" in page   # collapsed under the skill
     assert "needs Battle.net verification" in page                       # gear asked for guild, still private
     csp = c.get("/wow/quester/characters").headers["content-security-policy"]
     assert "img-src 'self' data:;" in csp                               # portraits are served by QuestersBoard
@@ -136,6 +136,77 @@ def test_import_all_groups_then_untick_some(seeded, tmp_path, monkeypatch):
         groups, gid = s.execute(text("select groups, guild_id from character_profiles where character_id=:i"),
                                 {"i": cid}).one()
     assert set(groups) == {"gear"} and gid is None
+
+
+def _recipe_handler(req):
+    """FIXTURES: recipe 1353 makes item 501 (media in a version-pinned static namespace); 1355 has no
+    recipe data and no item with its name."""
+    p = req.url.path
+    ns = req.url.params.get("namespace", "")
+    if p == "/data/wow/recipe/1353" and ns == "static-forever-us":
+        return httpx.Response(200, json={"id": 1353, "name": "Fixture Boots",
+                                         "crafted_item": {"id": 501, "name": "Fixture Boots"}})
+    if p == "/data/wow/item/501":
+        return httpx.Response(200, json={
+            "id": 501, "name": "Fixture Boots", "quality": {"type": "UNCOMMON"},
+            "media": {"key": {"href": "https://us.api.blizzard.com/data/wow/media/item/501?namespace="
+                                      "static-1.60.1_70399-forever-us"}, "id": 501},
+            "preview_item": {"binding": {"name": "Binds when equipped"}, "inventory_type": {"name": "Feet"},
+                             "item_subclass": {"name": "Leather"}, "armor": {"display": {"display_string": "41 Armor"}},
+                             "stats": [{"display": {"display_string": "+3 Agility"}}]}})
+    if p == "/data/wow/media/item/501" and ns == "static-1.60.1_70399-forever-us":
+        return httpx.Response(200, json={"assets": [{"key": "icon", "value":
+                                                     "https://render.worldofwarcraft.com/forever-us/icons/56/fixture_boots.jpg"}]})
+    if p == "/data/wow/search/item":
+        return httpx.Response(200, json={"results": []})
+    return _handler(req)
+
+
+@needs_db
+def test_known_recipes_get_icons_and_tooltips(seeded, tmp_path, monkeypatch):
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, _recipe_handler)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(76), "Zulmara Ashveil").id
+    c = login(a, 76)
+    assert c.post(f"/wow/quester/characters/{cid}/details",
+                  data={"csrf": csrf(c), "groups": ["professions"]}).status_code == 303
+    with seeded.tx() as s:
+        groups = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()
+    boots, pants = groups["professions"][0]["recipes"]
+    assert boots["item_id"] == 501 and boots["quality"] == "uncommon" and boots["icon"].endswith("fixture_boots.jpg")
+    assert boots["tip"]["armor"] == "41 Armor" and boots["tip"]["stats"] == [{"text": "+3 Agility", "green": False}]
+    assert "icon" not in pants and pants["seen"]                         # nothing found: retried in a week
+    page = c.get("/wow/quester/characters").text
+    assert f"/characters/{cid}/icon/recipes/0-0?" in page and "Leatherworking recipe" in page and "41 Armor" in page
+    assert 'class="wq-recipe-plain"' in page and "render.worldofwarcraft.com" not in page
+    r = c.get(f"/wow/quester/characters/{cid}/icon/recipes/0-1")
+    assert r.status_code == 404                                          # no icon for that one
+    calls.clear()
+    assert c.post(f"/wow/quester/characters/{cid}/details",
+                  data={"csrf": csrf(c), "groups": ["professions"]}).status_code == 303
+    looked = [q.url.path for q in calls if q.url.path.startswith("/data/wow/")]
+    assert looked == []                                                  # kept from the first import
+    with seeded.tx() as s:
+        groups = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()
+    assert groups["professions"][0]["recipes"][0]["icon"].endswith("fixture_boots.jpg")
+
+
+@needs_db
+def test_recipe_lookups_budget_and_switch(seeded, tmp_path, monkeypatch):
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, _recipe_handler)
+    cfg["blizzard"]["recipe_lookups"] = 1
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(77), "Zulmara Ashveil").id
+    c = login(a, 77)
+    c.post(f"/wow/quester/characters/{cid}/details", data={"csrf": csrf(c), "groups": ["professions"]})
+    with seeded.tx() as s:
+        rs = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()
+    boots, pants = rs["professions"][0]["recipes"]
+    assert "icon" in boots and set(pants) == {"id", "name"}              # budget of 1: the second waits
+    cfg["blizzard"]["detail_icons"] = False
+    calls.clear()
+    c.post(f"/wow/quester/characters/{cid}/details", data={"csrf": csrf(c), "groups": ["professions"]})
+    assert not [q for q in calls if q.url.path.startswith("/data/wow/")]
 
 
 @needs_db

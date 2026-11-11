@@ -12,6 +12,7 @@ member can refresh or remove them at any time.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from datetime import timedelta
 from urllib.parse import parse_qsl, urlsplit
 
 from sqlalchemy import delete, select
@@ -378,8 +379,10 @@ def import_profile(s: Session, cfg: Config, bz, actor: Actor, character_id: int,
     if data.get("talents"):
         _resolve_trees(s, cfg, bz, ed, ch, data["talents"])
     _resolve_icons(s, cfg, bz, ed, ch.region, data)
-    guild = data.get("guild") or {}
     prof = s.get(CharacterProfile, ch.id)
+    same = prof is not None and prof.edition == ch.edition and prof.region == ch.region
+    _resolve_recipes(s, cfg, bz, ed, ch.region, data, (prof.groups or {}) if same else None)
+    guild = data.get("guild") or {}
     if prof is None:
         prof = CharacterProfile(character_id=ch.id, member_id=ch.member_id)
         s.add(prof)
@@ -440,6 +443,87 @@ def _resolve_icons(s: Session, cfg: Config, bz, ed, region: str, data: dict) -> 
             seen[key] = bz.media_icon(s, region, path, ns, keys)
         if seen[key]:
             row["icon"] = seen[key]
+
+
+def _recipe_item(s: Session, bz, region: str, sns: str, hours: float, rid: int, name: str) -> dict:
+    """What a known recipe makes, for its icon and tooltip: the recipe's crafted item, or else the item
+    named exactly like the recipe. Returns {item_id, quality, tip, icon} (any part may be missing), or
+    {} when neither is found. Only the edition's static data is read; failures just return {}."""
+    def page(path, ns=sns, params=None):
+        try:
+            st, body = bz.get(s, region, path, ns, hours, params=params)
+        except Exception:                           # one recipe failing never stops the import
+            return {}
+        return body if st == 200 and isinstance(body, dict) else {}
+    recipe = page(f"/data/wow/recipe/{rid}")
+    made = next((recipe[k] for k in ("crafted_item", "horde_crafted_item", "alliance_crafted_item")
+                 if isinstance(recipe.get(k), dict) and isinstance(recipe[k].get("id"), int)), None)
+    iid = made["id"] if made else None
+    if iid is None and name:
+        found = page("/data/wow/search/item", params={"name.en_US": name, "orderby": "id", "_page": "1"})
+        hits = [h.get("data") or {} for h in found.get("results") or [] if isinstance(h, dict)]
+        exact = [h for h in hits if isinstance(h.get("id"), int) and _label(h).lower() == name.lower()]
+        iid = exact[0]["id"] if exact else None
+    out: dict = {}
+    item = page(f"/data/wow/item/{iid}") if iid else {}
+    if item:
+        out["item_id"] = iid
+        out["quality"] = ((item.get("quality") or {}).get("type") or "").lower()[:16] \
+            if isinstance(item.get("quality"), dict) else ""
+        if _label(item) and _label(item).lower() != name.lower():
+            out["makes"] = _label(item)[:120]
+        tip = _tooltip(item.get("preview_item") if isinstance(item.get("preview_item"), dict) else item)
+        if tip:
+            out["tip"] = tip
+        icon = _linked_icon(s, bz, region, sns, item, f"/data/wow/media/item/{iid}")
+        if icon:
+            out["icon"] = icon
+    if "icon" not in out and recipe:                # recipes without an item (enchants): the recipe's own icon
+        icon = _linked_icon(s, bz, region, sns, recipe, f"/data/wow/media/recipe/{rid}")
+        if icon:
+            out["icon"] = icon
+    return out
+
+
+def _linked_icon(s: Session, bz, region: str, sns: str, body: dict, default_path: str) -> str | None:
+    """The icon from the media page an answer links to (within the edition's static data), or from the
+    usual media path when it links none."""
+    ref = _media_ref(body)
+    if ref:
+        return bz.media_icon(s, region, ref["path"], ref["ns"]) if _same_static(ref["ns"], sns) else None
+    return bz.media_icon(s, region, default_path, sns)
+
+
+def _resolve_recipes(s: Session, cfg: Config, bz, ed, region: str, data: dict, before: dict | None) -> None:
+    """Icons and tooltips for known recipes. What an earlier import found is kept (by recipe id), so each
+    import looks up at most [blizzard] recipe_lookups new recipes and later refreshes fill in the rest.
+    detail_icons = false skips this."""
+    bzc = cfg["blizzard"]
+    profs = [p for p in data.get("professions") or [] if p.get("recipes")]
+    if not profs or not bzc.get("detail_icons", True):
+        return
+    sns = ed.namespace("static", region)
+    if not sns:
+        return
+    known = {}
+    for p in (before or {}).get("professions") or []:
+        for r in p.get("recipes") or [] if isinstance(p, dict) else []:
+            if isinstance(r, dict) and isinstance(r.get("id"), int) and (r.get("icon") or r.get("tip") or r.get("seen")):
+                known[r["id"]] = {k: r[k] for k in ("item_id", "quality", "makes", "tip", "icon", "seen") if k in r}
+    budget = int(bzc.get("recipe_lookups", 80))
+    hours = bzc.get("cache_hours_static", 168)
+    stamp = now().date().isoformat()
+    for p in profs:
+        for r in p["recipes"]:
+            got = known.get(r["id"])
+            if got is not None and (got.get("icon") or got.get("tip") or got.get("seen", "") >= stamp):
+                r.update(got)
+                continue
+            if budget <= 0:
+                continue
+            budget -= 1
+            got = _recipe_item(s, bz, region, sns, hours, r["id"], r.get("name") or "")
+            r.update(got or {"seen": (now() + timedelta(days=7)).date().isoformat()})   # nothing: retry in a week
 
 
 def _static_page(s: Session, bz, region: str, ref, sns: str, hours: float) -> dict:
@@ -777,6 +861,8 @@ def icon_url(data, group: str, ref: str) -> str | None:
             row = data[idx[0]]
         elif group == "tree" and len(idx) == 2 and isinstance(data, dict):
             row = data["trees"][idx[0]]["nodes"][idx[1]]
+        elif group == "recipes" and len(idx) == 2 and isinstance(data, list):
+            row = data[idx[0]]["recipes"][idx[1]]
         elif group == "talents" and len(idx) == 3 and isinstance(data, dict):
             row = data["groups"][idx[0]]["specs"][idx[1]]["talents"][idx[2]]
         else:
