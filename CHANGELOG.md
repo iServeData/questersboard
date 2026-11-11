@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Talent trees centred.** Each tree's grid is now only as wide as the columns its talents use
+  (the same width for every tree), so the talents sit in the middle of their frame instead of the left.
+- **Top button alongside the floating Add button.** The Top button (shown after scrolling a little
+  over a screen, hidden over the footer, as on the main site) takes the bottom-right corner, and the
+  Add a character button steps up above it while it shows.
+
 - **Add or edit a character in a dialog.** My characters drops the side form: an "Add a character"
   button sits at the top and a floating one stays at the bottom right while scrolling. Both open the
   same on-page dialog that Edit uses (filled in for that character). Without scripts the form shows

@@ -581,6 +581,11 @@ def _resolve_trees(s: Session, cfg: Config, bz, ed, ch, talents: dict) -> None:
         trees.append({"name": name, "points": spent if isinstance(spent, int) else sum(n["rank"] for n in nodes),
                       "rows": max(n["row"] for n in nodes) if nodes else 0, "cols": cols, "nodes": nodes})
     if trees:
+        # Size every tree to the columns its talents actually use (the same for all trees, so they
+        # line up); a grid wider than its talents left them hugging the left of the frame.
+        used = max([n["col"] for t in trees for n in t["nodes"]] or [1])
+        for t in trees:
+            t["cols"] = used
         talents["trees"] = trees
 
 

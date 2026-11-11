@@ -346,7 +346,9 @@
     var nearEnd = false, topTick = false;
     var showTop = function () {
       topTick = false;
-      top.classList.toggle("is-shown", window.scrollY > window.innerHeight * 1.2 && !nearEnd);
+      var on = (window.scrollY || document.documentElement.scrollTop || 0) > window.innerHeight * 1.2 && !nearEnd;
+      top.classList.toggle("is-shown", on);
+      document.body.classList.toggle("has-to-top", on);   // lets a floating button step above it
     };
     window.addEventListener("scroll", function () { if (!topTick) { topTick = true; requestAnimationFrame(showTop); } }, { passive: true });
     window.addEventListener("resize", showTop);

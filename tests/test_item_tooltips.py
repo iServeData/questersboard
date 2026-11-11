@@ -423,6 +423,32 @@ def test_talents_are_drawn_as_trees_from_blizzards_layout(seeded, tmp_path, monk
     assert c.get(f"/wow/quester/characters/{cid}/icon/tree/9-9").status_code == 404
 
 
+@needs_db
+def test_trees_are_only_as_wide_as_their_talents(seeded, tmp_path, monkeypatch):
+    # FIXTURE: both trees use two columns while the edition allows four, so the grid is two wide
+    # (a wider grid left the talents hugging the left of their frame).
+    def narrow(req):
+        p = req.url.path
+        if p == "/data/wow/talent-tree/901/playable-specialization/72":
+            return httpx.Response(200, json={"playable_specialization": {"name": "Fixture Fury"}, "spec_talent_nodes": [
+                {"id": 3, "display_row": 1, "display_col": 7, "ranks": [_rank(134478, "Fixture Rage", 19428, "Rage.")]},
+                {"id": 4, "display_row": 2, "display_col": 8, "ranks": [_rank(134499, "Fixture Blitz", 19426, "Blitz.")]}]})
+        if p == "/data/wow/talent-tree/901/playable-specialization/71":
+            return httpx.Response(200, json={"playable_specialization": {"name": "Fixture Arms"}, "spec_talent_nodes": [
+                {"id": 1, "display_row": 1, "display_col": 1, "ranks": [_rank(134476, "Fixture Aim", 19426, "Aim.")]},
+                {"id": 2, "display_row": 2, "display_col": 2, "ranks": [_rank(134477, "Fixture Strike", 19427, "Strikes.")]}]})
+        return _tree_handler(req)
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, narrow)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(148), "Zulmara Ashveil").id
+    c = login(a, 148)
+    c.post(f"/wow/quester/characters/{cid}/details", data={"csrf": csrf(c), "groups": ["talents"]})
+    with seeded.tx() as s:
+        t = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()["talents"]
+    assert [tr["cols"] for tr in t["trees"]] == [2, 2]
+    assert 'wq-cols-2 ' in c.get(f"/wow/quester/characters/{cid}/view").text
+
+
 def test_talent_tree_columns_are_validated():
     from pathlib import Path
     import tomllib
