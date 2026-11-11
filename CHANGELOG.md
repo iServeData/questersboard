@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- **One account menu.** Every member page has a menu under the member's name: the Discord login, each
+  Battle.net region (connected, last synced, how many characters verified, Sync now, Disconnect, add
+  another region), My characters, My signups, My settings, Sharing and privacy, How it works, Log out
+  and Log out on all devices (deletes every web session of the member). Public pages stay session-free.
+  "Connected" means the member has characters verified through Battle.net in that region (or a list
+  from the last `battlenet_import_minutes`): QuestersBoard still never keeps a Battle.net token.
+- **One Battle.net login per region.** `/characters/battlenet?region=us` reads the account's character
+  list for every edition with `ownership` switched on in that region, with the same user token, and
+  stores one encrypted list `{"editions": {...}}` (old one-edition lists still read). `?edition=` still
+  narrows it to one. An edition that doesn't answer is named and skipped. Unverified against the live
+  API: that one login's token is accepted for every profile namespace (expected, as the token isn't
+  tied to a namespace).
+- **Get started and the Battle.net panel.** With no characters, My characters shows a three-step start
+  (region cards, Continue with Battle.net, or add one by hand); also at `/characters/start`. After the
+  login, characters to add appear in a side panel (a full sheet on phones) grouped by edition and
+  pre-ticked, with one "Who can see the ones you add" choice (`[blizzard] picker_default_share`, default
+  `"guild"`); added characters have every section brought in (up to `refresh_all_max`). Region names
+  come from `[blizzard] region_labels`.
+- **My characters: list and detail.** Searchable character cards (Verified / Not verified and a sharing
+  chip) beside the selected character: Open full page, Refresh from Blizzard (or Verify with Battle.net),
+  a ⋯ menu (Edit roles and notes, what to bring in, Remove), and **Who can see what** with segmented
+  Only me / Guild / All members controls that save as you click (`POST /characters/{id}/sharing`, no
+  Blizzard calls). Asking for more than Only me on an unverified character is refused with an
+  explanation instead of reverting silently. A Battle.net status bar (or a Connect banner) sits on top.
+  Phones show the list, then the character on its own. The All characters panel and the sync panel at
+  the bottom are gone; Refresh all from Blizzard moved to the page header.
+- **Disconnect per region.** `/characters/battlenet/unlink` takes `region`; characters there drop to
+  self-reported but keep their sharing choices (they only apply again once verified).
 - **Footer and changelog page.** Every page ends with a footer like the host site's: wordmark,
   `[branding] footer_notes` and `footer_credits` lines, `footer_nav` links, the QuestersBoard links and
   the running build ("Commit abc1234 · Nov 11, 2026"). `deploy/install.sh` writes the build stamp into

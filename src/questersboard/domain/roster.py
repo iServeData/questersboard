@@ -141,12 +141,13 @@ def add_character(s: Session, cfg: Config, actor: Actor, data: dict) -> Characte
 
 
 def import_verified(s: Session, cfg: Config, actor: Actor, edition: str, region: str,
-                    picks: list[tuple[dict, str | None]]) -> tuple[list[str], list[tuple[str, str]]]:
+                    picks: list[tuple[dict, str | None]], ids: list[int] | None = None
+                    ) -> tuple[list[str], list[tuple[str, str]]]:
     """Add characters read from the member's own Battle.net account (see Blizzard.link_account).
 
     Each pick is (snapshot entry, ruleset chosen on the review page). They're added as ownership verified;
     roles, spec and interests start empty for the member to fill in. Returns (added names,
-    [(name, why it was skipped)])."""
+    [(name, why it was skipped)]); the new characters' ids are appended to `ids` when given."""
     require_member(cfg, actor)
     actor = ensure_member(s, actor)
     ed = cfg.edition(edition)
@@ -179,6 +180,8 @@ def import_verified(s: Session, cfg: Config, actor: Actor, edition: str, region:
             continue
         audit.record(s, actor, "character.import", "character", ch.id, edition=ch.edition)
         added.append(ch.name)
+        if ids is not None:
+            ids.append(ch.id)
     return added, skipped
 
 

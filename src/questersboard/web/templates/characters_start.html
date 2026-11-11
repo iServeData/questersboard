@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="wq-start">
+  <ol class="wq-steps" aria-label="Getting started">
+    <li class="is-done"><span>1</span> Log in with Discord</li>
+    <li class="is-now" aria-current="step"><span>2</span> Connect Battle.net</li>
+    <li><span>3</span> Pick your characters</li>
+  </ol>
+  <h1>Bring in your characters</h1>
+  <p class="wq-start-lead">Connect Battle.net once and QuestersBoard finds your characters in every game version listed below, marks them as verified, and lets you share them with your guild.</p>
+  {% if regions %}
+  <form method="get" action="{{ mp }}/characters/battlenet" class="wq-start-form">
+    <fieldset><legend>Where do you play?</legend>
+      <div class="wq-region-cards">
+      {% for r in regions %}
+        <label class="wq-region"><input type="radio" name="region" value="{{ r.key }}"{% if loop.first %} checked{% endif %}>
+          <span class="wq-region-txt"><strong>{{ r.label }}</strong><span class="note">{{ r.editions|join(" · ") }}</span></span></label>
+      {% endfor %}
+      </div>
+    </fieldset>
+    <p class="btns"><button class="btn wq-btn-bn" type="submit">Continue with Battle.net</button>
+      <a class="btn ghost" href="{{ mp }}/characters?add=1#character-form">Not now, add a character by hand</a></p>
+  </form>
+  {% else %}
+  <p class="btns"><a class="btn" href="{{ mp }}/characters?add=1#character-form">Add a character</a></p>
+  {% endif %}
+  <p class="note">One Battle.net login checks every game version in that region. QuestersBoard reads your character list once and never keeps your Battle.net login. Character data comes from Blizzard Entertainment's Battle.net API; QuestersBoard isn't made, endorsed or supported by Blizzard.</p>
+</div>
+{% endblock %}

@@ -107,7 +107,7 @@ def test_import_all_groups_then_untick_some(seeded, tmp_path, monkeypatch):
         cid = char(s, cfg, actor(70), "Zulmara Ashveil").id
     c = login(a, 70)
     page = c.get("/wow/quester/characters").text
-    assert "choose what to bring in" in page
+    assert "Bring in details from Blizzard" in page and "Choose what to bring in" in page
     assert page.count('name="groups"') == len(profiles.GROUPS) and 'checked' in page
     form = {"csrf": csrf(c), "groups": list(profiles.GROUP_KEYS), "share_gear": "guild"}
     r = c.post(f"/wow/quester/characters/{cid}/details", data=form)
@@ -471,7 +471,7 @@ def test_saving_details_returns_to_the_character_with_a_note(seeded, tmp_path, m
 def test_help_page_explains_character_details(seeded, tmp_path, monkeypatch):
     a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
     page = login(a, 97).get("/wow/quester/help").text
-    assert 'id="details"' in page and 'href="#details"' in page and "Set all" in page
+    assert 'id="details"' in page and 'href="#details"' in page and "All sections" in page and "Who can see what" in page
     assert "deleted 30 days after their last refresh" in page
 
 

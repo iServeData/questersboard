@@ -967,6 +967,52 @@ def share_all(s: Session, cfg: Config, actor: Actor, level: str) -> int:
     return n
 
 
+class NotVerified(Invalid):
+    """Sharing beyond Only me was asked for a character that isn't verified as the member's."""
+
+
+def set_shares(s: Session, cfg: Config, actor: Actor, character_id: int, shares: dict[str, str]) -> CharacterProfile:
+    """Change who can see each imported group of one character (no Blizzard calls). Refused, with nothing
+    changed, if anything beyond Only me is asked for while the character isn't verified as theirs."""
+    require_member(cfg, actor)
+    ch = _own(s, actor, character_id)
+    prof = s.get(CharacterProfile, ch.id)
+    if prof is None:
+        raise NotFound("Nothing imported for this character yet.")
+    want = {g: (shares.get(g) if shares.get(g) in SHARE_LEVELS else share_choice(prof, g)) for g in (prof.groups or {})}
+    if ch.verification != "ownership_verified" and any(v != "private" for v in want.values()):
+        raise NotVerified(f"{ch.name} isn't verified yet, so your choice wasn't saved. Connect Battle.net to "
+                          f"verify it, then share it with your guild or all members.")
+    prof.shares = want
+    audit.record(s, actor, "character.profile_share", "character", ch.id, levels=sorted(set(want.values())))
+    return prof
+
+
+def import_new(s: Session, cfg: Config, bz, actor: Actor, character_ids: list[int], level: str
+               ) -> tuple[list[str], list[str]]:
+    """Bring in every group for characters just added from Battle.net, with one sharing choice for all.
+    At most [blizzard] refresh_all_max per call; the rest (and any Blizzard can't answer for) are left for
+    Refresh from Blizzard later. Returns (imported, not imported) names."""
+    from ..integrations.blizzard import ApiError, Unsupported
+    level = level if level in SHARE_LEVELS else "private"
+    limit = cfg["blizzard"].get("refresh_all_max", 10)
+    done, failed = [], []
+    for cid in character_ids:
+        ch = _own(s, actor, cid)
+        if cfg.edition(ch.edition).capability("character") == "unsupported":
+            continue
+        if len(done) + len(failed) >= limit:
+            failed.append(ch.name)
+            continue
+        try:
+            with s.begin_nested():
+                import_profile(s, cfg, bz, actor, cid, set(GROUP_KEYS), {g: level for g in GROUP_KEYS})
+            done.append(ch.name)
+        except (Invalid, NotFound, ApiError, Unsupported):
+            failed.append(ch.name)
+    return done, failed
+
+
 def drop_for_character(s: Session, character_id: int) -> None:
     """Used when a character is archived or its identity changes: imported details no longer apply."""
     s.execute(delete(CharacterProfile).where(CharacterProfile.character_id == character_id))

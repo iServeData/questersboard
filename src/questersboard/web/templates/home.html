@@ -38,7 +38,7 @@
     {% endfor %}
   </div>
   {% endif %}
-  <div class="panel">
+  <div class="panel" id="my-signups">
     <h2 class="sub">My signups</h2>
     {% for su, ev in mine %}
       <p><a href="{{ mp }}/events/{{ ev.public_id }}">{{ ev.title }}</a><br><span class="note">{{ fmt_local(ev.start_at, ev.timezone) }} · {{ su.state }}{% if su.needs_reconfirm %} · <strong>please reconfirm</strong>{% endif %}</span></p>

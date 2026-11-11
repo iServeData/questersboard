@@ -32,12 +32,17 @@ Log in with Discord. QuestersBoard only learns your Discord ID, username and dis
 - Set the roles you can fill (tank, healer, damage, or your community's custom roles).
 - "Check it exists on Blizzard" confirms the character exists (shown until details are imported). It doesn't prove it's yours. For WoW: Forever it
   looks up "Name Surname" with no realm; Blizzard reportedly answers in the US but not yet in the EU.
-- "Sync from Battle.net" (if your community turned it on): log in with Battle.net. Characters you already
-  have here show "verified as yours" and get their level updated; the others are listed so you can tick
-  them and add them (also verified). For Forever, pick the ruleset where Blizzard didn't send it. The list
-  works for `battlenet_import_minutes` (60) after the login. Sync again any time to refresh: QuestersBoard
-  doesn't keep your Battle.net login; the list is deleted after an hour. The verified mark lasts 30 days
-  (Blizzard's rule), so sync again now and then. "Forget my Battle.net link" removes it any time.
+- "Connect Battle.net" (if your community turned it on; on My characters, or in the menu with your name):
+  pick your region, then log in with Battle.net once. That one login reads your characters in every game
+  version in the region. Characters you already have here show "Verified" and get their level updated; the
+  others appear in a panel, pre-ticked, with one "Who can see the ones you add" choice. For Forever, pick
+  the ruleset where Blizzard didn't send it. The list works for `battlenet_import_minutes` (60) after the
+  login, then it is deleted; QuestersBoard doesn't keep your Battle.net login. The verified mark lasts
+  30 days (Blizzard's rule), so press "Sync now" now and then. "Disconnect" removes the verified mark for
+  that region any time (sharing choices are kept for when you sync again).
+- "Who can see what" on My characters: Only me, Guild or All members for each section, or All sections at
+  once. Each click saves. Guild and All members need the character verified first.
+- "Log out on all devices" in the account menu ends every QuestersBoard login you have.
 - Forever characters only appear on Battle.net from level 10, after you log out with them once, and the
   account list can trail the game by about 20 to 40 minutes. Blizzard hasn't documented the Forever API,
   so this can stop working if they change it; adding characters by hand always works.

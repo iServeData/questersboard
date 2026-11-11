@@ -566,3 +566,90 @@
     }
   });
 })();
+
+/* Account menu, ⋯ menus, My characters list/detail, sharing that saves as you click, Battle.net panel. */
+(function () {
+  document.documentElement.classList.add("wq-js");
+  var menus = Array.prototype.slice.call(document.querySelectorAll("details.wq-acct, details.wq-more"));
+  document.addEventListener("click", function (e) {
+    menus.forEach(function (d) { if (d.open && !d.contains(e.target)) { d.open = false; } });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") { return; }
+    menus.forEach(function (d) {
+      if (d.open) { d.open = false; var s = d.querySelector("summary"); if (s) { s.focus(); } }
+    });
+    var sheet = document.querySelector("[data-sheet]");
+    if (sheet) { var x = sheet.querySelector(".wq-dialog-x"); if (x) { location.href = x.href; } }
+  });
+
+  var search = document.querySelector("[data-char-search]");
+  if (search) {
+    var items = Array.prototype.slice.call(document.querySelectorAll("[data-char-cards] > li"));
+    var none = document.querySelector("[data-char-none]");
+    search.addEventListener("input", function () {
+      var q = search.value.trim().toLowerCase(), shown = 0;
+      items.forEach(function (li) {
+        var hit = !q || li.getAttribute("data-name").indexOf(q) !== -1;
+        li.hidden = !hit;
+        if (hit) { shown += 1; }
+      });
+      if (none) { none.hidden = shown !== 0; }
+    });
+  }
+
+  document.querySelectorAll("[data-open-details]").forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      var d = document.getElementById(a.getAttribute("data-open-details"));
+      if (!d) { return; }
+      e.preventDefault();
+      d.open = true;
+      var m = a.closest("details.wq-more");
+      if (m) { m.open = false; }
+      d.scrollIntoView({ block: "start" });
+      var s = d.querySelector("summary");
+      if (s) { s.focus({ preventScroll: true }); }
+    });
+  });
+
+  var refused = document.querySelector("[data-share-refused]");
+  if (refused) {
+    var dismiss = refused.querySelector("[data-dismiss]");
+    if (dismiss) {
+      dismiss.addEventListener("click", function (e) { e.preventDefault(); refused.hidden = true; });
+    }
+  }
+  document.querySelectorAll("form[data-autosave]").forEach(function (form) {
+    var radios = Array.prototype.slice.call(form.querySelectorAll("input[type=radio]"));
+    var before = {};
+    radios.forEach(function (r) { if (r.checked) { before[r.name] = r; } });
+    form.addEventListener("change", function (e) {
+      var r = e.target;
+      if (!r || r.type !== "radio") { return; }
+      if (r.hasAttribute("data-locked")) {
+        r.checked = false;
+        if (before[r.name]) { before[r.name].checked = true; }
+        if (refused) { refused.hidden = false; refused.scrollIntoView({ block: "nearest" }); }
+        return;
+      }
+      if (r.name === "share_all") {
+        radios.forEach(function (o) { if (o.name !== "share_all" && o.value === r.value) { o.checked = true; } });
+      } else {
+        radios.forEach(function (o) { if (o.name === "share_all") { o.checked = false; } });
+      }
+      form.submit();
+    });
+  });
+
+  var picker = document.querySelector("form[data-picker]");
+  if (picker) {
+    var btn = picker.querySelector("[data-pick-count]");
+    var count = function () {
+      var n = picker.querySelectorAll("input[data-pick]:checked").length;
+      btn.textContent = "Add " + n + " character" + (n === 1 ? "" : "s");
+      btn.disabled = n === 0;
+    };
+    picker.addEventListener("change", count);
+    count();
+  }
+})();

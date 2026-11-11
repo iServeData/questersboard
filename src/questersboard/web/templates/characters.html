@@ -1,9 +1,44 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf_field with context %}
+{% macro seg(name, current, locked, label) -%}
+<span class="wq-seg" role="radiogroup" aria-label="{{ label }}">{% for lv, lab in seg_labels.items() %}<label class="wq-seg-opt{% if locked and lv != 'private' %} wq-locked{% endif %}"><input type="radio" name="{{ name }}" value="{{ lv }}"{% if current == lv %} checked{% endif %}{% if locked and lv != 'private' %} data-locked{% endif %}><span>{{ lab }}</span></label>{% endfor %}</span>
+{%- endmacro %}
+{% macro share_summary(c, d) -%}
+{% if not d %}Nothing imported{% elif c.verification != "ownership_verified" %}Only me{% else %}{% set ns = namespace(v=[]) %}{% for g in d.groups %}{% set ns.v = ns.v + [effective_share(d, c, g)] %}{% endfor %}{% set u = ns.v|unique|list %}{% if u|length == 1 %}{{ seg_labels[u[0]] }}{% elif u %}Mixed sharing{% else %}Only me{% endif %}{% endif %}
+{%- endmacro %}
+{% macro avatar(c, d) -%}
+{% set keys = (d.groups.get("portrait") or [])|map(attribute="key")|list if d else [] %}
+<span class="wq-av" aria-hidden="true">{% if "avatar" in keys %}<img src="{{ mp }}/characters/{{ c.id }}/portrait/avatar" alt="" loading="lazy" referrerpolicy="no-referrer">{% else %}<img src="{{ mp }}/static/silhouettes/{{ silhouette(c.race_key) }}.svg?v={{ static_v }}" alt="" class="wq-av-sil">{% endif %}</span>
+{%- endmacro %}
 {% block content %}
-<div class="section-head"><h1>My characters</h1></div>
-<p class="btns"><a class="btn" href="{{ mp }}/characters?add=1#character-form" data-open-character>Add a character</a> {% for g in guild_links %}<a class="btn ghost" href="{{ mp }}/guilds/{{ g.edition }}/{{ g.region }}/{{ g.guild_id }}">{{ g.name }} roster</a> {% endfor %}{% if bz_enabled %}<a class="btn ghost" href="{{ mp }}/players">Shared characters</a>{% endif %}</p>
-<p class="note">Characters are self-reported. A Blizzard API match (where available) confirms the character exists; it does not prove it's yours.{% if bz_enabled %} Character checks use data from Blizzard Entertainment's Battle.net API. QuestersBoard isn't made, endorsed or supported by Blizzard.{% endif %}</p>
+{% set bn_on = bn_enabled and sync_regions %}
+<div class="section-head wq-cm-head"><h1>My characters</h1>
+  <p class="btns"><a class="btn" href="{{ mp }}/characters?add=1#character-form" data-open-character>+ Add a character</a>{% if bz_enabled and details %}
+    <form method="post" action="{{ mp }}/characters/details/all" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit" name="action" value="refresh" title="Up to {{ cfg['blizzard'].get('refresh_all_max', 10) }} characters per press; each keeps its sharing">Refresh all from Blizzard</button></form>{% endif %}
+    {% for g in guild_links %}<a class="btn ghost" href="{{ mp }}/guilds/{{ g.edition }}/{{ g.region }}/{{ g.guild_id }}">{{ g.name }} roster</a> {% endfor %}{% if bz_enabled %}<a class="btn ghost" href="{{ mp }}/players">Shared characters</a>{% endif %}</p>
+</div>
+{% if bulk == "refreshed" %}<p class="wq-saved" role="status">Refreshed {{ bulk_n }} character{{ "" if bulk_n == 1 else "s" }} from Blizzard.{% if bulk_failed %} {{ bulk_failed }} didn't refresh; open that character and press Refresh from Blizzard to see why.{% endif %}</p>
+{% elif bulk == "shared" %}<p class="wq-saved" role="status">Sharing updated for {{ bulk_n }} character{{ "" if bulk_n == 1 else "s" }}.</p>{% endif %}
+{% if added_n >= 0 %}<p class="wq-saved" role="status">Added {{ added_n }} character{{ "" if added_n == 1 else "s" }} from Battle.net{% if imported_n %}, with details for {{ imported_n }}{% endif %}.{% if imported_n < added_n %} Press Refresh from Blizzard on the others to bring in their details.{% endif %}</p>{% endif %}
+{% if disconnected %}<p class="wq-saved" role="status">Battle.net disconnected. Your characters are still here; only you can see their details until you sync again.</p>{% endif %}
+{% if bn_on %}
+  {% if acct.connected %}
+  <div class="wq-bn-bar" role="region" aria-label="Battle.net">
+    {% for r in acct.regions if r.connected %}
+    <p class="wq-bn-bar-txt"><span class="wq-dot wq-dot-bn" aria-hidden="true"></span><strong>Battle.net connected</strong> · {{ r.label }}{% if r.synced_ago %} · synced {{ r.synced_ago }}{% endif %} · {{ r.verified }} verified</p>
+    <p class="wq-bn-bar-btns"><a class="btn small" href="{{ mp }}/characters/battlenet?region={{ r.key }}">Sync now</a>
+      <form method="post" action="{{ mp }}/characters/battlenet/unlink" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="region" value="{{ r.key }}"><button class="btn ghost small" type="submit" data-confirm="Disconnect Battle.net for {{ r.label }}? Your characters there stay on QuestersBoard but lose the verified mark, so only you can see their details until you sync again. Your sharing choices are kept.">Disconnect</button></form></p>
+    {% endfor %}
+    {% for r in acct.regions if not r.connected %}<p class="wq-bn-bar-more"><a class="linkish" href="{{ mp }}/characters/battlenet?region={{ r.key }}">+ Connect {{ r.label }}</a></p>{% endfor %}
+  </div>
+  {% else %}
+  <div class="wq-bn-banner" role="region" aria-label="Battle.net">
+    <div><p class="wq-bn-banner-h"><span class="wq-dot wq-dot-off" aria-hidden="true"></span>Connect Battle.net to share your characters</p>
+      <p class="note">Connecting proves a character is yours. Until then, anything you bring in from Blizzard stays visible only to you.</p></div>
+    <a class="btn wq-btn-bn" href="{{ mp }}/characters/start">Connect Battle.net</a>
+  </div>
+  {% endif %}
+{% endif %}
 <dialog class="wq-dialog" id="character-dialog" aria-labelledby="character-dialog-title" data-character-dialog data-mode="{{ 'edit' if editing else 'add' }}"{% if editing or adding %} open{% endif %}>
   <a class="wq-dialog-x" href="{{ mp }}/characters" data-close-dialog aria-label="Close" title="Close">&times;</a>
 
@@ -38,69 +73,100 @@
     {% else %}<p class="btns"><button class="btn" type="submit">Add character</button> <a class="btn ghost" href="{{ mp }}/characters" data-close-dialog>Cancel</a></p>{% endif %}
   </form>
 </dialog>
-{% if bz_enabled and details %}
-<div class="panel wq-form wq-bulk">
-  {% if bulk == "refreshed" %}<p class="wq-saved" role="status">Refreshed {{ bulk_n }} character{{ "" if bulk_n == 1 else "s" }} from Blizzard.{% if bulk_failed %} {{ bulk_failed }} didn't refresh; use Refresh on that character to see why.{% endif %}</p>
-  {% elif bulk == "pick" %}<p class="wq-saved" role="status">Choose who can see them first, then press Save. Nothing was changed.</p>
-  {% elif bulk == "shared" %}<p class="wq-saved" role="status">Sharing updated for {{ bulk_n }} character{{ "" if bulk_n == 1 else "s" }}.</p>{% endif %}
-  <h2 class="sub">All characters</h2>
-  <form method="post" action="{{ mp }}/characters/details/all">{{ csrf_field() }}
-    <label for="bulk-level">Who can see all of them</label>
-    <div class="wq-bulk-row">
-      <span class="wq-select"><select id="bulk-level" name="share_level" data-bulk-level><option value="">Choose who can see them…</option>{% for lv, lab in share_labels.items() %}<option value="{{ lv }}">{{ lab }}</option>{% endfor %}</select></span>
-      <button class="btn" type="submit" name="action" value="share" data-bulk-share>Save</button>
-    </div>
-    <p class="note">Applies to every group of every character. Sharing beyond yourself only applies to characters verified as yours through Battle.net. You can still change any one character below afterwards.</p>
-  </form>
-  <form method="post" action="{{ mp }}/characters/details/all" class="wq-bulk-refresh">{{ csrf_field() }}
-    <div class="wq-bulk-row"><button class="btn ghost" type="submit" name="action" value="refresh">Refresh all from Blizzard</button></div>
-    <p class="note">Re-imports the same groups for each character (up to {{ cfg["blizzard"].get("refresh_all_max", 10) }} per press) and keeps each one's sharing.</p>
-  </form>
-</div>
-{% endif %}
-<div class="wq-chars">
-  {% for c in chars %}
-  <div class="panel wq-card{% if editing and editing.id == c.id %} wq-editing{% endif %}" id="char-{{ c.id }}">
-    {% if saved == c.id %}<p class="wq-saved" role="status">Saved. Imported details and sharing are updated for {{ c.name }}.</p>{% elif removed == c.id %}<p class="wq-saved" role="status">Imported details removed for {{ c.name }}.</p>{% endif %}
-    <h3><a class="wq-char-link" href="{{ mp }}/characters?edit={{ c.id }}#character-form" title="Edit {{ c.name }}">{{ c.name }}</a> <span class="note">{{ editions[c.edition].name }}{% if c.ruleset %} · {{ editions[c.edition].ruleset_label(c.ruleset) }}{% endif %}{% if c.realm_slug %} · {{ c.realm_name or c.realm_slug }}{% endif %}</span></h3>
-    <p>{{ c.faction|title }} {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} · level {{ c.level }}{% endif %}{% if c.spec %} · {{ c.spec }}{% endif %}</p>
-    <p class="note">Roles: {{ c.eligible_roles|join(", ") or "—" }}{% if c.preferred_role %} (prefers {{ c.preferred_role }}){% endif %}{% if c.focus_tags %} · Interests: {{ c.focus_tags|join(", ") }}{% endif %}</p>
-    <p class="note">API: {{ {"api_matched":"matched in Blizzard's API (existence only, not proof it's yours)","ownership_verified":"verified as yours via Battle.net login","self_reported":"self-reported, not checked","unverified":"not checked","not_found":"not found in Blizzard's API","unsupported":"no Blizzard API for this edition yet"}.get(c.verification, c.verification) }}</p>
-    {% set ed = editions[c.edition] %}
-    {% if bz_enabled and ed.capability("character") != "unsupported" %}
-    {% set d = details.get(c.id) %}
-    {% if not d %}<form method="post" action="{{ mp }}/characters/{{ c.id }}/lookup">{{ csrf_field() }}<button class="linkish" type="submit">Check it exists on Blizzard</button></form>{% endif %}
-    {% if d %}{% set owner_view = true %}{% set visible = none %}{% include "_character_details.html" %}
-    <p class="note"><a href="{{ mp }}/characters/{{ c.id }}/view">Open its character page</a> (what others see depends on your sharing choices){% if d.guild_id and "guild" in d.groups and effective_share(d, c, "guild") != "private" %} · <a href="{{ mp }}/guilds/{{ d.edition }}/{{ d.region }}/{{ d.guild_id }}">{{ d.guild_name or "Guild" }} roster</a>{% endif %}</p>{% endif %}
-    <details class="wq-import" id="details-{{ c.id }}"{% if not d %} data-new{% endif %}>
-      <summary>Refresh from Blizzard <span class="note">{{ "· change what's included or who can see it" if d else "· choose what to bring in" }}</span></summary>
-      <form method="post" action="{{ mp }}/characters/{{ c.id }}/details">{{ csrf_field() }}
-        <p class="note">Pick what to bring in and who can see it. Untick anything you'd rather keep out.{% if c.verification != "ownership_verified" %} Sharing with your guild or other members needs this character verified as yours: use Sync from Battle.net below. Until then everything stays visible only to you.{% endif %} Sharing takes effect on guild and member pages as they arrive.</p>
-        <table class="wq-import-table"><thead><tr><th scope="col">Include</th><th scope="col">Who can see it</th></tr></thead><tbody>
-          {% if c.verification == "ownership_verified" %}<tr class="wq-share-all"><td><strong>Set all</strong> <span class="note">(changes every row)</span></td>
-          <td><select name="share_all" aria-label="Who can see every group" data-share-all><option value="">Choose each</option>{% for lv, lab in share_labels.items() %}<option value="{{ lv }}">{{ lab }}</option>{% endfor %}</select></td></tr>{% endif %}
-        {% for g in detail_groups %}
-          <tr><td><label class="wq-check"><input type="checkbox" name="groups" value="{{ g.key }}"{% if not d or g.key in d.groups %} checked{% endif %}> {{ g.label }} <span class="note">({{ g.hint }})</span></label></td>
-          <td><select name="share_{{ g.key }}" data-share-one aria-label="Who can see {{ g.label }}">{% for lv, lab in share_labels.items() %}<option value="{{ lv }}"{% if share_choice(d, g.key) == lv %} selected{% endif %}{% if lv != "private" and c.verification != "ownership_verified" %} disabled{% endif %}>{{ lab }}</option>{% endfor %}</select></td></tr>
-        {% endfor %}
-        </tbody></table>
-        <p class="btns"><button class="btn" type="submit">Refresh from Blizzard</button></p>
-      </form>
-      {% if d %}<form method="post" action="{{ mp }}/characters/{{ c.id }}/details/remove">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Remove the details imported for {{ c.name }}?">Remove imported details</button></form>{% endif %}
+<div class="wq-cm{% if chosen %} wq-cm-chosen{% endif %}">
+  <aside class="wq-cm-list" aria-label="Your characters">
+    {% if chars|length > 3 %}<label class="wq-cm-search"><span class="sr-only">Search your characters</span><input type="search" placeholder="Search your characters" data-char-search autocomplete="off"></label>{% endif %}
+    <ul class="wq-cm-cards" data-char-cards>
+    {% for c in chars %}{% set d = details.get(c.id) %}{% set ed = editions[c.edition] %}
+      <li data-name="{{ c.name|lower }}"><a class="wq-cm-card{% if sel and sel.id == c.id %} is-active{% endif %}" href="{{ mp }}/characters?c={{ c.id }}#detail"{% if sel and sel.id == c.id %} aria-current="true"{% endif %} id="char-{{ c.id }}">
+        {{ avatar(c, d) }}
+        <span class="wq-cm-txt"><strong>{{ c.name }}</strong>
+          <span class="note">{{ c.class_key.replace('_',' ')|title }}{% if c.level %} · {{ c.level }}{% endif %} · {{ ed.name }}</span>
+          <span class="wq-cm-chips">{% if c.verification == "ownership_verified" %}<span class="wq-chip wq-chip-ok">Verified</span>{% else %}<span class="wq-chip wq-chip-warn">Not verified</span>{% endif %}<span class="wq-chip">{{ share_summary(c, d) }}</span></span>
+        </span></a></li>
+    {% endfor %}
+    </ul>
+    <p class="note" data-char-none hidden>No characters match.</p>
+    {% if bn_on and editions.values()|selectattr("uses_realms", "false")|list %}
+    <details class="wq-hint"><summary>Where's my character?</summary>
+      <p class="note">{% for ed in editions.values() if not ed.uses_realms and ed.capability("ownership") != "unsupported" %}{{ ed.name }} characters show up on Battle.net from level 10, after you log out with them once. {% endfor %}The list can lag behind the game by up to about 40 minutes. Sync again later, or add a character by hand.</p>
     </details>
     {% endif %}
-    <p class="btns wq-card-actions"><a class="linkish" href="{{ mp }}/characters?edit={{ c.id }}#character-form">Edit</a></p>
-    <form method="post" action="{{ mp }}/characters/{{ c.id }}/remove">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Remove {{ c.name }}? Characters with event history are archived instead.">Remove</button></form>
-  </div>
-  {% else %}<p class="note">No characters yet.</p>{% endfor %}
-  {% if bn_enabled %}
-  <div class="panel">
-    <h2 class="sub">Sync from Battle.net</h2>
-    <p class="note">Optional. Log in with Battle.net; QuestersBoard reads your character list once, marks matching characters as verified (and updates their level), and lets you add the others. It doesn't keep your Battle.net login, so sync again whenever you want to refresh. WoW: Forever characters show up from level 10, after you log out with them once. Blizzard checks last {{ cfg["blizzard"].get("data_ttl_days", 30) }} days; sync again to keep the verified mark.</p>
-    <p class="btns">{% for k, ed in editions.items() if ed.capability("ownership") != "unsupported" %}{% for rg in ed.regions %}<a class="btn ghost" href="{{ mp }}/characters/battlenet?edition={{ k }}&amp;region={{ rg }}">{{ ed.name }} · {{ rg|upper }}</a> {% endfor %}{% endfor %}</p>
-    {% if bn_linked %}<form method="post" action="{{ mp }}/characters/battlenet/unlink">{{ csrf_field() }}<button class="linkish" type="submit">Forget my Battle.net link</button></form>{% endif %}
-  </div>
+  </aside>
+  <section class="wq-cm-detail" id="detail" aria-label="Character details">
+  {% if sel %}{% set c = sel %}{% set d = details.get(c.id) %}{% set ed = editions[c.edition] %}
+    {% set verified = c.verification == "ownership_verified" %}
+    {% set can_verify = bn_on and ed.capability("ownership") != "unsupported" and c.region in sync_regions %}
+    {% set has_api = bz_enabled and ed.capability("character") != "unsupported" %}
+    <a class="wq-cm-back" href="{{ mp }}/characters">&larr; All characters</a>
+    <div class="wq-cm-top" id="card-{{ c.id }}">
+      {{ avatar(c, d) }}
+      <div class="wq-cm-title">
+        <h2>{{ c.name }} {% if verified %}<span class="wq-chip wq-chip-ok">Verified</span>{% else %}<span class="wq-chip wq-chip-warn">Not verified</span>{% endif %}</h2>
+        <p class="note">{{ c.faction|title }} {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} · level {{ c.level }}{% endif %}{% if c.spec %} · {{ c.spec }}{% endif %} · {{ ed.name }}{% if c.ruleset %} · {{ ed.ruleset_label(c.ruleset) }}{% endif %}{% if c.realm_slug %} · {{ c.realm_name or c.realm_slug }}{% endif %}</p>
+        <p class="note">{% if d and d.guild_name %}{{ d.guild_name }} · {% endif %}{% if d %}Last refreshed from Blizzard {{ ago(d.fetched_at) }}{% elif has_api %}Nothing brought in from Blizzard yet{% else %}Self-reported{% endif %}</p>
+      </div>
+      <div class="wq-cm-actions">
+        {% if d %}<a class="btn ghost" href="{{ mp }}/characters/{{ c.id }}/view">Open full page</a>{% endif %}
+        {% if not verified and can_verify %}<a class="btn wq-btn-bn" href="{{ mp }}/characters/battlenet?region={{ c.region }}">Verify with Battle.net</a>
+        {% elif d %}<form method="post" action="{{ mp }}/characters/{{ c.id }}/details/refresh" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="back" value="characters"><button class="btn" type="submit">Refresh from Blizzard</button></form>
+        {% elif has_api %}<a class="btn" href="#details-{{ c.id }}" data-open-details="details-{{ c.id }}">Bring in from Blizzard</a>{% endif %}
+        <details class="wq-more"><summary aria-label="More actions for {{ c.name }}" title="More actions">&#8943;</summary>
+          <div class="wq-more-menu">
+            <a href="{{ mp }}/characters?edit={{ c.id }}#character-form" title="Edit {{ c.name }}">Edit roles and notes</a>
+            {% if has_api %}<a href="#details-{{ c.id }}" data-open-details="details-{{ c.id }}">{{ "Change what's included" if d else "Choose what to bring in" }}</a>{% endif %}
+            {% if has_api and not d %}<form method="post" action="{{ mp }}/characters/{{ c.id }}/lookup">{{ csrf_field() }}<button type="submit">Check it exists on Blizzard</button></form>{% endif %}
+            {% if d %}<form method="post" action="{{ mp }}/characters/{{ c.id }}/details/remove">{{ csrf_field() }}<button type="submit" data-confirm="Remove the details imported for {{ c.name }}?">Remove imported details</button></form>{% endif %}
+            <form method="post" action="{{ mp }}/characters/{{ c.id }}/remove">{{ csrf_field() }}<button class="wq-danger" type="submit" data-confirm="Remove {{ c.name }}? Characters with event history are archived instead.">Remove character</button></form>
+          </div>
+        </details>
+      </div>
+    </div>
+    {% if saved == c.id %}<p class="wq-saved" role="status">Saved. Imported details and sharing are updated for {{ c.name }}.</p>{% elif removed == c.id %}<p class="wq-saved" role="status">Imported details removed for {{ c.name }}.</p>{% elif shared == c.id %}<p class="wq-saved" role="status">Sharing saved for {{ c.name }}.</p>{% endif %}
+    <div class="wq-refused" role="alert" data-share-refused{% if refused != c.id %} hidden{% endif %}>
+      <p><strong>{{ c.name }} isn't verified yet.</strong> Your choice wasn't saved. Connect Battle.net to verify it, then you can share it with your guild or all members.</p>
+      <p class="btns">{% if can_verify %}<a class="btn small wq-btn-bn" href="{{ mp }}/characters/battlenet?region={{ c.region }}">Connect Battle.net</a>{% endif %} <a class="btn ghost small" href="{{ mp }}/characters?c={{ c.id }}#sharing" data-dismiss>Dismiss</a></p>
+    </div>
+    <p class="note wq-cm-roles">Roles: {{ c.eligible_roles|join(", ") or "none yet" }}{% if c.preferred_role %} (prefers {{ c.preferred_role }}){% endif %}{% if c.focus_tags %} · Interests: {{ c.focus_tags|join(", ") }}{% endif %}</p>
+    {% if d %}
+    <section class="wq-share" id="sharing" aria-labelledby="sharing-h-{{ c.id }}">
+      <h3 class="sub" id="sharing-h-{{ c.id }}">Who can see what</h3>
+      <form method="post" action="{{ mp }}/characters/{{ c.id }}/sharing" data-autosave>{{ csrf_field() }}
+        {% set ns = namespace(v=[]) %}{% for g in detail_groups if g.key in d.groups %}{% set ns.v = ns.v + [share_choice(d, g.key)] %}{% endfor %}{% set uni = ns.v|unique|list %}
+        <table class="wq-share-table"><tbody>
+          <tr class="wq-share-all"><th scope="row">All sections</th><td>{{ seg("share_all", uni[0] if uni|length == 1 and verified else ("private" if not verified else ""), not verified, "Who can see every section") }}</td></tr>
+          {% for g in detail_groups if g.key in d.groups %}
+          <tr><th scope="row">{{ g.label }}</th><td>{{ seg("share_" ~ g.key, share_choice(d, g.key) if verified else "private", not verified, "Who can see " ~ g.label) }}</td></tr>
+          {% endfor %}
+        </tbody></table>
+        <p class="note wq-share-note">{% if not verified %}Guild and All members open once {{ c.name }} is verified through Battle.net. Your earlier choices are kept for when it is.{% else %}Changes save as you click. Guild means members confirmed in the same in-game guild{% if not d.guild_id %} (bring in the Guild section to use it){% endif %}.{% endif %}</p>
+        <p class="btns" data-autosave-btn><button class="btn" type="submit">Save sharing</button></p>
+      </form>
+    </section>
+    {% elif has_api and not verified %}
+    <section class="wq-share"><h3 class="sub">Who can see what</h3><p class="note">Sections from Blizzard appear here after you bring them in{% if can_verify %}; Guild and All members open after you verify{% endif %}.</p></section>
+    {% endif %}
+    {% if d %}{% set owner_view = true %}{% set visible = none %}{% include "_character_details.html" %}{% endif %}
+    {% if has_api %}
+    <details class="wq-import" id="details-{{ c.id }}"{% if not d %} data-new{% endif %}>
+      <summary>{{ "What to bring in from Blizzard" if d else "Bring in details from Blizzard" }} <span class="note">· gear, talents, professions and more</span></summary>
+      <form method="post" action="{{ mp }}/characters/{{ c.id }}/details">{{ csrf_field() }}
+        <p class="note">Tick what to bring in; untick anything you'd rather keep out. Each section keeps its sharing choice above{% if not verified %}, and stays visible only to you until {{ c.name }} is verified{% endif %}.</p>
+        <ul class="plain-list wq-import-list">
+        {% for g in detail_groups %}
+          <li><label class="wq-check"><input type="checkbox" name="groups" value="{{ g.key }}"{% if not d or g.key in d.groups %} checked{% endif %}> {{ g.label }} <span class="note">({{ g.hint }})</span></label><input type="hidden" name="share_{{ g.key }}" value="{{ share_choice(d, g.key) }}"></li>
+        {% endfor %}
+        </ul>
+        <p class="btns"><button class="btn" type="submit">{{ "Refresh from Blizzard" if d else "Bring in from Blizzard" }}</button></p>
+      </form>
+    </details>
+    {% endif %}
+  {% else %}
+    <p class="note">No characters yet.</p>
   {% endif %}
+  </section>
 </div>
+<p class="note wq-cm-attrib">Characters you add by hand are self-reported. A Blizzard check (where available) confirms a character exists; verifying through Battle.net confirms it's yours.{% if bz_enabled %} Character data comes from Blizzard Entertainment's Battle.net API. QuestersBoard isn't made, endorsed or supported by Blizzard.{% endif %}</p>
+{% if picker %}{% include "_bn_picker.html" %}{% endif %}
 <a class="wq-fab" href="{{ mp }}/characters?add=1#character-form" data-open-character>+ Add a character</a>
 {% endblock %}

@@ -1,0 +1,52 @@
+{# Add from Battle.net: side panel on wide screens, full-height sheet on phones. Needs picker (routes _picker). #}
+{% from "_macros.html" import csrf_field with context %}
+{% set p = picker %}
+<a class="wq-sheet-backdrop" href="{{ mp }}/characters" aria-label="Close" tabindex="-1"></a>
+<aside class="wq-sheet" role="dialog" aria-modal="true" aria-labelledby="picker-title" data-sheet>
+  <a class="wq-dialog-x" href="{{ mp }}/characters" aria-label="Close" title="Close">&times;</a>
+  {% set offered = p.groups|sum(attribute="rows", start=[])|length %}
+  <h2 id="picker-title">{% if p.expired %}That Battle.net list has expired{% elif offered %}We found {{ offered }} character{{ "" if offered == 1 else "s" }} to add{% else %}You're all set{% endif %}</h2>
+  <p class="note">{% if p.expired %}Lists from Battle.net are deleted {{ p.minutes }} minutes after you sync. Sync again to see your characters.{% else %}On your Battle.net account in {{ p.label }}. This list is deleted {{ p.minutes }} minutes after you synced.{% endif %}</p>
+  {% if p.added %}<p class="wq-saved" role="status">Added {{ p.added|join(", ") }}.</p>{% endif %}
+  {% if p.skipped %}<div class="wq-sheet-sec"><h3 class="wq-sheet-h">Not added</h3><ul class="plain-list">{% for n, why in p.skipped %}<li>{{ n }} <span class="note">· {{ why }}</span></li>{% endfor %}</ul></div>{% endif %}
+  {% if p.verified %}<div class="wq-sheet-sec"><h3 class="wq-sheet-h">Already here, now verified</h3><ul class="plain-list wq-verified-list">{% for n in p.verified %}<li><span class="wq-tick" aria-hidden="true">&#10003;</span> {{ n }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if p.failed %}<p class="note">Blizzard didn't answer for {{ p.failed|join(", ") }}. Sync again later to check those.</p>{% endif %}
+  {% if p.expired %}
+    <p class="btns"><a class="btn wq-btn-bn" href="{{ mp }}/characters/battlenet?region={{ p.region }}">Sync again</a></p>
+  {% elif offered %}
+  <form method="post" action="{{ mp }}/characters/battlenet/import" class="wq-sheet-form" data-picker>{{ csrf_field() }}
+    <input type="hidden" name="region" value="{{ p.region }}">
+    <div class="wq-sheet-body">
+    {% for g in p.groups if g.rows %}{% set ed = g.ed %}
+      <div class="wq-sheet-sec"><h3 class="wq-sheet-h">{{ ed.name }} <span class="note">{{ g.rows|length }}</span></h3>
+      <ul class="plain-list wq-pick-list">
+      {% for r in g.rows %}{% set c = r.c %}
+        <li class="wq-pick{% if not r.ready %} is-off{% endif %}">
+          <label><input type="checkbox" name="pick" value="{{ ed.key }}:{{ r.i }}" data-pick{% if r.ready %} checked{% else %} disabled{% endif %}>
+            <span class="wq-pick-txt"><strong>{{ c.name }}</strong>
+            <span class="note">{% if c.race and c["class"] %}{{ (c.faction or "")|title }} {{ c.race }} {{ c["class"] }}{% endif %}{% if c.level %}{% if c.race and c["class"] %} · {% endif %}level {{ c.level }}{% endif %}{% if c.realm %} · {{ c.realm|replace("-", " ")|title }}{% endif %}</span></span></label>
+          {% if r.ready and not ed.uses_realms %}
+          <label class="wq-pick-rs">Ruleset <select name="ruleset_{{ ed.key }}_{{ r.i }}">{% for k in ed.rulesets %}<option value="{{ k }}"{% if (r.ruleset or ed.default_ruleset) == k %} selected{% endif %}>{{ ed.ruleset_label(k) }}</option>{% endfor %}</select>{% if not r.ruleset %} <span class="note">Blizzard didn't say; check it's right.</span>{% endif %}</label>
+          {% endif %}
+          {% if not r.named %}<p class="note">Battle.net shows a temporary name, which usually means the game wants this character renamed. Log in with it, pick a new name, then sync again.</p>
+          {% elif not r.ready %}<p class="note">Blizzard didn't send the race, class or faction yet; add this one by hand.</p>{% endif %}
+        </li>
+      {% endfor %}
+      </ul></div>
+    {% endfor %}
+    {% if p.realmless %}<p class="note">Missing one? Some game versions only show a character on Battle.net from level 10, after you log out with it once, and the list can lag behind the game by up to about 40 minutes.</p>{% endif %}
+    </div>
+    <div class="wq-sheet-foot">
+      <fieldset class="wq-seg-field"><legend>Who can see the ones you add</legend>
+        <span class="wq-seg" role="radiogroup">{% for lv, lab in seg_labels.items() %}<label class="wq-seg-opt"><input type="radio" name="share_level" value="{{ lv }}"{% if p.default_share == lv %} checked{% endif %}><span>{{ lab }}</span></label>{% endfor %}</span>
+      </fieldset>
+      <p class="note">We'll bring in their details from Blizzard (gear, talents, professions and more). You can change this for each character any time.</p>
+      <p class="btns"><a class="btn ghost" href="{{ mp }}/characters">Not now</a> <button class="btn" type="submit" data-pick-count>Add {{ p.ready }} character{{ "" if p.ready == 1 else "s" }}</button></p>
+    </div>
+  </form>
+  {% else %}
+    <p>Nothing new to add from {{ p.label }}.</p>
+    {% if p.realmless %}<p class="note">Missing one? Some game versions only show a character on Battle.net from level 10, after you log out with it once, and the list can lag behind the game by up to about 40 minutes.</p>{% endif %}
+    <p class="btns"><a class="btn" href="{{ mp }}/characters">Done</a></p>
+  {% endif %}
+</aside>

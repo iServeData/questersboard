@@ -6,7 +6,23 @@
 
 [[release]]
 date = "2026-11-11"
-title = "Recipe icons, sortable tables and a new footer"
+title = "One account menu, a simpler My characters, recipe icons and a new footer"
+[[release.change]]
+area = "Site"
+kind = "new"
+text = "One menu with your name at the top of every member page shows your Discord login and Battle.net together, with Sync now, Disconnect and Log out."
+[[release.change]]
+area = "Characters"
+kind = "new"
+text = "Connecting Battle.net is one login per region that finds your characters in every game version, then lets you add them in one go with one sharing choice."
+[[release.change]]
+area = "Characters"
+kind = "improved"
+text = "My characters shows your list and the selected character side by side, with Refresh from Blizzard by the name and the rest under the ⋯ button."
+[[release.change]]
+area = "Characters"
+kind = "improved"
+text = "Who can see what saves as you click, with one control for all sections, and says why when a character needs verifying first."
 [[release.change]]
 area = "Guild"
 kind = "improved"

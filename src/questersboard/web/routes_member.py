@@ -39,6 +39,10 @@ def render(request: Request, name: str, ctx: dict, status: int = 200, public: bo
                 can=(lambda cap: a is not None and permissions.has(cfg, a, cap)), public=public,
                 probation=(permissions.probation_message(cfg) if a is not None and cfg["publishing"]["open_to_all"]
                            and permissions.on_probation(cfg, a) else ""))
+    if a is not None and a.member_id and "acct" not in ctx:
+        from . import account
+        with w.db.tx() as s:
+            base["acct"] = account.status(s, cfg, a.member_id)
     base.update(ctx)
     base["indexable"] = public and status == 200 and not ctx.get("noindex")   # errors, notices, guest links: no
     base["preview"] = bool(ctx.get("preview") and ctx.get("seo"))   # link-preview card only, never indexed
@@ -352,9 +356,14 @@ def router(cfg: Config) -> APIRouter:
 
     @r.post(mp + "/logout")
     async def logout(request: Request):
-        await post_guard(request, fresh=False)
+        form, a = await post_guard(request, fresh=False)
+        w = W(request)
         resp = _redirect(mp + "/")
-        W(request).drop_session(request, resp)
+        if _bool(form, "everywhere") and a is not None and a.member_id:
+            from ..models import Session as WebSession
+            with w.db.tx() as s:      # every device's login for this member, this one included
+                s.query(WebSession).filter(WebSession.member_id == a.member_id).delete()
+        w.drop_session(request, resp)
         return resp
 
     # ------------------------------------------------------------- dashboard
@@ -650,11 +659,19 @@ def router(cfg: Config) -> APIRouter:
     # ------------------------------------------------------------- characters
     @r.get(mp + "/characters")
     def characters(request: Request, edit: int = 0, saved: int = 0, removed: int = 0, bulk: str = "",
-                   n: int = 0, failed: int = 0, add: int = 0):
+                   n: int = 0, failed: int = 0, add: int = 0, c: int = 0, picker: str = "", refused: int = 0,
+                   shared: int = 0, added: int = -1, imported: int = 0, disconnected: int = 0):
+        from . import account
         sess, a = session_or_login(request)
         w = W(request)
         with w.db.tx() as s:
             chars = roster.list_characters(s, a.member_id)
+            acct = account.status(s, w.cfg, a.member_id)
+            if not chars and acct["enabled"] and acct["regions"] and not add and not picker:
+                return render(request, "characters_start.html", {**_start_ctx(w), "acct": acct})
+            pick = None
+            if picker and picker in account.sync_regions(w.cfg):
+                pick = _picker(s, w, sess, a, picker)
             race_map = {ed: catalog.race_class_map(s, ed) for ed in w.cfg.editions}
             editing = next((c for c in chars if c.id == edit), None)
             if edit and editing is None:
@@ -666,21 +683,24 @@ def router(cfg: Config) -> APIRouter:
                                    if r["key"] == editing.race_key), editing.race_key.replace("_", " ").title())
                 class_label = (m.get("classes") or {}).get(editing.class_key,
                                                            editing.class_key.replace("_", " ").title())
-            from ..models import BattlenetLink
-            # The Battle.net list itself is deleted soon after the login; "verified" characters still count.
-            bn_linked = (s.query(BattlenetLink.member_id).filter(BattlenetLink.member_id == a.member_id).first()
-                         is not None or any(c.verification == "ownership_verified" for c in chars))
             from ..domain import profiles
             details = profiles.profiles_for(s, a.member_id)
             for p in details.values():
                 s.expunge(p)
             guild_links = profiles.my_guild_links(s, a.member_id)
         bz = w.cfg["blizzard"]
+        want = c or edit or saved or removed or refused or shared
+        sel = next((x for x in chars if x.id == want), None) or (chars[0] if chars else None)
         return render(request, "characters.html", {"title": "Characters", "chars": chars, "race_map": race_map,
                                                    "editions": w.cfg.editions, "presets": w.cfg.role_presets,
                                                    "bz_enabled": bool(bz.get("enabled")),
                                                    "bn_enabled": bool(bz.get("enabled") and bz.get("battlenet_link_enabled")),
-                                                   "bn_linked": bn_linked, "editing": editing,
+                                                   "acct": acct, "picker": pick, "editing": editing,
+                                                   "sel": sel, "chosen": bool(c or edit or saved or removed or refused or shared),
+                                                   "refused": refused, "shared": shared, "added_n": added,
+                                                   "imported_n": imported, "disconnected": bool(disconnected),
+                                                   "sync_regions": account.sync_regions(w.cfg),
+                                                   "seg_labels": {"private": "Only me", "guild": "Guild", "members": "All members"},
                                                    "race_label": race_label, "class_label": class_label,
                                                    "details": details, "detail_groups": profiles.GROUPS, "detail_tabs": profiles.DETAIL_TABS, "tab_of": profiles.TAB_OF,
                                                    "share_labels": profiles.SHARE_LABELS,
@@ -693,7 +713,7 @@ def router(cfg: Config) -> APIRouter:
                                                    "bulk_n": max(0, n), "bulk_failed": max(0, failed),
                                                    "removed": removed,
                                                    # the add/edit dialog starts open (edit, ?add=1, or no characters yet)
-                                                   "adding": bool(add) or not chars})
+                                                   "adding": bool(add) or (not chars and not pick)})
 
     @r.post(mp + "/characters")
     async def add_character(request: Request):
@@ -804,6 +824,8 @@ def router(cfg: Config) -> APIRouter:
                 raise Invalid(str(exc)) from None
             except ApiError:
                 raise Invalid("Blizzard's API didn't answer. Nothing was changed; try again later.") from None
+        if form.get("back") == "characters":
+            return _redirect(f"{mp}/characters?saved={character_id}#detail")
         return _redirect(f"{mp}/characters/{character_id}/view?refreshed=1")
 
     def _details_ctx(w):
@@ -935,22 +957,43 @@ def router(cfg: Config) -> APIRouter:
             profiles.remove_profile(s, w.cfg, a, character_id)
         return _redirect(f"{mp}/characters?removed={character_id}#char-{character_id}")
 
-    @r.get(mp + "/characters/battlenet")
-    def battlenet_start(request: Request, edition: str = "", region: str = ""):
-        """Optional ownership check: Battle.net login (wow.profile), one-time character list read."""
-        from ..integrations.blizzard import Unsupported
+    @r.get(mp + "/characters/start")
+    def characters_start(request: Request):
+        """First run: pick a region and connect Battle.net once, or add a character by hand."""
         sess, a = session_or_login(request)
         w = W(request)
+        return render(request, "characters_start.html", _start_ctx(w))
+
+    def _start_ctx(w):
+        from . import account
+        regions = []
+        for rg in account.sync_regions(w.cfg):
+            eds = [ed.name for ed in w.cfg.editions.values() if rg in ed.regions
+                   and ed.capability("ownership") != "unsupported" and ed.profile_namespace]
+            regions.append({"key": rg, "label": account.region_label(w.cfg, rg), "editions": eds})
+        return {"title": "Bring in your characters", "regions": regions}
+
+    @r.get(mp + "/characters/battlenet")
+    def battlenet_start(request: Request, edition: str = "", region: str = ""):
+        """Battle.net login (wow.profile). One login reads the character list for every edition in the
+        region (or just `edition`), once."""
+        from ..integrations.blizzard import Unsupported
+        from . import account
+        sess, a = session_or_login(request)
+        w = W(request)
+        regions = account.sync_regions(w.cfg)
+        if not regions:
+            raise Invalid("Battle.net sync is switched off on this site.")
+        region = region or regions[0]
+        if edition and edition not in w.cfg.editions:
+            raise Invalid("Unknown edition.")
+        if region not in regions or not w.bz.sync_editions(region, edition):
+            raise Invalid("Battle.net sync isn't available for that region.")
         try:
-            ed = w.cfg.edition(edition)
-            region = region or ed.default_region
-            if region not in ed.regions:
-                raise Invalid("Unknown region for this edition.")
-            w.bz.require(ed, "ownership", "profile", region)
             url, state = w.bz.authorize_url(region, w.cfg["community"]["public_base_url"].rstrip("/")
                                             + mp + "/battlenet/callback")
-        except (Unsupported, KeyError) as exc:
-            raise Invalid(str(exc) if isinstance(exc, Unsupported) else "Unknown edition.") from None
+        except Unsupported as exc:
+            raise Invalid(str(exc)) from None
         w.update_session_data(sess, bn_state=state, bn_edition=edition, bn_region=region)
         return RedirectResponse(url, status_code=303)
 
@@ -970,68 +1013,127 @@ def router(cfg: Config) -> APIRouter:
                                         w.cfg["community"]["public_base_url"].rstrip("/") + mp + "/battlenet/callback")
             except (Unsupported, ApiError) as exc:
                 raise Invalid(str(exc)) from None
-            audit.record(s, a, "character.ownership_link", "member", a.member_id, edition=edition,
-                         verified=len(res["verified"]), offered=len(res["new"]))
-        return _battlenet_review(request, w, edition, region, res["verified"], res["new"])
+            audit.record(s, a, "character.ownership_link", "member", a.member_id, edition=edition or "all",
+                         region=region, verified=len(res["verified"]),
+                         offered=sum(len(v) for v in res["new"].values()))
+        w.update_session_data(sess, bn_verified=res["verified"][:200], bn_failed=res["failed"],
+                              bn_added=[], bn_skipped=[])
+        return _redirect(f"{mp}/characters?picker={region}")
 
-    def _battlenet_review(request, w, edition, region, verified, offers, added=(), skipped=()):
-        ed = w.cfg.edition(edition)
-        rows = []
-        for i, c in offers:
-            # Blizzard gives characters awaiting a forced rename a placeholder like "Name1A2B3C"; WoW names
-            # never have digits, so those can't be added until they're renamed in game.
-            named = bool(roster.NAME_RE.match(c.get("name") or ""))
-            rows.append({"i": i, "c": c, "ruleset": c.get("ruleset"), "named": named,
-                         "ready": named and bool(c.get("faction") in ed.factions and c.get("race") and c.get("class"))})
-        return render(request, "battlenet_sync.html", {
-            "title": "Battle.net characters", "ed": ed, "edition": edition, "region": region,
-            "verified": verified, "rows": rows, "added": list(added), "skipped": list(skipped),
-            "minutes": int(w.cfg["blizzard"].get("battlenet_import_minutes", 60))})
+    def _picker(s, w, sess, a, region):
+        """The Add-from-Battle.net panel: what's still on offer from the member's own recent list."""
+        from . import account
+        minutes = int(w.cfg["blizzard"].get("battlenet_import_minutes", 60))
+        snap = w.bz.read_snapshot(s, a.member_id, region, max_age_minutes=minutes)
+        out = {"region": region, "label": account.region_label(w.cfg, region), "minutes": minutes,
+               "expired": snap is None, "groups": [], "ready": 0,
+               "verified": list(sess.data.get("bn_verified") or []), "failed": list(sess.data.get("bn_failed") or []),
+               "added": list(sess.data.get("bn_added") or []), "skipped": list(sess.data.get("bn_skipped") or []),
+               "default_share": w.cfg["blizzard"].get("picker_default_share", "guild"), "realmless": False}
+        for key, chars in (snap or {}).items():
+            if key not in w.cfg.editions:
+                continue
+            ed = w.cfg.edition(key)
+            out["realmless"] = out["realmless"] or not ed.uses_realms
+            rows = []
+            for i, c in w.bz.offer(s, a.member_id, key, region, chars):
+                # Blizzard gives characters awaiting a forced rename a placeholder like "Name1A2B3C"; WoW names
+                # never have digits, so those can't be added until they're renamed in game.
+                named = bool(roster.NAME_RE.match(c.get("name") or ""))
+                ready = named and bool(c.get("faction") in ed.factions and c.get("race") and c.get("class"))
+                rows.append({"i": i, "c": c, "ruleset": c.get("ruleset"), "named": named, "ready": ready})
+                out["ready"] += ready
+            out["groups"].append({"ed": ed, "rows": rows})
+        return out
 
     @r.post(mp + "/characters/battlenet/import")
     async def battlenet_import(request: Request):
-        """Add characters picked from the Battle.net list. Reads the member's own encrypted snapshot, so it
-        needs no Battle.net token; the list is only usable for battlenet_import_minutes after the login."""
+        """Add characters ticked in the Battle.net panel and bring in their details with one sharing choice.
+        Reads the member's own encrypted list, so it needs no Battle.net token; the list is only usable for
+        battlenet_import_minutes after the login."""
+        from ..domain import profiles
+        from ..models import SHARE_LEVELS
         form, a = await post_guard(request, fresh=False)
         w = W(request)
-        region = form.get("region", "")
-        idx = set()
+        sess = request.state.sess
+        region = str(form.get("region", ""))
+        level = str(form.get("share_level") or "private")
+        if level not in SHARE_LEVELS:
+            raise Invalid("Pick who can see them.")
+        picked: dict[str, set[int]] = {}
         for v in form.getlist("pick"):
-            if not str(v).isdigit():
+            key, _, i = str(v).partition(":")
+            if not i.isdigit() or key not in w.cfg.editions:
                 raise Invalid("Pick characters from the list.")
-            idx.add(int(v))
+            picked.setdefault(key, set()).add(int(i))
+        if not picked:
+            raise Invalid("Tick at least one character to add.")
+        added, skipped, ids = [], [], []
         with w.db.tx() as s:
             snap = w.bz.read_snapshot(s, a.member_id, region,
                                       max_age_minutes=w.cfg["blizzard"].get("battlenet_import_minutes", 60))
             if snap is None:
-                raise Invalid("That Battle.net list has expired. Log in with Battle.net again from My characters.")
-            edition, chars = snap
-            if edition not in w.cfg.editions:
-                raise Invalid("That Battle.net list is for an edition this site no longer has.")
-            if not idx:
-                raise Invalid("Tick at least one character to add.")
-            # Only entries still on offer: a page sent twice doesn't add anything twice.
-            offered = dict(w.bz.offer(s, a.member_id, edition, region, chars))
-            picks = [(offered[i], form.get(f"ruleset_{i}") or None) for i in sorted(idx) if i in offered]
-            added, skipped = roster.import_verified(s, w.cfg, a, edition, region, picks)
-            left = w.bz.offer(s, a.member_id, edition, region, chars)
-        if not skipped and not left:
-            return _redirect(mp + "/characters")
-        return _battlenet_review(request, w, edition, region, [], left, added=added, skipped=skipped)
+                raise Invalid("That Battle.net list has expired. Sync with Battle.net again from My characters.")
+            left = 0
+            for key, idx in picked.items():
+                if key not in snap:
+                    continue
+                # Only entries still on offer: a page sent twice doesn't add anything twice.
+                offered = dict(w.bz.offer(s, a.member_id, key, region, snap[key]))
+                picks = [(offered[i], form.get(f"ruleset_{key}_{i}") or None) for i in sorted(idx) if i in offered]
+                got, miss = roster.import_verified(s, w.cfg, a, key, region, picks, ids)
+                added += got
+                skipped += miss
+            for key, chars in snap.items():
+                if key in w.cfg.editions:
+                    left += len(w.bz.offer(s, a.member_id, key, region, chars))
+        imported, not_imported = [], []
+        if ids and w.cfg["blizzard"].get("enabled"):
+            with w.db.tx() as s:
+                imported, not_imported = profiles.import_new(s, w.cfg, w.bz, a, ids, level)
+            with w.db.tx() as s:
+                audit.record(s, a, "character.import_details", "member", a.member_id, level=level,
+                             imported=len(imported), left=len(not_imported))
+        w.update_session_data(sess, bn_added=added, bn_skipped=[list(x) for x in skipped], bn_verified=[])
+        if skipped or left:
+            return _redirect(f"{mp}/characters?picker={region}")
+        first = f"&c={ids[0]}" if ids else ""
+        return _redirect(f"{mp}/characters?added={len(added)}&imported={len(imported)}{first}")
+
+    @r.post(mp + "/characters/{character_id}/sharing")
+    async def character_sharing(request: Request, character_id: int):
+        """Who can see each imported section of one character; saves as you click (no Blizzard calls)."""
+        from ..domain import profiles
+        form, a = await post_guard(request, fresh=False)
+        w = W(request)
+        _groups, shares = profiles.parse_form(form)
+        try:
+            with w.db.tx() as s:
+                profiles.set_shares(s, w.cfg, a, character_id, shares)
+        except profiles.NotVerified:
+            return _redirect(f"{mp}/characters?c={character_id}&refused={character_id}#sharing")
+        return _redirect(f"{mp}/characters?c={character_id}&shared={character_id}#sharing")
 
     @r.post(mp + "/characters/battlenet/unlink")
     async def battlenet_unlink(request: Request):
-        """Forget the Battle.net snapshot; characters verified through it drop back to self-reported."""
+        """Disconnect: forget the Battle.net list and drop the verified mark (one region, or all). Characters
+        stay; their sharing choices are kept but only apply again once they're verified (effective_share)."""
         from ..models import BattlenetLink
         form, a = await post_guard(request, fresh=False)
         w = W(request)
+        region = str(form.get("region") or "")
         with w.db.tx() as s:
-            n = s.query(BattlenetLink).filter(BattlenetLink.member_id == a.member_id).delete()
-            k = (s.query(Character).filter(Character.member_id == a.member_id,
-                                           Character.verification == "ownership_verified")
-                 .update({"verification": "self_reported"}))
-            audit.record(s, a, "character.ownership_unlink", "member", a.member_id, links=n, characters=k)
-        return _redirect(mp + "/characters")
+            links = s.query(BattlenetLink).filter(BattlenetLink.member_id == a.member_id)
+            chars = s.query(Character).filter(Character.member_id == a.member_id,
+                                              Character.verification == "ownership_verified")
+            if region:
+                links = links.filter(BattlenetLink.region == region)
+                chars = chars.filter(Character.region == region)
+            n = links.delete()
+            k = chars.update({"verification": "self_reported"})
+            audit.record(s, a, "character.ownership_unlink", "member", a.member_id, links=n, characters=k,
+                         region=region or "all")
+        return _redirect(mp + "/characters?disconnected=1")
 
     # ------------------------------------------------------------- me / calendar
     @r.get(mp + "/me")

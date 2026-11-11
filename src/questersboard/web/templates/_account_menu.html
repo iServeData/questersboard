@@ -1,0 +1,51 @@
+{# Account menu: one place for the Discord login and Battle.net. Needs actor, acct (web/account.py). #}
+{% set ac = acct or {"enabled": false, "regions": [], "chars": 0, "connected": false} %}
+{% set bn_on = ac.enabled and ac.regions %}
+<li class="wq-acct-li">
+  <details class="wq-acct" data-acct>
+    <summary class="wq-acct-btn" aria-label="Account: {{ actor.display_name or 'Me' }}">
+      <span class="wq-dot wq-dot-discord" aria-hidden="true"></span>{% if bn_on %}<span class="wq-dot {{ 'wq-dot-bn' if ac.connected else 'wq-dot-off' }}" aria-hidden="true"></span>{% endif %}
+      <span class="wq-acct-name">{{ actor.display_name or "Me" }}</span>
+    </summary>
+    <div class="wq-acct-menu">
+      <section class="wq-acct-sec">
+        <h2 class="wq-acct-h">Signed in</h2>
+        <p class="wq-acct-row"><span class="wq-dot wq-dot-discord" aria-hidden="true"></span> Discord · {{ actor.display_name or actor.username or "you" }}</p>
+      </section>
+      {% if bn_on %}
+      <section class="wq-acct-sec">
+        <h2 class="wq-acct-h">Battle.net</h2>
+        {% for r in ac.regions if r.connected %}
+        <div class="wq-acct-region">
+          <p class="wq-acct-row"><span class="wq-dot wq-dot-bn" aria-hidden="true"></span> Connected · {{ r.label }}</p>
+          <p class="note">{% if r.synced_ago %}Synced {{ r.synced_ago }} · {% endif %}{{ r.verified }} character{{ "" if r.verified == 1 else "s" }} verified</p>
+          <div class="wq-acct-btns">
+            <a class="btn small" href="{{ mp }}/characters/battlenet?region={{ r.key }}">Sync now</a>
+            <form method="post" action="{{ mp }}/characters/battlenet/unlink" class="wq-inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="region" value="{{ r.key }}"><button class="btn ghost small" type="submit" data-confirm="Disconnect Battle.net for {{ r.label }}? Your characters there stay on QuestersBoard but lose the verified mark, so only you can see their details until you sync again. Your sharing choices are kept.">Disconnect</button></form>
+          </div>
+        </div>
+        {% endfor %}
+        {% if not ac.connected %}
+        <p class="wq-acct-row"><span class="wq-dot wq-dot-off" aria-hidden="true"></span> Not connected</p>
+        <p class="note">Connect to verify your characters and share them with your guild.</p>
+        <p class="wq-acct-btns"><a class="btn small wq-btn-bn" href="{{ mp }}/characters/start">Connect Battle.net</a></p>
+        {% else %}
+        <p class="wq-acct-more">{% for r in ac.regions if not r.connected %}<a class="linkish" href="{{ mp }}/characters/battlenet?region={{ r.key }}">+ {{ r.label }}</a> {% endfor %}</p>
+        {% endif %}
+      </section>
+      {% endif %}
+      <ul class="wq-acct-links">
+        <li><a href="{{ mp }}/characters">My characters <span class="note">{{ ac.chars }}</span></a></li>
+        <li><a href="{{ mp }}/#my-signups">My signups</a></li>
+        <li><a href="{{ mp }}/me">My settings</a></li>
+        <li><a href="{{ mp }}/privacy">Sharing and privacy</a></li>
+        <li><a href="{{ mp }}/help">How it works</a></li>
+      </ul>
+      <div class="wq-acct-out">
+        <form method="post" action="{{ mp }}/logout" class="wq-inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="linkish" type="submit">Log out</button></form>
+        <form method="post" action="{{ mp }}/logout" class="wq-inline"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="everywhere" value="1"><button class="linkish" type="submit">Log out on all devices</button></form>
+      </div>
+      {% if bn_on %}<p class="note wq-acct-foot">QuestersBoard never keeps your Battle.net login; it reads your character list only when you sync.</p>{% endif %}
+    </div>
+  </details>
+</li>

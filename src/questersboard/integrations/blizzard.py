@@ -760,53 +760,77 @@ class Blizzard:
                             "faction": _label(c.get("faction")).lower(), "ruleset_raw": c.get("ruleset")})
         return out
 
+    def sync_editions(self, region: str, only: str = "") -> list[Edition]:
+        """Editions one Battle.net login in this region can read (ownership switched on), or just `only`."""
+        out = []
+        for ed in self.cfg.editions.values():
+            if only and ed.key != only:
+                continue
+            try:
+                self.require(ed, "ownership", "profile", region)
+            except Unsupported:
+                continue
+            out.append(ed)
+        return out
+
     def link_account(self, s: Session, member_id: int, edition: str, region: str, code: str,
                      redirect_uri: str) -> dict:
-        """Exchange the code, read the account's character list once, mark matching characters verified
-        (and bring their level up to date), and keep the rest as an encrypted list the member can add from.
+        """Exchange the code, then read the account's character list once for every edition this region
+        supports (edition="") or just one, with the same user token. Marks matching characters verified
+        (and brings their level up to date) and keeps the rest as an encrypted list the member can add from.
 
         The user token is never stored (Battle.net user tokens last ~24h and have no refresh token).
-        Returns {"verified": [names], "new": [entries not on the member's roster yet]}.
+        Returns {"verified": [names], "new": {edition: [(index, entry)]}, "failed": [edition names]}.
         """
-        ed = self.cfg.edition(edition)
-        ns = self.require(ed, "ownership", "profile", region)
+        eds = self.sync_editions(region, edition)
+        if not eds:
+            raise Unsupported("Battle.net sync isn't available for this region.")
         r = self._send("POST", f"{self.bz['oauth_base'].rstrip('/')}/token",
                        auth=(get_secret("blizzard-client-id").reveal(), get_secret("blizzard-client-secret").reveal()),
                        data={"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri})
         if r.status_code != 200:
             raise ApiError("Battle.net login failed.")
         user_token = r.json()["access_token"]
+        lists, failed = {}, []
         try:
-            chars = self.account_characters(region, ns, user_token)
+            for ed in eds:
+                try:
+                    lists[ed.key] = self.account_characters(region, ed.namespace("profile", region), user_token)
+                except ApiError:
+                    failed.append(ed.name)        # one edition not answering doesn't stop the others
         finally:
             del user_token
-        if ed.uses_realms:
-            for c in chars:
-                c.pop("ruleset_raw", None)
-                c["ruleset"] = None
-        else:
-            self._fill_rulesets(s, ed, region, chars)
-        key = get_secret("field-key")
-        blob = Fernet(key.reveal().encode()).encrypt(json.dumps({"edition": ed.key, "chars": chars}).encode())
+        if not lists:
+            raise ApiError("Couldn't read the Battle.net account. Nothing was changed; try again later.")
+        for key, chars in lists.items():
+            ed = self.cfg.edition(key)
+            if ed.uses_realms:
+                for c in chars:
+                    c.pop("ruleset_raw", None)
+                    c["ruleset"] = None
+            else:
+                self._fill_rulesets(s, ed, region, chars)
+        blob = Fernet(get_secret("field-key").reveal().encode()).encrypt(json.dumps({"editions": lists}).encode())
         vals = dict(member_id=member_id, region=region, snapshot_enc=blob, linked_at=now())
         s.execute(insert(BattlenetLink).values(**vals).on_conflict_do_update(
             index_elements=[BattlenetLink.member_id, BattlenetLink.region],
             set_={"snapshot_enc": blob, "linked_at": now()}))
-        verified = []
-        mine = s.scalars(select(Character).where(Character.member_id == member_id, Character.edition == edition,
-                                                 Character.region == region, Character.archived_at.is_(None)))
-        for ch in mine:
-            hit = self._match(ed, ch, chars)
-            if hit is None:
-                continue
-            if self._claimed_by_other(s, ed.key, region, hit["id"], member_id):
-                continue
-            ch.verification, ch.api_external_id, ch.api_refreshed_at = "ownership_verified", hit["id"] or None, now()
-            if hit.get("level") and 1 <= hit["level"] <= ed.max_level:
-                ch.level = hit["level"]
-            verified.append(ch.name)
-        s.flush()
-        return {"verified": verified, "new": self.offer(s, member_id, ed.key, region, chars)}
+        verified, offers = [], {}
+        for key, chars in lists.items():
+            ed = self.cfg.edition(key)
+            mine = s.scalars(select(Character).where(Character.member_id == member_id, Character.edition == key,
+                                                     Character.region == region, Character.archived_at.is_(None)))
+            for ch in mine:
+                hit = self._match(ed, ch, chars)
+                if hit is None or self._claimed_by_other(s, ed.key, region, hit["id"], member_id):
+                    continue
+                ch.verification, ch.api_external_id, ch.api_refreshed_at = "ownership_verified", hit["id"] or None, now()
+                if hit.get("level") and 1 <= hit["level"] <= ed.max_level:
+                    ch.level = hit["level"]
+                verified.append(ch.name)
+            s.flush()
+            offers[key] = self.offer(s, member_id, key, region, chars)
+        return {"verified": verified, "new": offers, "failed": failed}
 
     def offer(self, s: Session, member_id: int, edition: str, region: str, chars: list[dict]
               ) -> list[tuple[int, dict]]:
@@ -870,8 +894,8 @@ class Blizzard:
                     c["level"] = body["level"]
 
     def read_snapshot(self, s: Session, member_id: int, region: str, max_age_minutes: float | None = None
-                      ) -> tuple[str, list[dict]] | None:
-        """(edition, characters) from the member's encrypted snapshot, or None if missing or too old."""
+                      ) -> dict[str, list[dict]] | None:
+        """{edition: characters} from the member's encrypted snapshot, or None if missing or too old."""
         row = s.get(BattlenetLink, (member_id, region))
         if row is None:
             return None
@@ -880,4 +904,6 @@ class Blizzard:
         data = json.loads(Fernet(get_secret("field-key").reveal().encode()).decrypt(bytes(row.snapshot_enc)))
         if isinstance(data, list):         # snapshots from before Battle.net sync: keys only, no edition
             return None
-        return data.get("edition", ""), list(data.get("chars", []))
+        if "editions" in data:
+            return {k: list(v or []) for k, v in data["editions"].items()}
+        return {data.get("edition", ""): list(data.get("chars", []))}     # one-edition snapshots

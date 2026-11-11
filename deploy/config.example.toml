@@ -231,6 +231,8 @@ icon_lookups = 120                            # max icon lookups per import: gea
 refresh_all_max = 10                          # My characters "Refresh all": at most this many characters per press (1-50)
 known_recipes_max = 500                       # known recipes kept per profession (0-2000; 0 = skill levels only)
 recipe_lookups = 80                           # new known recipes looked up per import for icon and tooltip (0-500); later refreshes fill in the rest
+picker_default_share = "guild"                # Battle.net panel: who can see newly added characters until changed ("private", "guild", "members")
+# region_labels = { us = "Americas & Oceania", eu = "Europe" }   # names shown for Battle.net regions (these are the defaults)
 operator_refresh_pause_seconds = 1            # questersboard-admin refresh-details: pause between characters (0-10)
 icon_cache_hours = 12                         # icon images kept in memory per web process (max 24; never written to disk)
 icon_cache_entries = 2000                     # about 3 KB each

@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 
 import pytest
-from conftest import actor, make_cfg, needs_db
+from conftest import actor, fake_id, make_cfg, needs_db
 from helpers import char
 from sqlalchemy import text
 
@@ -30,6 +30,12 @@ ACCOUNT = {"wow_accounts": [{"characters": [
 ]}]}
 
 
+CLASSIC = {"wow_accounts": [{"characters": [
+    {"id": 701, "name": "Fixtureera", "realm": {"slug": "fixture-realm"}, "level": 40,
+     "playable_race": {"name": "Orc"}, "playable_class": {"name": "Hunter"}, "faction": {"type": "HORDE", "name": "Horde"}},
+]}]}
+
+
 def _handler(calls_seen):
     import httpx
 
@@ -38,9 +44,16 @@ def _handler(calls_seen):
         if req.url.path == "/token":
             return httpx.Response(200, json={"access_token": "FIXTURE-user", "expires_in": 86399})
         if req.url.path == "/profile/user/wow":
-            assert req.headers["authorization"] == "Bearer FIXTURE-user"
-            assert req.url.params["namespace"] == "profile-forever-us"
-            return httpx.Response(200, json=ACCOUNT)
+            assert req.headers["authorization"] == "Bearer FIXTURE-user"       # one login, every edition
+            ns = req.url.params["namespace"]
+            calls_seen.append(ns)
+            if ns == "profile-forever-us":
+                return httpx.Response(200, json=ACCOUNT)
+            if ns == "profile-classic1x-us":
+                return httpx.Response(200, json=CLASSIC)
+            if ns == "profile-classic-us":
+                return httpx.Response(503)                                     # one edition not answering
+            return httpx.Response(404)                                         # nothing on this edition
         if req.url.path == "/profile/wow/character/vashka-duskmane":
             assert req.headers["authorization"] == "Bearer FIXTURE-app"         # app token, not the user's
             return httpx.Response(200, json={"id": 503, "ruleset": {"id": 15, "name": "Roleplay PvP"}})
@@ -48,11 +61,17 @@ def _handler(calls_seen):
     return h
 
 
-def _link(a, c):
-    r = c.get("/wow/quester/characters/battlenet?edition=forever&region=us")
+def _link(a, c, query="region=us"):
+    r = c.get(f"/wow/quester/characters/battlenet?{query}")
     assert r.status_code == 303 and "scope=wow.profile" in r.headers["location"]
     state = re.search(r"state=([^&]+)", r.headers["location"]).group(1)
-    return c.get(f"/wow/quester/battlenet/callback?code=FIXTURE-code&state={state}")
+    r = c.get(f"/wow/quester/battlenet/callback?code=FIXTURE-code&state={state}")
+    assert r.status_code == 303 and r.headers["location"].endswith("/characters?picker=us"), r.text
+    return c.get(r.headers["location"])
+
+
+def _pick(page, name):
+    return re.search(rf'name="pick" value="([a-z_]+:\d+)"[^>]*>\s*<span class="wq-pick-txt"><strong>{name}', page).group(1)
 
 
 @needs_db
@@ -63,33 +82,42 @@ def test_forever_sync_verifies_offers_and_imports(seeded, tmp_path, monkeypatch)
     with seeded.tx() as s:
         mine = char(s, cfg, actor(60), "Grimtusk Ironhide", level=12).id
     c = login(a, 60)
-    assert "Sync from Battle.net" in c.get("/wow/quester/characters").text
+    page = c.get("/wow/quester/characters").text
+    assert "Connect Battle.net to share your characters" in page and "Verify with Battle.net" in page
     r = _link(a, c)
     assert r.status_code == 200, r.text
     page = r.text
+    # one Battle.net login read every edition in the region with the same user token
+    assert {"profile-forever-us", "profile-classic1x-us", "profile-us"} <= set(seen)
     assert "Already here, now verified" in page and "Grimtusk Ironhide" in page
+    assert "WoW Classic (Era, Hardcore, Season of Discovery)" in page and "Fixtureera" in page   # grouped by edition
+    assert "Blizzard didn't answer for WoW Classic: Mists of Pandaria" in page
     for n in ("Zulmara Ashveil", "Vashka Duskmane", "Corwin Brightmere", "Elspeth Rowan"):
         assert n in page
     assert "level 10" in page                                  # the Forever visibility caveat is shown
+    assert 'name="share_level" value="guild" checked' in page  # [blizzard] picker_default_share
     with seeded.tx() as s:
         v = s.execute(text("select verification, level, api_external_id from characters where id=:i"),
                       {"i": mine}).one()
         snap = bytes(s.execute(text("select snapshot_enc from battlenet_links")).scalar_one())
     assert v == ("ownership_verified", 22, "501")             # verified and level brought up to date
-    assert b"Zulmara" not in snap and b"503" not in snap        # encrypted at rest
+    assert b"Zulmara" not in snap and b"503" not in snap and b"Fixtureera" not in snap   # encrypted at rest
     # the ruleset select is prefilled from Blizzard's ID (3 = rp; 15 via the character profile = rp_pvp)
-    idx = {n: re.search(rf'name="pick" value="(\d+)"[^>]*>\s*<strong>{n}', page).group(1)
-           for n in ("Zulmara Ashveil", "Vashka Duskmane", "Corwin Brightmere")}
-    assert re.search(rf'name="ruleset_{idx["Zulmara Ashveil"]}">.*?value="rp" selected', page, re.S)
-    assert re.search(rf'name="ruleset_{idx["Vashka Duskmane"]}">.*?value="rp_pvp" selected', page, re.S)
-    assert re.search(r'value="\d+" disabled>\s*<strong>Elspeth Rowan', page)      # can't be added yet
-    assert re.search(r'value="(\d+)" disabled>\s*<strong>Zulma4C7D21', page) and "temporary name" in page
-    z = re.search(r'value="(\d+)" disabled>\s*<strong>Zulma4C7D21', page).group(1)
-    form = {"csrf": csrf(c), "region": "us", "pick": [*idx.values(), z],
-            f"ruleset_{idx['Zulmara Ashveil']}": "rp", f"ruleset_{idx['Vashka Duskmane']}": "rp_pvp",
-            f"ruleset_{idx['Corwin Brightmere']}": "normal"}
+    idx = {n: _pick(page, n) for n in ("Zulmara Ashveil", "Vashka Duskmane", "Corwin Brightmere", "Fixtureera")}
+    z_i, v_i = idx["Zulmara Ashveil"].split(":")[1], idx["Vashka Duskmane"].split(":")[1]
+    assert re.search(rf'name="ruleset_forever_{z_i}">.*?value="rp" selected', page, re.S)
+    assert re.search(rf'name="ruleset_forever_{v_i}">.*?value="rp_pvp" selected', page, re.S)
+    assert re.search(r'value="forever:\d+" data-pick disabled>\s*<span class="wq-pick-txt"><strong>Elspeth Rowan', page)
+    z = re.search(r'value="(forever:\d+)" data-pick disabled>\s*<span class="wq-pick-txt"><strong>Zulma4C7D21', page)
+    assert z and "temporary name" in page
+    assert "/profile/wow/character/vashka-duskmane" in seen and "/profile/wow/character/zulmara-ashveil" not in seen
+    c_i = idx["Corwin Brightmere"].split(":")[1]
+    form = {"csrf": csrf(c), "region": "us", "pick": [*idx.values(), z.group(1)], "share_level": "guild",
+            f"ruleset_forever_{z_i}": "rp", f"ruleset_forever_{v_i}": "rp_pvp", f"ruleset_forever_{c_i}": "normal"}
     r = c.post("/wow/quester/characters/battlenet/import", data=form)
-    assert r.status_code == 200 and "Added" in r.text and "Elspeth Rowan" in r.text   # one left on offer
+    assert r.status_code == 303 and r.headers["location"].endswith("picker=us")     # one is still on offer
+    page = c.get(r.headers["location"]).text
+    assert "Added Zulmara Ashveil" in page and "Elspeth Rowan" in page
     with seeded.tx() as s:
         rows = {n: (rs, f, rc, lv, ver, ext) for n, rs, f, rc, lv, ver, ext in s.execute(text(
             "select name, ruleset, faction, race_key || '/' || class_key, level, verification, api_external_id "
@@ -98,14 +126,16 @@ def test_forever_sync_verifies_offers_and_imports(seeded, tmp_path, monkeypatch)
     assert rows["Zulmara Ashveil"] == ("rp", "horde", "troll/priest", 15, "ownership_verified", "502")
     assert rows["Vashka Duskmane"] == ("rp_pvp", "horde", "tauren/druid", 11, "ownership_verified", "503")
     assert rows["Corwin Brightmere"] == ("normal", "alliance", "human/mage", 30, "ownership_verified", "504")
+    assert rows["Fixtureera"][4:] == ("ownership_verified", "701")                   # the Classic one too
     assert "Zulma4C7D21" not in rows                               # a forced-rename placeholder is never added
     # sending the same page again adds nothing twice
     r = c.post("/wow/quester/characters/battlenet/import", data=form)
-    assert r.status_code == 200
+    assert r.status_code == 303
     with seeded.tx() as s:
-        assert s.execute(text("select count(*) from characters where api_external_id in ('502','503','504')")
-                         ).scalar_one() == 3
-    assert "/profile/wow/character/vashka-duskmane" in seen and "/profile/wow/character/zulmara-ashveil" not in seen
+        assert s.execute(text("select count(*) from characters where api_external_id in ('502','503','504','701')")
+                         ).scalar_one() == 4
+    page = c.get("/wow/quester/characters").text
+    assert "Battle.net connected" in page and "5 verified" in page
 
 
 @needs_db
@@ -114,28 +144,57 @@ def test_forever_sync_other_member_and_expiry(seeded, tmp_path, monkeypatch):
     a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, _handler([]))
     c = login(a, 61)
     page = _link(a, c).text
-    i = re.search(r'name="pick" value="(\d+)"[^>]*>\s*<strong>Zulmara Ashveil', page).group(1)
-    assert c.post("/wow/quester/characters/battlenet/import",
-                  data={"csrf": csrf(c), "region": "us", "pick": [i], f"ruleset_{i}": "rp"}).status_code == 200
+    i = _pick(page, "Zulmara Ashveil")
+    r = c.post("/wow/quester/characters/battlenet/import",
+               data={"csrf": csrf(c), "region": "us", "pick": [i], f"ruleset_{i.replace(':', '_')}": "rp"})
+    assert r.status_code == 303
     # Someone else's Battle.net list can't offer a character already verified as member 61's
     o = login(a, 62)
     page = _link(a, o).text
     assert "Zulmara Ashveil" not in page and "Vashka Duskmane" in page
-    # The list expires: an old snapshot can't be used to add characters
+    # The list expires: an old snapshot can't be used to add characters, and the panel says so
     with seeded.tx() as s:
         s.execute(text("update battlenet_links set linked_at = now() - interval '3 hours'"))
-    j = re.search(r'name="pick" value="(\d+)"[^>]*>\s*<strong>Vashka Duskmane', page).group(1)
+    j = _pick(page, "Vashka Duskmane")
     r = o.post("/wow/quester/characters/battlenet/import",
-               data={"csrf": csrf(o), "region": "us", "pick": [j], f"ruleset_{j}": "rp_pvp"})
+               data={"csrf": csrf(o), "region": "us", "pick": [j], f"ruleset_{j.replace(':', '_')}": "rp_pvp"})
     assert r.status_code == 422 and "expired" in r.text
-    # Nothing ticked, or a made-up index, adds nothing
+    assert "That Battle.net list has expired" in o.get("/wow/quester/characters?picker=us").text
+    # Nothing ticked, a made-up index or edition, or a bad sharing level adds nothing
     with seeded.tx() as s:
         s.execute(text("update battlenet_links set linked_at = now()"))
     assert o.post("/wow/quester/characters/battlenet/import",
                   data={"csrf": csrf(o), "region": "us"}).status_code == 422
-    r = o.post("/wow/quester/characters/battlenet/import", data={"csrf": csrf(o), "region": "us", "pick": ["99"]})
+    o.post("/wow/quester/characters/battlenet/import", data={"csrf": csrf(o), "region": "us", "pick": ["forever:99"]})
+    assert o.post("/wow/quester/characters/battlenet/import",
+                  data={"csrf": csrf(o), "region": "us", "pick": ["nope:1"]}).status_code == 422
+    assert o.post("/wow/quester/characters/battlenet/import",
+                  data={"csrf": csrf(o), "region": "us", "pick": [j], "share_level": "world"}).status_code == 422
     with seeded.tx() as s:
         assert s.execute(text("select count(*) from characters where name='Vashka Duskmane'")).scalar_one() == 0
+
+
+@needs_db
+def test_one_edition_link_still_works_and_old_snapshots_read(seeded, tmp_path, monkeypatch):
+    """?edition= narrows the login to one edition; a list saved in the old one-edition shape still reads."""
+    import json
+
+    from cryptography.fernet import Fernet
+    from test_web import _bz_app, login
+
+    from questersboard.secrets import get_secret
+    seen = []
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, _handler(seen))
+    c = login(a, 64)
+    page = _link(a, c, "edition=forever&region=us").text
+    assert "Zulmara Ashveil" in page and "Fixtureera" not in page and "profile-classic1x-us" not in seen
+    with seeded.tx() as s:
+        mid = s.execute(text("select id from members where discord_id=:d"), {"d": fake_id(64)}).scalar_one()
+        blob = Fernet(get_secret("field-key").reveal().encode()).encrypt(json.dumps(
+            {"edition": "forever", "chars": [{"id": "9", "name": "Fixture Oldlist", "slug": "fixture-oldlist",
+                                              "faction": "horde", "race": "Orc", "class": "Warrior"}]}).encode())
+        s.execute(text("update battlenet_links set snapshot_enc=:b where member_id=:m"), {"b": blob, "m": mid})
+    assert "Fixture Oldlist" in c.get("/wow/quester/characters?picker=us").text
 
 
 def test_ruleset_key_and_slug():

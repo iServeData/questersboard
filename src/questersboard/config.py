@@ -535,6 +535,12 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
         raise ConfigError("[blizzard] recipe_lookups must be 500 or less")
     if _positive(bz.get("refresh_all_max", 10), "[blizzard] refresh_all_max") > 50:
         raise ConfigError("[blizzard] refresh_all_max must be 50 or less")
+    if bz.get("picker_default_share", "guild") not in ("private", "guild", "members"):
+        raise ConfigError('[blizzard] picker_default_share must be "private", "guild" or "members"')
+    rl = bz.get("region_labels", {})
+    if not isinstance(rl, dict) or not all(isinstance(k, str) and isinstance(v, str) and v.strip()
+                                           for k, v in rl.items()):
+        raise ConfigError("[blizzard] region_labels must map region keys to names, e.g. { us = \"Americas\" }")
     _positive(bz.get("icon_cache_entries", 2000), "[blizzard] icon_cache_entries", 0)
     if _positive(bz.get("known_recipes_max", 500), "[blizzard] known_recipes_max", 0) > 2000:
         raise ConfigError("[blizzard] known_recipes_max must be 2000 or less")

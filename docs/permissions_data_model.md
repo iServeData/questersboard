@@ -73,7 +73,7 @@ to run if one does).
 | API cache | `api_cache_days` (30) | worker housekeeping |
 | Withdrawn/rejected signups of past events | `withdrawn_signup_days` (365) | prune |
 | Audit log | `audit_days` (400) | prune, admin role only; services can only append |
-| Battle.net snapshot | `battlenet_import_minutes` (60) after the login, or "Forget my Battle.net link" | deleted. Blizzard checks (verified, API matched) are cleared after `data_ttl_days` (30) without a refresh, or at once by "Forget my Battle.net link" |
+| Battle.net snapshot | `battlenet_import_minutes` (60) after the login, or "Disconnect" (per region) | deleted. Blizzard checks (verified, API matched) are cleared after `data_ttl_days` (30) without a refresh, or at once by "Disconnect" (per region) |
 | Imported character details (`character_profiles`) | `data_ttl_days` (30) after the import or last refresh | worker housekeeping; at once by "Remove imported details", removing, archiving or renaming the character, or "Remove me" |
 | Personal calendar token | until revoked | member or `questersboard-admin calendar-revoke` |
 | Chronicle text | indefinitely once published | unpublish; recognition removal and consent withdrawal apply immediately |

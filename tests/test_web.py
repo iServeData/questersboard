@@ -325,7 +325,8 @@ def test_check_with_blizzard_retail_is_existence_only(seeded, tmp_path, monkeypa
     cid = _retail(seeded, cfg, 30)
     c = login(a, 30)
     page = c.get("/wow/quester/characters").text
-    assert "Check it exists on Blizzard" in page and "Sync from Battle.net" in page
+    assert "Check it exists on Blizzard" in page and "Verify with Battle.net" in page
+    assert "Connect Battle.net to share your characters" in page        # not connected yet: one banner
     r = c.post(f"/wow/quester/characters/{cid}/lookup", data={"csrf": csrf(c)})
     assert r.status_code == 303
     with seeded.tx() as s:
@@ -380,15 +381,19 @@ def test_battlenet_link_state_single_use_and_marks_owned(seeded, tmp_path, monke
     r = c.get("/wow/quester/characters/battlenet?edition=retail&region=us")
     state = re.search(r"state=([^&]+)", r.headers["location"]).group(1)
     r = c.get(f"/wow/quester/battlenet/callback?code=FIXTURE-code&state={state}")
-    assert r.status_code == 200 and "Already here, now verified" in r.text and "Ragna" in r.text
+    assert r.status_code == 303 and r.headers["location"].endswith("/characters?picker=us")
+    page = c.get(r.headers["location"]).text
+    assert "Already here, now verified" in page and "Ragna" in page and "You're all set" in page
     with seeded.tx() as s:
         got = dict(s.execute(text("select id, verification from characters where id in (:a,:b)"),
                              {"a": cid, "b": other}).all())
         snap = s.execute(text("select snapshot_enc from battlenet_links")).scalar_one()
     assert got == {cid: "ownership_verified", other: "self_reported"}
     assert b"Ragna" not in bytes(snap) and b"9001" not in bytes(snap)     # encrypted at rest
-    assert "Forget my Battle.net link" in c.get("/wow/quester/characters").text
-    assert c.post("/wow/quester/characters/battlenet/unlink", data={"csrf": csrf(c)}).status_code == 303
+    page = c.get("/wow/quester/characters").text
+    assert "Battle.net connected" in page and "1 verified" in page and "Disconnect" in page
+    assert "Connected · Americas &amp; Oceania" in page                  # the account menu on every page
+    assert c.post("/wow/quester/characters/battlenet/unlink", data={"csrf": csrf(c), "region": "us"}).status_code == 303
     with seeded.tx() as s:
         assert s.execute(text("select count(*) from battlenet_links")).scalar_one() == 0
         assert s.execute(text("select verification from characters where id=:i"), {"i": cid}).scalar_one() \
@@ -719,7 +724,7 @@ def test_character_edit_form_fills_in_and_saves(app, seeded):
                                             "focus_tags": "rp, pvp"})
     page = p.get("/wow/quester/characters").text
     cid = re.search(r'characters\?edit=(\d+)#character-form" title="Edit Zanra"', page).group(1)
-    assert ">Edit</a>" in page and "Add a character" in page
+    assert ">Edit roles and notes</a>" in page and "Add a character" in page
     # the add/edit form is a dialog: closed on the list, open for ?add=1 and ?edit=N, plus a floating Add button
     assert 'data-character-dialog data-mode="add">' in page and 'class="wq-fab"' in page and "data-open-character" in page
     assert 'data-mode="add" open>' in p.get("/wow/quester/characters?add=1").text
@@ -786,7 +791,7 @@ def test_character_edit_offers_leave_and_save_for_every_blocking_event(app, seed
                                                 "as_new": "1", "character_id": cid})
     assert r.status_code == 303
     page = p.get("/wow/quester/characters").text
-    assert page.count('title="Edit Zanra"') == 2 and "WoW (Retail)" in page
+    assert page.count('<li data-name="zanra">') == 2 and "WoW (Retail)" in page
 
 
 def test_remove_me_needs_typed_phrase_then_logs_out_with_receipt(app, seeded):
