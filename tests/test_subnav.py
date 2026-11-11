@@ -98,3 +98,34 @@ def test_guild_roster_in_characters_menu(seeded, tmp_path, monkeypatch):
     names = re.findall(r">([^<>]+)</a>", chars)
     assert names[:2] == ["Mine", "Players"] and names[-1] == "Who can craft" and len(names) == 4
     assert "/wow/quester/guilds/" in chars
+
+
+@needs_db
+def test_same_menus_on_every_page_when_signed_in(seeded, tmp_path, monkeypatch):
+    """Public pages (help, privacy, terms, changelog, chronicle) show the signed-in header and the same
+    submenu as member pages; only the current-section/page markers differ."""
+    from conftest import actor
+    from helpers import char
+    from test_account_ux import _verify
+    from test_character_details import _handler
+    from test_web import _bz_app, csrf
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(312), "Zulmara Ashveil").id
+    c = login(a, 312)
+    c.post(f"/wow/quester/characters/{cid}/details", data={"csrf": csrf(c), "groups": ["guild"]})
+    _verify(seeded, cid)
+    c.post(f"/wow/quester/characters/{cid}/sharing", data={"csrf": csrf(c), "share_guild": "guild"})
+
+    def plain(html):
+        sub = _subnav(html)
+        sub = re.sub(r' aria-current="page"| is-cur|<span class="sr-only"> \(current section\)</span>', "", sub)
+        return sub, 'class="wq-acct"' in _menu(html)
+    pages = ["/wow/quester/", "/wow/quester/events/new", "/wow/quester/characters", "/wow/quester/players",
+             "/wow/quester/help", "/wow/quester/privacy", "/wow/quester/terms", "/wow/quester/changelog",
+             "/wow/chronicle/"]
+    seen = {p: plain(c.get(p).text) for p in pages}
+    first = seen[pages[0]]
+    assert first[1] and "/wow/quester/guilds/" in first[0]
+    for p, v in seen.items():
+        assert v == first, p

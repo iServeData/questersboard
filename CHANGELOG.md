@@ -14,6 +14,11 @@ emojis are uploaded.
   The current section and page get the "›" marker. Quests and Chronicle left the main menu, which keeps
   the site's links and the account menu; the roster and Shared characters buttons on My characters,
   character pages and rosters are gone, since the Characters menu has them.
+- **Same header on every page.** How it works, Privacy, Terms, Changelog and the Chronicle now read the
+  login cookie (read-only: never renewed or written), so a signed-in member sees their account menu and
+  their full submenu (guild roster, Review queue) there too, instead of the logged-out header. Those
+  signed-in responses are `Cache-Control: private, no-store`; every public page sends `Vary: Cookie`, and
+  the logged-out page is unchanged. The "›" marker on the current section no longer nudges the row.
 
 - **Role icons on event posts.** A shield, a healing cross and crossed swords (QuestersBoard's own
   artwork, `web/static/roles/`) sit before each role's heading on the Discord post ("🛡 Tank (1/2)"; `[event_posts]

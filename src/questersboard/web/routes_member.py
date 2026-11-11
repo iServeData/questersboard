@@ -29,8 +29,10 @@ FIELDS_TEXT = ("title", "description", "eligibility", "objective", "difficulty")
 
 def render(request: Request, name: str, ctx: dict, status: int = 200, public: bool = False) -> HTMLResponse:
     w = request.app.state.web
-    sess = getattr(request.state, "sess", None) if not public else None
-    if sess is None and not public:
+    # Public pages read the session too (read-only: no renewal, no cookie written), so a signed-in member
+    # sees the same header and submenu everywhere; those responses are marked private below.
+    sess = getattr(request.state, "sess", None)
+    if sess is None:
         sess = w.load_session(request)
     a = w.actor(sess) if sess else None
     cfg = w.cfg
@@ -55,7 +57,12 @@ def render(request: Request, name: str, ctx: dict, status: int = 200, public: bo
         base["seo"] = None
     elif "seo" not in base:
         base["seo"] = seo.meta(request)
-    return request.app.state.tpl.TemplateResponse(request, name, base, status_code=status)
+    resp = request.app.state.tpl.TemplateResponse(request, name, base, status_code=status)
+    if public:
+        resp.headers["Vary"] = "Cookie"
+        if a is not None:   # personalised header: never store in a shared cache
+            resp.headers["Cache-Control"] = "private, no-store"
+    return resp
 
 
 def _redirect(url: str) -> RedirectResponse:

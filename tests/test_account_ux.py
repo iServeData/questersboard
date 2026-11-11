@@ -53,8 +53,12 @@ def test_account_menu_on_every_page(seeded, tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
     anon = TestClient(a, base_url="https://community.example.org", follow_redirects=False)
     assert 'class="wq-acct"' not in anon.get("/wow/quester/help").text
-    # public pages never carry anything from the session, even when signed in (safe to cache)
-    assert 'class="wq-acct"' not in c.get("/wow/quester/help").text
+    # public pages show the same signed-in header (read-only session), marked private; anonymous stays cacheable
+    r = c.get("/wow/quester/help")
+    assert 'class="wq-acct"' in r.text and r.headers["cache-control"] == "private, no-store"
+    assert "set-cookie" not in r.headers and r.headers["vary"] == "Cookie"
+    r = anon.get("/wow/quester/help")
+    assert "cache-control" not in r.headers and r.headers["vary"] == "Cookie"
 
 
 @needs_db
