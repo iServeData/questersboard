@@ -259,14 +259,16 @@ class Blizzard:
         raise ApiError(f"Blizzard API unavailable ({last}).")
 
     def get(self, s: Session | None, region: str, path: str, namespace: str, cache_hours: float,
-            locale: str = "en_US") -> tuple[int, dict]:
-        key = f"{region}|{namespace}|{path}|{locale}"[:300]
+            locale: str = "en_US", params: dict | None = None) -> tuple[int, dict]:
+        extra = "&".join(f"{k}={v}" for k, v in sorted((params or {}).items()))
+        key = f"{region}|{namespace}|{path}|{locale}" + (f"|{extra}" if extra else "")
+        key = key[:300]
         if s is not None:
             hit = s.get(ApiCache, key)
             if hit and hit.expires_at > now():
                 return hit.status, hit.body
         url = self.cfg["blizzard"]["api_host_template"].replace("{region}", region) + path
-        r = self._send("GET", url, params={"namespace": namespace, "locale": locale},
+        r = self._send("GET", url, params={**(params or {}), "namespace": namespace, "locale": locale},
                        headers={"Authorization": f"Bearer {self.token()}"})
         status = r.status_code
         body = r.json() if status == 200 else {}
@@ -466,7 +468,7 @@ class Blizzard:
         return out
 
     def probe_media(self, edition: str, region: str, name: str, realm: str | None = None) -> list[dict]:
-        """Read-only: can gear icons, item tooltips, talent icons and talent trees come straight from Blizzard?
+        """Read-only: can gear icons, item tooltips, talent icons, talent trees and recipe icons come straight from Blizzard?
 
         Takes one equipped item and one talent from the character (equipment and specializations pages),
         then checks the item, item media, spell, spell media and talent-tree answers in the edition's
@@ -555,6 +557,8 @@ class Blizzard:
                 dpath, dns = linked(pet.get("creature_display"), f"/data/wow/media/creature-display/{did}")
                 self._probe_icon(out, check("pet-display-media", dpath, dns), keys=("zoom",))
 
+        self._probe_recipe(out, check, linked, region, base, pns, sns)
+
         # Tree layouts: Retail-style talent trees, the older talent index, and the specialization list.
         index = {}
         for label, path in (("talent-tree-index", "/data/wow/talent-tree/index"),
@@ -576,6 +580,58 @@ class Blizzard:
                 check(label, u.path, dict(parse_qsl(u.query)).get("namespace") or sns, depth=6)
                 out[-1]["shape"] = f"{_label(pick)}  |  " + out[-1].get("shape", "")
         return out
+
+    def _probe_recipe(self, out: list[dict], check, linked, region: str, base: str, pns: str, sns: str) -> None:
+        """One known recipe: is there recipe data (what it makes, reagents, icon), is its ID a spell
+        with an icon, and can the made item be found by name? Read-only, like the rest of the probe."""
+        prof = check("professions", base + "/professions", pns, tree=False)
+        recipe, pname = None, ""
+        for grp in ("primaries", "secondaries"):
+            for p in prof.get(grp) or []:
+                for t in p.get("tiers") or []:
+                    for r in (t.get("known_recipes") or []) if isinstance(t, dict) else []:
+                        if not recipe and isinstance(r, dict) and isinstance(r.get("id"), int) and _label(r) \
+                                and _label(r).lower() != _label(p.get("profession")).lower():
+                            recipe, pname = r, _label(p.get("profession"))
+        if not recipe:
+            out.append({"check": "recipe-entry", "path": "", "namespace": pns, "status": "-",
+                        "shape": "no known recipe on the professions page"})
+            return
+        rid, rname = int(recipe["id"]), _label(recipe)
+        out.append({"check": "recipe-entry", "path": "(from the professions page)", "namespace": pns,
+                    "status": "200", "shape": f"{pname}: {rname}, recipe id={rid}", "tree": _tree(recipe, max_depth=3)})
+        rbody = check("recipe", f"/data/wow/recipe/{rid}", sns, depth=5)
+        rpath, rns = linked(rbody.get("media"), f"/data/wow/media/recipe/{rid}")
+        self._probe_icon(out, check("recipe-media", rpath, rns))
+        made = next((rbody.get(k) for k in ("crafted_item", "horde_crafted_item", "alliance_crafted_item")
+                     if isinstance(rbody.get(k), dict) and isinstance(rbody[k].get("id"), int)), None)
+        if made:
+            iid = int(made["id"])
+            check("crafted-item", f"/data/wow/item/{iid}", sns, depth=5)
+            mpath, mns = linked(made.get("media"), f"/data/wow/media/item/{iid}")
+            self._probe_icon(out, check("crafted-item-media", mpath, mns))
+        check("recipe-as-spell", f"/data/wow/spell/{rid}", sns)
+        self._probe_icon(out, check("recipe-as-spell-media", f"/data/wow/media/spell/{rid}", sns))
+        # Fallback: the item with the recipe's name (many recipes are named after what they make).
+        row = {"check": "item-search-by-name", "path": "/data/wow/search/item", "namespace": sns}
+        try:
+            st, body = self.get(None, region, "/data/wow/search/item", sns, 0,
+                                params={"name.en_US": rname, "orderby": "id", "_page": "1"})
+            row["status"] = str(st)
+            hits = [h.get("data") or {} for h in body.get("results") or [] if isinstance(h, dict)] if st == 200 else []
+            exact = [h for h in hits if _label(h).lower() == rname.lower()]
+            row["shape"] = f"{len(hits)} result(s), {len(exact)} named exactly '{rname}'" if st == 200 else ""
+            if exact:
+                row["tree"] = _tree(exact[0], max_depth=3)
+                iid = exact[0].get("id")
+                out.append(row)
+                if isinstance(iid, int):
+                    check("named-item", f"/data/wow/item/{iid}", sns, depth=5)
+                    self._probe_icon(out, check("named-item-media", f"/data/wow/media/item/{iid}", sns))
+                return
+        except (ApiError, ValueError, httpx.HTTPError) as exc:
+            row["status"], row["shape"] = "error", (str(exc) or type(exc).__name__)[:160]
+        out.append(row)
 
     def _probe_icon(self, out: list[dict], media: dict, keys: tuple[str, ...] = ("icon",)) -> None:
         """For a media answer: is the icon on an allowed image host, and does it download as an image?"""

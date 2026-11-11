@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Media probe checks a recipe.** `probe-media` now reads one known recipe: its recipe data, what it
+  makes, its icon, and the item with the same name. `--detail recipes` shows only those checks.
 - **Known recipes.** Each profession on a character page lists the recipes the character knows
   (collapsed under the skill line), from Blizzard's professions page, shared with the same people as
   Professions. `[blizzard] known_recipes_max` caps the list per profession (default 500).

@@ -163,9 +163,13 @@ def cmd_blizzard(args):
         except (Unsupported, ApiError) as exc:
             print(f"refused: {exc}", file=sys.stderr)
             return 3
-        print(f"{args.edition} {region.upper()}  icons, tooltips and talent trees  (read-only; nothing saved)")
+        if args.detail == "recipes":           # just the known-recipe checks, for a short answer
+            first = next((i for i, r in enumerate(rows) if r["check"] == "professions"), len(rows))
+            last = next((i for i, r in enumerate(rows) if r["check"] == "talent-tree-index"), len(rows))
+            rows = rows[first:last]
+        print(f"{args.edition} {region.upper()}  icons, tooltips, talent trees and recipes  (read-only; nothing saved)")
         for r in rows:
-            print(f"  {r['check']:<18} {r['status']:<6} {r['namespace']} {r['path']}")
+            print(f"  {r['check']:<22} {r['status']:<6} {r['namespace']} {r['path']}")
             if r.get("shape"):
                 print(f"      {r['shape']}")
             for line in r.get("tree") or []:
@@ -407,7 +411,7 @@ def main(argv=None) -> int:
     b.add_argument("--region")
     b.add_argument("--name", help="probe-character / probe-media: the character's name (Forever: first name and surname)")
     b.add_argument("--realm", help="probe-character / probe-media: realm, for editions that use realms")
-    b.add_argument("--detail", help="probe-character: show one page's structure (e.g. specializations)")
+    b.add_argument("--detail", help="probe-character: show one page's structure (e.g. specializations); probe-media: recipes = only the recipe checks")
     b.set_defaults(fn=cmd_blizzard)
     sc = sub.add_parser("sync-commands")
     sc.add_argument("--yes", action="store_true")

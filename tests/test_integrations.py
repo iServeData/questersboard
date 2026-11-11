@@ -411,3 +411,46 @@ def test_probe_media_checks_a_hunter_pets_picture():
     assert "display id=31" in next(r for r in rows if r["check"] == "pet-entry")["shape"]
     assert rows[i]["status"] == "200" and rows[i]["namespace"] == "static-fixture-us"
     assert rows[i + 1]["check"].strip() == "icon-image" and rows[i + 1]["status"] == "200"
+
+
+def _recipe_handler(recipe_ok=True):
+    base = _media_handler()
+
+    def h(req):
+        p = req.url.path
+        if p.endswith("/professions"):
+            return httpx.Response(200, json={"primaries": [{"profession": {"name": "Fixture Craft", "id": 9},
+                "tiers": [{"skill_points": 5, "known_recipes": [{"id": 4242, "name": "Fixture Craft"},
+                                                                 {"id": 4243, "name": "Fixture Boots"}]}]}]})
+        if p == "/data/wow/recipe/4243" and recipe_ok:
+            return httpx.Response(200, json={"id": 4243, "name": "Fixture Boots",
+                                             "crafted_item": {"id": 303, "name": "Fixture Boots"},
+                                             "reagents": [{"reagent": {"id": 1, "name": "Fixture Hide"}, "quantity": 2}]})
+        if p == "/data/wow/item/303":
+            return httpx.Response(200, json={"id": 303, "name": "Fixture Boots"})
+        if p == "/data/wow/media/item/303":
+            return httpx.Response(200, json={"assets": [{"key": "icon", "value": "https://render.worldofwarcraft.com/us/icons/56/boots.jpg"}]})
+        if p == "/data/wow/search/item":
+            assert req.url.params["name.en_US"] == "Fixture Boots"
+            return httpx.Response(200, json={"results": [{"data": {"id": 303, "name": {"en_US": "Fixture Boots"}}}]})
+        return base(req)
+    return h
+
+
+def test_probe_media_checks_one_known_recipe():
+    b, calls = _bz(_recipe_handler())
+    by = {r["check"].strip(): r for r in b.probe_media("forever", "us", "Zulmara Ashveil")}
+    assert "Fixture Boots, recipe id=4243" in by["recipe-entry"]["shape"]     # the profession's own entry skipped
+    assert by["recipe"]["status"] == "200" and by["crafted-item"]["status"] == "200"
+    assert by["crafted-item-media"]["status"] == "200"
+    assert by["recipe-as-spell"]["status"] == "404"
+    assert "1 named exactly 'Fixture Boots'" in by["item-search-by-name"]["shape"]
+    assert by["named-item"]["status"] == "200"
+    assert all(r.method == "GET" for r in calls if r.url.path != "/token")
+
+
+def test_probe_media_recipe_without_recipe_data_still_tries_the_name():
+    b, _ = _bz(_recipe_handler(recipe_ok=False))
+    by = {r["check"].strip(): r for r in b.probe_media("forever", "us", "Zulmara Ashveil")}
+    assert by["recipe"]["status"] == "404" and "crafted-item" not in by
+    assert by["item-search-by-name"]["status"] == "200"
