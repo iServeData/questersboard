@@ -14,8 +14,7 @@
 {% set bn_on = bn_enabled and sync_regions %}
 <div class="section-head wq-cm-head"><h1>My characters</h1>
   <div class="btns"><a class="btn" href="{{ mp }}/characters?add=1#character-form" data-open-character>+ Add a character</a>{% if bz_enabled and details %}
-    <form method="post" action="{{ mp }}/characters/details/all" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit" name="action" value="refresh" title="Up to {{ cfg['blizzard'].get('refresh_all_max', 10) }} characters per press; each keeps its sharing">Refresh all from Blizzard</button></form>{% endif %}
-    {% for g in guild_links %}<a class="btn ghost" href="{{ mp }}/guilds/{{ g.edition }}/{{ g.region }}/{{ g.guild_id }}">{{ g.name }} roster</a> {% endfor %}{% if bz_enabled %}<a class="btn ghost" href="{{ mp }}/players">Shared characters</a>{% endif %}</div>
+    <form method="post" action="{{ mp }}/characters/details/all" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit" name="action" value="refresh" title="Up to {{ cfg['blizzard'].get('refresh_all_max', 10) }} characters per press; each keeps its sharing">Refresh all from Blizzard</button></form>{% endif %}</div>
 </div>
 {% if bulk == "refreshed" %}<p class="wq-saved" role="status">Refreshed {{ bulk_n }} character{{ "" if bulk_n == 1 else "s" }} from Blizzard.{% if bulk_failed %} {{ bulk_failed }} didn't refresh; open that character and press Refresh from Blizzard to see why.{% endif %}</p>
 {% elif bulk == "shared" %}<p class="wq-saved" role="status">Sharing updated for {{ bulk_n }} character{{ "" if bulk_n == 1 else "s" }}.</p>{% endif %}

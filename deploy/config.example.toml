@@ -178,6 +178,13 @@ stylesheet = "/assets/css/styles.css"         # reuse the host site's stylesheet
 body_class = "theme-wow"
 discord_invite_url = ""                       # optional "Join the Discord" link
 nav = [ { label = "Home", url = "/" }, { label = "WoW", url = "/wow/" } ]
+# Submenu under the main menu (same look as the site's own submenu). With game_page_url set these are the
+# defaults: a "WoW" group with Schedule, then "QuestersBoard" linking to the WoW page's section. The
+# Quests, Characters, Chronicle and Help dropdowns after them are built from QuestersBoard's pages.
+# subnav_lead_label = "WoW"
+# subnav_lead = [ { label = "Schedule", url = "/wow/#schedule" } ]   # [] hides the lead group
+# subnav_label = "QuestersBoard"
+# subnav_label_url = "/wow/#questersboard"
 # Footer on every page (plain text). wordmark: 1 to 3 parts, the middle one bold.
 # footer_notes / footer_credits: one line each, a string or { text, link, url, after }.
 wordmark = ["Example ", "Community", ""]

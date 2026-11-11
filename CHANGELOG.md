@@ -5,6 +5,16 @@
 No database migration. No config change needed: the role icons are on by default and appear once the
 emojis are uploaded.
 
+- **Submenu with section dropdowns.** Every page, member and public, has a row under the main menu in
+  the site's own submenu style: the site's lead group (`[branding] subnav_lead_label`, `subnav_lead`,
+  by default "WoW" Schedule when `game_page_url` is set), the product label, then Quests (Events, Plan
+  an event, My signups), Characters (Mine, Players, the member's guild rosters, Who can craft),
+  Chronicle (Stories, Review queue for reviewers) and Help (How it works, Privacy, Terms of use, What's
+  new). Tap opens a section on touch screens, hover with a mouse; Esc or tapping elsewhere closes it.
+  The current section and page get the "›" marker. Quests and Chronicle left the main menu, which keeps
+  the site's links and the account menu; the roster and Shared characters buttons on My characters,
+  character pages and rosters are gone, since the Characters menu has them.
+
 - **Role icons on event posts.** A shield, a healing cross and crossed swords (QuestersBoard's own
   artwork, `web/static/roles/`) sit before each role's heading on the Discord post ("🛡 Tank (1/2)"; `[event_posts]
   role_icons`, role key -> emoji name; `role_icon_position = "heading"` or `"line"` for the start of the

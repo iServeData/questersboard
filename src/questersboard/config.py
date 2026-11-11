@@ -511,6 +511,22 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             lines.append({"text": x.get("text", ""), "link": x.get("link", ""), "url": x.get("url", ""),
                           "after": x.get("after", "")})
         b[k] = lines
+    # Submenu under the main menu. Lead group (e.g. "WoW" Schedule) and the product label mirror the
+    # community site's own submenu; the QuestersBoard dropdowns after them are built from the app's pages.
+    gp = str(b["game_page_url"]).rstrip("/") + "/" if b["game_page_url"] else ""
+    b.setdefault("subnav_lead_label", "WoW" if gp else "")
+    b.setdefault("subnav_lead", [{"label": "Schedule", "url": gp + "#schedule"}] if gp else [])
+    b.setdefault("subnav_label", "QuestersBoard")
+    b.setdefault("subnav_label_url", gp + "#questersboard" if gp else "")
+    for k in ("subnav_lead_label", "subnav_label"):
+        if not isinstance(b[k], str) or len(b[k]) > 40:
+            raise ConfigError(f"[branding] {k} must be text of up to 40 characters")
+    if b["subnav_label_url"] and not re.match(r"^(/|https://)", str(b["subnav_label_url"])):
+        raise ConfigError("[branding] subnav_label_url must start with / or https://")
+    if not isinstance(b["subnav_lead"], list) or len(b["subnav_lead"]) > 6 or any(
+            not isinstance(n, dict) or not str(n.get("label", "")) or
+            not re.match(r"^(/|https://)", str(n.get("url", ""))) for n in b["subnav_lead"]):
+        raise ConfigError("[branding] subnav_lead must be a list of up to 6 { label, url } with / or https:// urls")
     b.setdefault("footer_nav", [])
     if not isinstance(b["footer_nav"], list) or any(
             not isinstance(n, dict) or not str(n.get("label", "")) or

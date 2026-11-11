@@ -1,0 +1,46 @@
+{#- Submenu under the main menu, styled like the community site's own .subnav row.
+    Each section is a dropdown; questersboard.js opens it on tap, hover opens it with a mouse. -#}
+{%- set path = request.url.path -%}
+{%- set bz_on = cfg["blizzard"].get("enabled") -%}
+{%- set sections = [
+  ("quests", "Quests", [
+    (mp ~ "/", "Events"),
+    (mp ~ "/events/new", "Plan an event"),
+    (mp ~ "/#my-signups", "My signups"),
+  ]),
+  ("characters", "Characters", [(mp ~ "/characters", "Mine")]
+    + ([(mp ~ "/players", "Players")] if bz_on else [])
+    + ([(mp ~ "/players#craft", "Who can craft")] if bz_on else [])),
+  ("chronicle", "Chronicle", [(cp ~ "/", "Stories")]
+    + ([(mp ~ "/review", "Review queue")] if can("chronicle_reviewer") else [])),
+  ("help", "Help", [
+    (mp ~ "/help", "How it works"),
+    (mp ~ "/privacy", "Privacy"),
+    (mp ~ "/terms", "Terms of use"),
+    (mp ~ "/changelog", "What's new"),
+  ]),
+] -%}
+{%- set guilds = [] -%}
+{%- for g in guild_links or [] -%}{%- set _ = guilds.append((mp ~ "/guilds/" ~ g.edition ~ "/" ~ g.region ~ "/" ~ g.guild_id, g.name)) -%}{%- endfor -%}
+{%- if path.startswith(mp ~ "/characters") or path.startswith(mp ~ "/players") or path.startswith(mp ~ "/guilds/") -%}{%- set cur = "characters" -%}
+{%- elif path.startswith(cp) or path.startswith(mp ~ "/chronicle/") or path == mp ~ "/review" -%}{%- set cur = "chronicle" -%}
+{%- elif path in (mp ~ "/help", mp ~ "/privacy", mp ~ "/terms", mp ~ "/changelog") -%}{%- set cur = "help" -%}
+{%- elif path == mp ~ "/" or path.startswith(mp ~ "/events") -%}{%- set cur = "quests" -%}
+{%- else -%}{%- set cur = "" -%}{%- endif -%}
+<nav class="subnav wq-subnav" aria-label="{{ b.subnav_label or 'QuestersBoard' }} pages"><div class="wrap">
+  {%- if b.subnav_lead_label or b.subnav_lead %}
+  {% if b.subnav_lead_label %}<span class="sub-label">{{ b.subnav_lead_label }}</span>{% endif %}
+  {% if b.subnav_lead %}<ul>{% for n in b.subnav_lead %}<li><a href="{{ n.url }}">{{ n.label }}</a></li>{% endfor %}</ul>{% endif %}
+  <span class="sub-sep" aria-hidden="true"></span>
+  {%- endif %}
+  {% if b.subnav_label %}<span class="sub-label">{% if b.subnav_label_url %}<a href="{{ b.subnav_label_url }}">{{ b.subnav_label }}</a>{% else %}{{ b.subnav_label }}{% endif %}</span>{% endif %}
+  <ul class="wq-dd" data-subnav>
+    {%- for key, label, items in sections %}
+    {%- set links = items[:2] + guilds + items[2:] if key == "characters" else items %}
+    <li><button type="button" class="wq-dd-btn{% if key == cur %} is-cur{% endif %}" aria-expanded="false" aria-controls="wq-dd-{{ key }}">{{ label }}{% if key == cur %}<span class="sr-only"> (current section)</span>{% endif %}</button>
+      <div class="wq-dd-panel" id="wq-dd-{{ key }}"><ul>
+        {%- for url, text in links %}<li><a href="{{ url }}"{% if url == path %} aria-current="page"{% endif %}>{{ text }}</a></li>{% endfor -%}
+      </ul></div></li>
+    {%- endfor %}
+  </ul>
+</div></nav>

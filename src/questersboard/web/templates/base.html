@@ -36,9 +36,7 @@
     <a class="wordmark" href="{{ b.home_url }}">{{ b.site_name }}</a>
     <button class="menu-btn" type="button" aria-expanded="false" aria-controls="menu">Menu</button>
     <ul id="menu">
-      {% for n in b.nav %}<li><a href="{{ n.url }}">{{ n.label }}</a></li>{% endfor %}
-      <li><a href="{{ mp }}/"{% if request.url.path.startswith(mp) %} aria-current="page"{% endif %}>Quests</a></li>
-      <li><a href="{{ cp }}/"{% if request.url.path.startswith(cp) %} aria-current="page"{% endif %}>Chronicle</a></li>
+      {% for n in b.nav %}<li><a href="{{ n.url }}"{% if b.game_page_url and n.url.rstrip("/") == b.game_page_url.rstrip("/") %} aria-current="page"{% endif %}>{{ n.label }}</a></li>{% endfor %}
       {% if not public %}
         {% if actor %}
         {% include "_account_menu.html" %}
@@ -50,6 +48,7 @@
       {% endif %}
     </ul>
   </div>
+  {% include "_subnav.html" %}
 </header>
 <main id="content" class="wrap wq-main">
   <nav class="crumb" aria-label="Breadcrumb"><a href="{{ b.game_page_url }}">WoW</a> / {% block crumb %}<span aria-current="page">{{ title }}</span>{% endblock %}</nav>

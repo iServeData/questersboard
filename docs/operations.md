@@ -50,6 +50,7 @@ sudo -u questersboard questersboard-admin check-config    # after editing config
 | Battle.net panel lists only one game version, or names one as skipped | One login reads every edition with `ownership` on in that region. A skipped one didn't answer; sync again later. The multi-edition read uses one user token for every profile namespace: fixture-tested, unverified live |
 | Picker sharing default / region names | `[blizzard] picker_default_share` (`"private"`, `"guild"` or `"public"`, default `"guild"`) and `[blizzard] region_labels` (e.g. `{ us = "Americas & Oceania" }`) |
 | Change the page footer (wordmark, disclaimer, credits, footer links) | `[branding] wordmark`, `footer_notes`, `footer_credits`, `footer_nav` in `config.toml`, then restart the web service. Lines are plain text: a string, or `{ text, link, url, after }` for one link |
+| Change the submenu under the main menu | `[branding] subnav_lead_label`, `subnav_lead` (list of `{ label, url }`, `[]` hides it), `subnav_label`, `subnav_label_url` in `config.toml`, then restart the web service. The Quests, Characters, Chronicle and Help dropdowns follow the app's pages |
 | Which build is running | The footer's "Commit abc1234 · date" comes from `BUILD` in the release directory, written by `install.sh` from the checkout it installs; "Commit local" means it couldn't read git. What changed for members is on the Changelog page (`src/questersboard/web/changelog.toml`) |
 | Backup now | `sudo systemctl start questersboard-backup.service` |
 | Restore drill | `backup_restore.md` |

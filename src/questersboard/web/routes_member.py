@@ -39,10 +39,15 @@ def render(request: Request, name: str, ctx: dict, status: int = 200, public: bo
                 can=(lambda cap: a is not None and permissions.has(cfg, a, cap)), public=public,
                 probation=(permissions.probation_message(cfg) if a is not None and cfg["publishing"]["open_to_all"]
                            and permissions.on_probation(cfg, a) else ""))
-    if a is not None and a.member_id and "acct" not in ctx:
+    if a is not None and a.member_id and ("acct" not in ctx or "guild_links" not in ctx):
         from . import account
+        from ..domain import profiles
         with w.db.tx() as s:
-            base["acct"] = account.status(s, cfg, a.member_id)
+            if "acct" not in ctx:
+                base["acct"] = account.status(s, cfg, a.member_id)
+            if "guild_links" not in ctx:   # submenu: guild rosters this member can open
+                base["guild_links"] = (profiles.my_guild_links(s, a.member_id)
+                                       if cfg["blizzard"].get("enabled") else [])
     base.update(ctx)
     base["indexable"] = public and status == 200 and not ctx.get("noindex")   # errors, notices, guest links: no
     base["preview"] = bool(ctx.get("preview") and ctx.get("seo"))   # link-preview card only, never indexed

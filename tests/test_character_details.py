@@ -363,7 +363,7 @@ def test_guild_page_is_for_confirmed_guild_members_only(seeded, tmp_path, monkey
     assert page.status_code == 200 and "Fixture Guild roster" in page.text
     assert "Guild Hunter" in page.text and "Guild Lurker" not in page.text and "Otherguild" not in page.text
     assert "Fake Member" not in page.text and "Skinning" in page.text and f"/characters/{m1}/view" in page.text
-    assert "Fixture Guild roster" in c.get("/wow/quester/characters").text       # link from My characters
+    assert ">Fixture Guild</a>" in c.get("/wow/quester/characters").text       # link in the Characters menu
     assert c.get(url + "?profession=Tailoring").text.count("/view") == 0
     assert c.get(url + "?class=warrior&min_ilvl=20").text.count("/view") == 1
     for n in (85, 86, 87, 88):                                                    # lurker, other guild, unverified, nobody
@@ -441,14 +441,15 @@ def test_set_all_applies_one_choice_to_every_group():
 
 
 @needs_db
-def test_roster_and_view_link_back_to_my_characters(seeded, tmp_path, monkeypatch):
+def test_roster_and_view_have_the_characters_menu(seeded, tmp_path, monkeypatch):
     a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
     full = {g: "guild" for g in profiles.GROUP_KEYS}
     cid = _shared(seeded, cfg, 95, "Navi Hunter", guild="9003", shares=full)
     c = login(a, 95)
     for url in ("/wow/quester/guilds/forever/us/9003", f"/wow/quester/characters/{cid}/view", "/wow/quester/players"):
         page = c.get(url).text
-        assert 'href="/wow/quester/characters">My characters' in page and "Fixture Guild roster" in page, url
+        menu = page.split('aria-controls="wq-dd-characters"', 1)[1].split("</div>", 1)[0]
+        assert 'href="/wow/quester/characters">Mine' in menu and ">Fixture Guild</a>" in menu, url
     assert 'name="share_all"' in c.get("/wow/quester/characters").text
 
 

@@ -15,6 +15,32 @@
     });
     menu.addEventListener("click", function (e) { if (e.target.tagName === "A") setMenu(false); });
   }
+  // Submenu dropdowns: tap or click opens a section; outside click, Esc or picking a link closes it.
+  // Without this file the lists still open on hover and keyboard focus.
+  document.querySelectorAll("[data-subnav]").forEach(function (dd) {
+    dd.classList.add("is-js");
+    var btns = dd.querySelectorAll(".wq-dd-btn");
+    var closeAll = function (except) {
+      btns.forEach(function (b) { if (b !== except) b.setAttribute("aria-expanded", "false"); });
+    };
+    var mouse = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    btns.forEach(function (b) {
+      if (mouse) b.parentNode.addEventListener("mouseenter", function () { closeAll(b); });
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var open = b.getAttribute("aria-expanded") !== "true";
+        closeAll(b);
+        b.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open && menuBtn && menu && menu.classList.contains("open")) menuBtn.click();   // one menu at a time
+      });
+    });
+    document.addEventListener("click", function (e) { if (!dd.contains(e.target)) closeAll(null); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      var open = dd.querySelector('.wq-dd-btn[aria-expanded="true"]');
+      if (open) { closeAll(null); open.focus(); }
+    });
+  });
   // Realm vs ruleset: show the realm field only for editions with realms, ruleset only for realmless ones.
   function syncEdition(sel) {
     var form = sel.form, opt = sel.options[sel.selectedIndex];

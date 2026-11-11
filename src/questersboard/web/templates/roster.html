@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="section-head"><h1>{{ title }}</h1></div>
-{% include "_details_nav.html" %}
 {% if scope == "guild" %}
 <p class="note">Characters whose owners shared their guild membership. Only QuestersBoard members verified in this guild through Battle.net can see this page. Each character shows only what its owner shared.</p>
 {% else %}
@@ -17,7 +16,7 @@
   {{ pick("role", "Role", opts.role, true) }}
   {{ pick("spec", "Spec", opts.spec) }}
   {{ pick("profession", "Profession", opts.profession) }}
-  {% if opts.craft or f.craft %}<label class="wq-craft-filter">Who can craft<input type="search" name="craft" value="{{ f.craft }}" maxlength="80" list="craft-recipes" placeholder="Recipe name" autocomplete="off"></label><datalist id="craft-recipes">{% for v in opts.craft %}<option value="{{ v }}">{% endfor %}</datalist>{% endif %}
+  {% if opts.craft or f.craft %}<label class="wq-craft-filter" id="craft">Who can craft<input type="search" name="craft" value="{{ f.craft }}" maxlength="80" list="craft-recipes" placeholder="Recipe name" autocomplete="off"></label><datalist id="craft-recipes">{% for v in opts.craft %}<option value="{{ v }}">{% endfor %}</datalist>{% endif %}
   <label>Min level<input type="number" name="min_level" min="1" max="90" value="{{ f.min_level }}"></label>
   <label>Min item level<input type="number" name="min_ilvl" min="1" max="999" value="{{ f.min_ilvl }}"></label>
   <label class="wq-sort-pick">Sort by<select name="sort" data-sort-select>{% for k, lab in sort_columns.items() %}{% for d in (false, true) %}<option value="{{ k }}{{ ':desc' if d else '' }}"{% if sort == k and desc == d %} selected{% endif %}>{{ lab }} ({{ ('Z–A' if d else 'A–Z') if k in ('name', 'class', 'spec', 'roles', 'professions') else ('highest first' if d else 'lowest first') }})</option>{% endfor %}{% endfor %}</select></label>

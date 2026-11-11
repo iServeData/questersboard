@@ -14,6 +14,10 @@ text = "Event posts and event pages show a shield, a healing cross or crossed sw
 [[release.change]]
 area = "Site"
 kind = "new"
+text = "A menu row under the main menu opens Quests, Characters, Chronicle and Help, so every page is one or two taps away."
+[[release.change]]
+area = "Site"
+kind = "new"
 text = "One menu with your name at the top of every member page shows your Discord login and Battle.net together, with Sync now, Disconnect and Log out."
 [[release.change]]
 area = "Characters"
