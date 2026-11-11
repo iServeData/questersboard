@@ -136,6 +136,11 @@ def test_link_templates_and_icon_settings_are_validated():
     r["blizzard"]["icon_cache_hours"] = 48
     with pytest.raises(ConfigError):
         validate(r)
+    for bad in (-1, 2001, "many"):
+        r = copy.deepcopy(raw)
+        r["blizzard"]["known_recipes_max"] = bad
+        with pytest.raises(ConfigError, match="known_recipes_max"):
+            validate(r)
 
 
 # ------------------------------------------------------------------ web + database

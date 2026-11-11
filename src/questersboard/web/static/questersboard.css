@@ -205,6 +205,12 @@ tr[hidden]{display:none}
 .wq-tabs-alliance .wq-tab[aria-selected="true"]{background:#1f56b0;color:#fff}
 .wq-refresh-one{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px}
 .wq-tree{min-width:0}
+/* Known recipes under each profession: collapsed, then a compact multi-column list. */
+.wq-recipes{margin:4px 0 8px}
+.wq-recipes>summary{cursor:pointer;font-size:.9em;opacity:.85}
+.wq-recipes>summary:hover{opacity:1}
+.wq-recipe-list{margin:6px 0 0;padding:0;list-style:none;columns:3 200px;column-gap:20px;font-size:.92em}
+.wq-recipe-list>li{break-inside:avoid;margin:0;padding:2px 0}
 .wq-gear-center .note{padding:0 10px;text-align:center}
 /* No picture yet: an outline of the character's race on the stand, with a short note over it. */
 .wq-placeholder .wq-silhouette{max-height:380px;opacity:.9}

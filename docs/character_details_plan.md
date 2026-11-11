@@ -32,7 +32,7 @@ EU is unverified.
 | Guild | profile | guild ID and name |
 | Gear | /equipment | slot, item name, item level, quality, item ID, enchant text |
 | Talents | /specializations | per group: active flag, tree names, points, talent names and ranks |
-| Professions | /professions | name, primary/secondary, skill and maximum |
+| Professions | /professions | name, primary/secondary, skill and maximum, known recipes (id and name, at most `[blizzard] known_recipes_max` per profession) |
 | Stats | /statistics | a fixed list (health, attributes, armor, crit, hit, defenses, resistances) |
 | Portrait | /character-media | image URLs on `[blizzard] render_image_hosts` only; QuestersBoard fetches the picture and serves it, so browsers never contact Blizzard |
 | PvP | /pvp-summary | honorable kills, rank |

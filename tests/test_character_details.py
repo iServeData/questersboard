@@ -31,7 +31,9 @@ FIX = {
          "talents": [{"talent": {"name": "Improved Aspect of the Hawk"}, "talent_rank": 3}]},
         {"specialization_name": "Marksmanship", "spent_points": 0, "talents": []}]}]},
     "/professions": {"primaries": [{"profession": {"name": "Leatherworking"},
-                                    "tiers": [{"skill_points": 95, "max_skill_points": 150}]}],
+                                    "tiers": [{"skill_points": 95, "max_skill_points": 150, "known_recipes": [
+                                        {"name": "Fixture Pants", "id": 1355}, {"name": "Fixture Boots", "id": 1353},
+                                        {"name": "Fixture Boots", "id": 1353}, {"name": "Leatherworking", "id": 2108}]}]}],
                      "secondaries": [{"profession": {"name": "Cooking"}, "skill_points": 23, "max_skill_points": 75}]},
     "/statistics": {"health": 410, "strength": {"base": 30, "effective": 34}, "melee_crit": {"rating": 0, "value": 5.1234},
                     "power_type": {"name": "Mana"}, "versatility": 0},
@@ -67,7 +69,8 @@ def test_extract_keeps_a_curated_summary_of_each_page():
     assert t["groups"][0]["specs"][0] == {"name": "Beast Mastery", "points": 8,
                                           "talents": [{"name": "Improved Aspect of the Hawk", "rank": 3}]}
     assert profiles.extract("professions", pages) == [
-        {"name": "Leatherworking", "kind": "primary", "skill": 95, "max": 150},
+        {"name": "Leatherworking", "kind": "primary", "skill": 95, "max": 150,      # sorted, once each, no self-entry
+         "recipes": [{"id": 1353, "name": "Fixture Boots"}, {"id": 1355, "name": "Fixture Pants"}]},
         {"name": "Cooking", "kind": "secondary", "skill": 23, "max": 75}]
     st = profiles.extract("stats", pages)
     assert st == {"health": 410, "strength": 34, "melee_crit": 5.12, "power_type": "Mana"}   # no unlisted stats
@@ -118,6 +121,7 @@ def test_import_all_groups_then_untick_some(seeded, tmp_path, monkeypatch):
     assert [x["key"] for x in groups["portrait"]] == ["avatar"]          # only allowed image hosts
     page = c.get("/wow/quester/characters").text
     assert "Fixture Vest" in page and "Leatherworking 95/150" in page and "Refresh from Blizzard" in page
+    assert "2 known recipes</summary>" in page and "<li>Fixture Boots</li>" in page   # collapsed under the skill
     assert "needs Battle.net verification" in page                       # gear asked for guild, still private
     csp = c.get("/wow/quester/characters").headers["content-security-policy"]
     assert "img-src 'self' data:;" in csp                               # portraits are served by QuestersBoard
@@ -266,6 +270,7 @@ def test_character_view_shows_only_what_is_shared(seeded, tmp_path, monkeypatch)
     page = stranger.get(f"/wow/quester/characters/{cid}/view")
     assert page.status_code == 200 and "Fixture Cap 80" in page.text
     assert "Marksmanship" not in page.text and "Skinning" not in page.text       # guild-only and private groups
+    assert "Fixture Boots" not in page.text and "known recipe" not in page.text   # recipes follow Professions sharing
     assert stranger.get(f"/wow/quester/characters/{hidden}/view").status_code == 404
     assert stranger.get(f"/wow/quester/characters/{unver}/view").status_code == 404   # needs Battle.net verification
     owner = login(a, 81)

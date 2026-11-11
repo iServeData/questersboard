@@ -28,7 +28,8 @@
       {% else %}{% for sp in grp.specs %}{% set si = loop.index0 %}{% if sp.talents %}<p class="wq-talent-head">{{ sp.name }}{% if sp.points is not none %} <span class="note">· {{ sp.points }} points</span>{% endif %}</p>
       <div class="wq-talents">{% for t in sp.talents %}{{ tips.talent(gi ~ "-" ~ si ~ "-" ~ loop.index0, t, ed) }}{% endfor %}</div>{% endif %}{% endfor %}{% endif %}{% endfor %}
       {% if v.active %}<p>Active: {{ v.active }}</p>{% endif %}
-    {% elif g.key == "professions" %}<ul class="wq-detail-list">{% for p in v %}<li>{{ p.name }}{% if p.skill is not none %} {{ p.skill }}{% if p.max %}/{{ p.max }}{% endif %}{% endif %} <span class="note">{{ p.kind }}</span></li>{% endfor %}</ul>
+    {% elif g.key == "professions" %}<ul class="wq-detail-list wq-profs">{% for p in v %}<li>{{ p.name }}{% if p.skill is not none %} {{ p.skill }}{% if p.max %}/{{ p.max }}{% endif %}{% endif %} <span class="note">{{ p.kind }}</span>{% if p.recipes %}
+      <details class="wq-recipes"><summary>{{ p.recipes|length }} known recipe{{ "" if p.recipes|length == 1 else "s" }}</summary><ul class="wq-recipe-list">{% for r in p.recipes %}<li>{{ r.name }}</li>{% endfor %}</ul></details>{% endif %}</li>{% endfor %}</ul>
     {% elif g.key == "stats" %}<div class="wq-stats">{% for title, rows in stat_sections(v) %}<dl class="wq-stat-block"><dt class="wq-stat-title">{{ title }}</dt>{% for label, text in rows %}<div class="wq-stat"><dt>{{ label }}</dt><dd>{{ text }}</dd></div>{% endfor %}</dl>{% endfor %}</div>
     {% elif g.key == "portrait" and gear_portrait_key(gd, visible) %}<p class="note">Shown in the middle of Gear.</p>
     {% elif g.key == "portrait" and not v %}<p class="note">No picture from Blizzard yet.{% if owner_view %} Blizzard makes one some time after you log out in game. Press Refresh from Blizzard later.{% endif %}</p>

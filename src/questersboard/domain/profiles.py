@@ -39,7 +39,7 @@ GROUPS: tuple[Group, ...] = (
     Group("guild", "Guild", "guild name; needed for a guild page", ("",)),
     Group("gear", "Gear", "equipped items and item levels", ("/equipment",)),
     Group("talents", "Talents", "specialization and talent points", ("/specializations",)),
-    Group("professions", "Professions", "professions and skill levels", ("/professions",)),
+    Group("professions", "Professions", "professions, skill levels and known recipes", ("/professions",)),
     Group("stats", "Stats", "health, attributes, armor, crit, hit, resistances", ("/statistics",)),
     Group("portrait", "Portrait", "Blizzard's character images", ("/character-media",)),
     Group("pvp", "PvP", "honorable kills and rank", ("/pvp-summary",)),
@@ -217,6 +217,19 @@ def _talents(body: dict) -> dict:
     return out
 
 
+def _known_recipes(name: str, tiers: list[dict]) -> list[dict]:
+    """The recipes a character knows in one profession: id and name, once each, sorted by name. The
+    entry that is just the profession itself (Skinning, Fishing) is left out."""
+    seen: dict[int, str] = {}
+    for t in tiers:
+        for r in t.get("known_recipes") or []:
+            if isinstance(r, dict) and isinstance(r.get("id"), int) and isinstance(r.get("name"), str):
+                label = r["name"].strip()[:120]
+                if label and label.lower() != (name or "").lower():
+                    seen.setdefault(r["id"], label)
+    return [{"id": i, "name": n} for i, n in sorted(seen.items(), key=lambda x: (x[1].lower(), x[0]))]
+
+
 def _professions(body: dict) -> list[dict]:
     out = []
     for kind in ("primaries", "secondaries"):
@@ -227,8 +240,12 @@ def _professions(body: dict) -> list[dict]:
                 skill, top = best.get("skill_points"), best.get("max_skill_points")
             else:
                 skill, top = p.get("skill_points"), p.get("max_skill_points")
-            out.append({"name": _label(p.get("profession")), "kind": "primary" if kind == "primaries" else "secondary",
-                        "skill": skill, "max": top})
+            name = _label(p.get("profession"))
+            row = {"name": name, "kind": "primary" if kind == "primaries" else "secondary", "skill": skill, "max": top}
+            recipes = _known_recipes(name, tiers)
+            if recipes:
+                row["recipes"] = recipes
+            out.append(row)
     return out
 
 
@@ -352,6 +369,12 @@ def import_profile(s: Session, cfg: Config, bz, actor: Actor, character_id: int,
     # logs out, so a ticked Portrait with nothing yet is kept (empty) and asked for again on refresh.
     data = {g: v for g, v in data.items() if v not in (None, {}, [])} | ({"portrait": data.get("portrait") or []}
                                                                       if "portrait" in data else {})
+    cap = cfg["blizzard"].get("known_recipes_max", 500)
+    for p in data.get("professions") or []:
+        if "recipes" in p:
+            p["recipes"] = p["recipes"][:cap]
+            if not p["recipes"]:
+                del p["recipes"]
     if data.get("talents"):
         _resolve_trees(s, cfg, bz, ed, ch, data["talents"])
     _resolve_icons(s, cfg, bz, ed, ch.region, data)

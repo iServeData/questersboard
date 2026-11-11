@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Known recipes.** Each profession on a character page lists the recipes the character knows
+  (collapsed under the skill line), from Blizzard's professions page, shared with the same people as
+  Professions. `[blizzard] known_recipes_max` caps the list per profession (default 500).
+- **Race outlines when there's no picture.** The gear centre shows an outline of the character's race
+  with "No picture from Blizzard yet" instead of a blank space; a ticked Portrait with nothing from
+  Blizzard is kept so refreshes keep asking for it.
+
 - **Top button stays at the bottom.** It no longer hides over the footer; the footer leaves room so
   the button (and the floating Add a character button) never covers its links.
 - **Privacy and How it works updated.** Privacy explains refreshes (yours, and organiser refreshes after
