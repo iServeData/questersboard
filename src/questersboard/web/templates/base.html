@@ -61,9 +61,9 @@
     <div class="wq-foot-main">
       <a class="wordmark" href="{{ b.home_url }}">{{ b.wordmark[0] }}<b>{{ b.wordmark[1] }}</b>{{ b.wordmark[2] }}</a>
       {% if b.footer_notes %}<p class="wq-foot-notes">{% for l in b.footer_notes %}{{ foot_line(l) }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>{% endif %}
-      <p class="wq-foot-links">
+      <div class="wq-foot-links">
         {% if not public and actor %}<form method="post" action="{{ mp }}/logout" class="wq-inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="linkish" type="submit">Log out</button></form> · {% endif %}<a href="{{ mp }}/calendar.ics">Public calendar (.ics)</a> · <a href="{{ cp }}/feed.atom">Chronicle feed</a> · <a href="{{ mp }}/help">How it works</a> · <a href="{{ mp }}/privacy">Privacy</a> · <a href="{{ mp }}/terms">Terms</a> · <a href="{{ mp }}/changelog">Changelog</a>
-      </p>
+      </div>
       <p class="credit">{% for l in b.footer_credits %}<span class="credit-line">{{ foot_line(l) }}</span>{% endfor %}<span class="build">Commit {{ build.commit }}{% if build.date %} · {{ build.date.strftime("%b %-d, %Y") }}{% endif %} · <a href="{{ mp }}/changelog">Changelog</a></span></p>
     </div>
     {% if b.footer_nav %}<nav aria-label="Footer">{% for n in b.footer_nav %}<a href="{{ n.url }}"{% if n.url.startswith("https://") %} target="_blank" rel="noopener"{% endif %}>{{ n.label }}{% if n.url.startswith("https://") %}<span class="sr-only"> (opens in new tab)</span>{% endif %}</a>{% endfor %}</nav>{% endif %}
