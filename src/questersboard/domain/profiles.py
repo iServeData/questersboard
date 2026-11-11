@@ -348,7 +348,10 @@ def import_profile(s: Session, cfg: Config, bz, actor: Actor, character_id: int,
         from urllib.parse import urlsplit
         hosts = set(cfg["blizzard"].get("render_image_hosts", ["render.worldofwarcraft.com"]))
         data["portrait"] = [a for a in data["portrait"] if urlsplit(a["url"]).hostname in hosts]
-    data = {g: v for g, v in data.items() if v not in (None, {}, [])}
+    # An empty group is dropped, except Portrait: Blizzard makes pictures some time after a character
+    # logs out, so a ticked Portrait with nothing yet is kept (empty) and asked for again on refresh.
+    data = {g: v for g, v in data.items() if v not in (None, {}, [])} | ({"portrait": data.get("portrait") or []}
+                                                                      if "portrait" in data else {})
     if data.get("talents"):
         _resolve_trees(s, cfg, bz, ed, ch, data["talents"])
     _resolve_icons(s, cfg, bz, ed, ch.region, data)
@@ -714,6 +717,22 @@ def cut_backdrop(body: bytes, ctype: str, threshold: int = 5, margin: float = 0.
 
 
 GEAR_PORTRAIT_KEYS = ("main-raw", "main", "inset", "avatar")
+
+
+def silhouette_key(race_key: str | None, available: frozenset[str]) -> str:
+    """The placeholder figure shown when a character has no picture: its race's, else a generic one."""
+    k = (race_key or "").strip().lower().replace(" ", "_").replace("-", "_").replace("'", "")
+    return k if k in available else "generic"
+
+
+def portrait_state(groups, visible=None) -> str:
+    """For the gear centre: "picture" (one to show), "none_yet" (Portrait imported and visible, but
+    Blizzard had no picture) or "hidden" (Portrait not imported, or not shared with this viewer)."""
+    if gear_portrait_key(groups, visible):
+        return "picture"
+    if isinstance(groups, dict) and "portrait" in groups and (visible is None or "portrait" in visible):
+        return "none_yet"
+    return "hidden"
 
 
 def gear_portrait_key(groups, visible=None) -> str | None:

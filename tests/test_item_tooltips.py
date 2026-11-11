@@ -225,11 +225,71 @@ def test_portrait_sits_between_the_gear_columns(seeded, tmp_path, monkeypatch):
     centre = page.split('class="wq-gear-center"', 1)[1].split("</div>", 1)[0]
     assert f"/wow/quester/characters/{cid}/portrait/main-raw" in centre
     assert page.index("Fixture Cloak") < page.index("wq-gear-center") < page.index("Fixture Bow")  # left, centre, weapons
-    assert page.count("wq-gear-portrait") == 1                             # not repeated in the Portrait group
+    assert page.count("/portrait/main-raw") == 1                            # not repeated in the Portrait group
+    assert 'wq-placeholder" data-portrait-missing hidden' in centre          # race outline only if the picture fails
     assert c.post(f"/wow/quester/characters/{cid}/details",                # re-import without the portrait
                   data={"csrf": csrf(c), "groups": ["gear"]}).status_code == 303
     page2 = c.get(f"/wow/quester/characters/{cid}/view").text
-    assert "wq-gear-portrait" not in page2 and "Tick Portrait and press Refresh" in page2   # panel keeps its shape
+    centre2 = page2.split('class="wq-gear-center"', 1)[1].split("</div>", 1)[0]
+    assert "/portrait/" not in centre2 and "Tick Portrait and press Refresh" in centre2      # panel keeps its shape
+    assert "/static/silhouettes/orc.svg" in centre2 and "data-portrait-missing hidden" not in centre2
+
+
+def test_silhouette_for_every_catalog_race_and_a_generic_fallback():
+    import tomllib
+    from pathlib import Path
+    root = Path(profiles.__file__).resolve().parents[1]
+    have = frozenset(f.stem for f in (root / "web/static/silhouettes").glob("*.svg"))
+    races = set()
+    for f in (root / "catalog").glob("*.toml"):
+        for by_faction in tomllib.loads(f.read_text()).get("races", {}).values():
+            races |= set(by_faction)
+    assert races and races <= have and "generic" in have
+    assert profiles.silhouette_key("Night Elf", have) == "night_elf"
+    assert profiles.silhouette_key("fixture_unknown", have) == "generic" == profiles.silhouette_key(None, have)
+    for k in have:                                                          # strict CSP: no styles or scripts inside
+        body = (root / "web/static/silhouettes" / f"{k}.svg").read_text()
+        assert "<style" not in body and "style=" not in body and "<script" not in body and "href" not in body
+
+
+def test_portrait_state():
+    pic = {"gear": [], "portrait": [{"key": "main-raw"}]}
+    assert profiles.portrait_state(pic) == "picture"
+    assert profiles.portrait_state({"gear": [], "portrait": []}) == "none_yet"
+    assert profiles.portrait_state({"gear": [], "portrait": []}, {"gear"}) == "hidden"   # not shared with them
+    assert profiles.portrait_state({"gear": []}) == "hidden"
+
+
+def _no_media_handler(req):
+    if req.url.path == BASE + "/character-media":
+        return httpx.Response(200, json={"assets": []})
+    return _handler(req)
+
+
+@needs_db
+def test_no_picture_from_blizzard_yet_keeps_portrait_and_shows_the_race_outline(seeded, tmp_path, monkeypatch):
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, _no_media_handler)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(143), "Zulmara Ashveil").id
+    c = login(a, 143)
+    assert c.post(f"/wow/quester/characters/{cid}/details",
+                  data={"csrf": csrf(c), "groups": ["gear", "portrait"]}).status_code == 303
+    with seeded.tx() as s:
+        g = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()
+    assert g["portrait"] == []                                              # remembered, asked for again on refresh
+    page = c.get(f"/wow/quester/characters/{cid}/view").text
+    centre = page.split('class="wq-gear-center"', 1)[1].split("</div>", 1)[0]
+    assert "/static/silhouettes/orc.svg" in centre and "No picture from Blizzard yet." in centre
+    assert "Press Refresh from Blizzard later." in centre and "/portrait/" not in centre
+    assert any(q.url.path.endswith("/character-media") for q in calls)
+    assert c.post(f"/wow/quester/characters/{cid}/details/refresh", data={"csrf": csrf(c)}).status_code == 303
+    with seeded.tx() as s:                                                  # Refresh keeps asking for it
+        g = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()
+    assert g["portrait"] == [] and "gear" in g
+    stranger = login(a, 144)                                                # not shared: no reason given
+    other = stranger.get(f"/wow/quester/characters/{cid}/view").text
+    if 'class="wq-gear-center"' in other:
+        assert "No picture from Blizzard yet." not in other
 
 
 # ------------------------------------------------------------------ full-body render trimmed to the figure

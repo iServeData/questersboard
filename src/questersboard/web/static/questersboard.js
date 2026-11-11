@@ -394,8 +394,10 @@
       img.hidden = true;
       var fig = img.closest(".wq-figure");
       if (fig) fig.hidden = true;                         // no stand without a figure on it
-      var p = img.closest(".wq-gear-center") || img.parentNode, note = p && p.querySelector("[data-portrait-missing]");
-      if (note && !p.querySelector("img[data-portrait]:not([hidden])")) note.hidden = false;
+      var p = img.closest(".wq-gear-center") || img.parentNode;
+      if (p && !p.querySelector("img[data-portrait]:not([hidden])")) {
+        p.querySelectorAll("[data-portrait-missing]").forEach(function (n) { n.hidden = false; });
+      }
     };
     if (img.complete && img.naturalWidth === 0) { miss(); } else { img.addEventListener("error", miss); }
   });

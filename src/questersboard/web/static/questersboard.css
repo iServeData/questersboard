@@ -206,6 +206,11 @@ tr[hidden]{display:none}
 .wq-refresh-one{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px}
 .wq-tree{min-width:0}
 .wq-gear-center .note{padding:0 10px;text-align:center}
+/* No picture yet: an outline of the character's race on the stand, with a short note over it. */
+.wq-placeholder .wq-silhouette{max-height:380px;opacity:.9}
+.wq-placeholder-note{position:absolute;z-index:2;left:50%;top:42%;transform:translate(-50%,-50%);width:max-content;max-width:12em;padding:6px 10px;border:1px solid rgba(255,255,255,.14);border-radius:6px;background:rgba(11,15,20,.86);font-size:.88em;line-height:1.35;text-align:center}
+.wq-placeholder-tip{display:block;max-width:240px;margin-top:2px;font-size:.85em}
+.wq-placeholder-tip[hidden]{display:none}
 .wq-item{position:relative;min-width:0}
 .wq-item-btn{display:flex;align-items:center;gap:10px;width:100%;padding:4px;margin:0;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.1);border-radius:3px;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .wq-item-btn:hover,.wq-item.is-open .wq-item-btn{border-color:rgba(255,255,255,.35)}
@@ -245,6 +250,7 @@ tr[hidden]{display:none}
   .wq-gear-bottom>.wq-item,.wq-gear.has-portrait .wq-gear-bottom>.wq-item{flex:1 1 100%;max-width:none}
   .wq-item-empty{display:none}
   .wq-gear-center:not(:has(img)){display:none}
+  .wq-placeholder .wq-silhouette{max-height:260px}
   .wq-item-r .wq-item-btn{flex-direction:row;text-align:left}.wq-item-r .wq-item-txt{align-items:flex-start}
   .wq-tip,.wq-item-r .wq-tip{position:static;width:auto;margin-top:4px;box-shadow:none}
   .wq-item:hover .wq-tip{display:none}.wq-item.is-open .wq-tip,.wq-item:focus-within .wq-tip{display:block}

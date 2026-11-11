@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 440" width="240" height="440" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="fill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="440">
+      <stop offset="0" stop-color="#9aa6b6"/>
+      <stop offset="1" stop-color="#3c4552"/>
+    </linearGradient>
+  </defs>
+  <g fill="url(#fill)" stroke="url(#fill)" stroke-width="3" stroke-linejoin="round" opacity="0.7">
+    <ellipse cx="120" cy="115.3" rx="15" ry="20"/>
+    <polygon points="112.5,115.3 127.5,115.3 129,149.3 111,149.3"/>
+    <path d="M129,144.3 Q147.4,141.3 156.6,156.9 Q157.3,168.5 151.5,175.2 Q150,211.8 140.6,235.1 Q141,246.7 145.9,258.4 L120,275 L94.1,258.4 Q99,246.7 99.4,235.1 Q90,211.8 88.5,175.2 Q82.7,168.5 83.4,156.9 Q92.6,141.3 111,144.3 Z"/>
+    <path d="M88.1,148.6 Q71.3,151.9 72.6,201.8 Q71.6,221.8 70.8,288.3 L82.7,288.3 Q90.3,218.4 88.9,201.8 Q91.7,175.2 90.7,175.2 Z"/>
+    <path transform="matrix(-1 0 0 1 240 0)" d="M88.1,148.6 Q71.3,151.9 72.6,201.8 Q71.6,221.8 70.8,288.3 L82.7,288.3 Q90.3,218.4 88.9,201.8 Q91.7,175.2 90.7,175.2 Z"/>
+    <ellipse cx="76.8" cy="294.7" rx="6.2" ry="8"/>
+    <ellipse cx="163.2" cy="294.7" rx="6.2" ry="8"/>
+    <path d="M94.1,251.7 Q90.3,298.3 97.5,339.8 Q94.8,369.7 100.1,416.4 L112.4,416.4 Q113.5,363.1 113.1,339.8 Q116.1,291.6 118,281.6 L120,258.4 Z"/>
+    <path transform="matrix(-1 0 0 1 240 0)" d="M94.1,251.7 Q90.3,298.3 97.5,339.8 Q94.8,369.7 100.1,416.4 L112.4,416.4 Q113.5,363.1 113.1,339.8 Q116.1,291.6 118,281.6 L120,258.4 Z"/>
+    <ellipse cx="103.5" cy="423" rx="12" ry="6"/>
+    <ellipse cx="136.5" cy="423" rx="12" ry="6"/>
+    <polygon points="109.3,111.8 79.8,98.2 109.3,120.8"/>
+    <polygon points="130.7,111.8 160.2,98.2 130.7,120.8"/>
+    <ellipse cx="120" cy="113.7" rx="16.2" ry="19.6"/>
+    <ellipse cx="133.8" cy="96.6" rx="11.2" ry="3.2" transform="rotate(-60 133.8 96.6)"/>
+    <ellipse cx="135.9" cy="105.3" rx="9.7" ry="3.2" transform="rotate(-38 135.9 105.3)"/>
+    <ellipse cx="136.1" cy="114.1" rx="8.2" ry="3.2" transform="rotate(-16 136.1 114.1)"/>
+    <ellipse cx="106.2" cy="96.6" rx="11.2" ry="3.2" transform="rotate(60 106.2 96.6)"/>
+    <ellipse cx="104.1" cy="105.3" rx="9.7" ry="3.2" transform="rotate(38 104.1 105.3)"/>
+  </g>
+</svg>
