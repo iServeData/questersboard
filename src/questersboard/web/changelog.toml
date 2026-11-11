@@ -1,0 +1,161 @@
+# What's new, as members see it at <member path>/changelog. Newest first is not required: releases
+# are sorted by date. Keep the wording plain and about what people can do; no internal details.
+#
+# [[release]]  date = "YYYY-MM-DD", title = short headline
+#   [[release.change]]  area = one of AREAS below, kind = "new" | "improved" | "fixed", text = one sentence
+
+[[release]]
+date = "2026-11-11"
+title = "Sortable tables and a new footer"
+[[release.change]]
+area = "Guild"
+kind = "improved"
+text = "Roster tables keep their headings and filters in view while you scroll, and every column can be sorted."
+[[release.change]]
+area = "Guild"
+kind = "improved"
+text = "On phones, filters fold into one Filter and sort button."
+[[release.change]]
+area = "Site"
+kind = "new"
+text = "A footer on every page with the current version and this changelog."
+[[release.change]]
+area = "Characters"
+kind = "improved"
+text = "Gear shows Item level in full instead of ilvl."
+[[release.change]]
+area = "Characters"
+kind = "fixed"
+text = "Race outlines now appear when a character has no picture from Blizzard yet."
+
+[[release]]
+date = "2026-11-10"
+title = "Known recipes and Who can craft"
+[[release.change]]
+area = "Characters"
+kind = "new"
+text = "Each profession lists the recipes the character knows."
+[[release.change]]
+area = "Guild"
+kind = "new"
+text = "Who can craft: search the guild roster and Shared characters for a recipe to see who knows it."
+[[release.change]]
+area = "Characters"
+kind = "new"
+text = "Characters without a picture from Blizzard show an outline of their race."
+[[release.change]]
+area = "Characters"
+kind = "improved"
+text = "Talent trees are centred, and the Top button stays out of the way of Add a character."
+
+[[release]]
+date = "2026-11-09"
+title = "Character pages from Blizzard"
+[[release.change]]
+area = "Characters"
+kind = "new"
+text = "Import gear, talents, professions, stats, portrait and hunter pets from Blizzard, choosing who can see each part."
+[[release.change]]
+area = "Characters"
+kind = "new"
+text = "Gear and talent icons with tooltips, full talent trees, and pets on a stand."
+[[release.change]]
+area = "Characters"
+kind = "new"
+text = "Refresh one character or all of them from Blizzard, keeping the same sharing."
+[[release.change]]
+area = "Guild"
+kind = "new"
+text = "Guild roster and Shared characters pages, with filters by class, role, spec, profession and level."
+[[release.change]]
+area = "Characters"
+kind = "new"
+text = "Sync from Battle.net marks your characters as verified and lets you add the rest in one go."
+
+[[release]]
+date = "2026-11-08"
+title = "Signups and voice"
+[[release.change]]
+area = "Events"
+kind = "improved"
+text = "Tentative signups can switch to confirmed with I'm in on the event page or Join again in Discord."
+[[release.change]]
+area = "Voice"
+kind = "fixed"
+text = "Event voice channels are created reliably and stay private to the event."
+
+[[release]]
+date = "2026-11-07"
+title = "Open publishing"
+[[release.change]]
+area = "Events"
+kind = "new"
+text = "Every member can publish events. Newer members send their drafts to moderators first."
+[[release.change]]
+area = "Voice"
+kind = "new"
+text = "Guest voice links, and hosts can remove or ban someone from an event's voice channel."
+[[release.change]]
+area = "Site"
+kind = "new"
+text = "A How it works page."
+
+[[release]]
+date = "2026-11-05"
+title = "Event voice and Chronicle search"
+[[release.change]]
+area = "Voice"
+kind = "new"
+text = "Each event can have its own private voice channel, opened on Start and removed after the event."
+[[release.change]]
+area = "Chronicle"
+kind = "new"
+text = "Chronicle stories show proper link previews and can be found by search engines."
+[[release.change]]
+area = "Chronicle"
+kind = "improved"
+text = "Published stories use the full page width."
+
+[[release]]
+date = "2026-11-04"
+title = "New event posts"
+[[release.change]]
+area = "Events"
+kind = "new"
+text = "Event posts in Discord show faction colour, difficulty, levels, objective, cover art, host and a chat thread."
+[[release.change]]
+area = "Events"
+kind = "improved"
+text = "Attendees are only asked to reconfirm when a change affects their character."
+
+[[release]]
+date = "2026-11-03"
+title = "Feedback batch"
+[[release.change]]
+area = "Events"
+kind = "new"
+text = "Per-attendee stories, co-hosts by username, role fill and group sizes."
+[[release.change]]
+area = "Events"
+kind = "new"
+text = "Classic editions and RP-PvP realms."
+[[release.change]]
+area = "Characters"
+kind = "improved"
+text = "Race and class lists filter each other and work well on iPhone and iPad."
+
+[[release]]
+date = "2026-11-02"
+title = "First release"
+[[release.change]]
+area = "Events"
+kind = "new"
+text = "Plan WoW events, sign up with a character and get reminders in Discord."
+[[release.change]]
+area = "Chronicle"
+kind = "new"
+text = "Write and publish Chronicle stories about events, after moderator review."
+[[release.change]]
+area = "Site"
+kind = "new"
+text = "Log in with Discord, on phones too."

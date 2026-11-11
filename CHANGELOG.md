@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Footer and changelog page.** Every page ends with a footer like the host site's: wordmark,
+  `[branding] footer_notes` and `footer_credits` lines, `footer_nav` links, the QuestersBoard links and
+  the running build ("Commit abc1234 · Nov 11, 2026"). `deploy/install.sh` writes the build stamp into
+  each release as `BUILD`; a checkout without one asks git, otherwise "local". The members' changelog
+  is at `<member path>/changelog`, from `src/questersboard/web/changelog.toml` (one card per release,
+  newest open).
+- **Sortable tables that stay in view.** Guild roster and Shared characters keep the filter bar and
+  column headings in view while scrolling; every heading sorts (in the browser, or by link with
+  `?sort=<column>&dir=desc` without scripts). Phones fold the filters into "Filter and sort" with a
+  "Sort by" picker.
+- **Gear says "Item level"** instead of "ilvl".
+- **Fix: race silhouettes were missing from installs.** The package only included files directly in
+  `static/`; `static/silhouettes/` is now packaged.
 - **Media probe checks a recipe.** `probe-media` now reads one known recipe: its recipe data, what it
   makes, its icon, and the item with the same name. `--detail recipes` shows only those checks.
 - **Known recipes.** Each profession on a character page lists the recipes the character knows

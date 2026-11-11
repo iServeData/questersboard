@@ -478,6 +478,34 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             raise ConfigError(f"[branding] {k} must start with / or https://")
     if not re.match(r"^[a-z0-9_ -]{0,64}$", str(b["body_class"])):
         raise ConfigError("[branding] body_class may only contain lowercase letters, digits, - and _")
+    # Footer: wordmark (bold middle part), disclaimer lines, credit lines and footer links. Plain text only.
+    b.setdefault("wordmark", [b["site_name"]])
+    if (not isinstance(b["wordmark"], list) or not 1 <= len(b["wordmark"]) <= 3
+            or any(not isinstance(x, str) for x in b["wordmark"])):
+        raise ConfigError("[branding] wordmark must be a list of 1 to 3 strings; the middle one is bold")
+    b["wordmark"] = (list(b["wordmark"]) + ["", ""])[:3] if len(b["wordmark"]) > 1 else ["", b["wordmark"][0], ""]
+    for k in ("footer_notes", "footer_credits"):
+        b.setdefault(k, [])
+        if not isinstance(b[k], list):
+            raise ConfigError(f"[branding] {k} must be a list")
+        lines = []
+        for x in b[k]:
+            if isinstance(x, str):
+                x = {"text": x}
+            if (not isinstance(x, dict) or set(x) - {"text", "link", "url", "after"}
+                    or any(not isinstance(v, str) for v in x.values())
+                    or (x.get("url") and not re.match(r"^(/|https://)", x["url"]))
+                    or bool(x.get("link")) != bool(x.get("url"))):
+                raise ConfigError(f"[branding] {k}: each line is a string or {{ text, link, url, after }} "
+                                  "with a / or https:// url")
+            lines.append({"text": x.get("text", ""), "link": x.get("link", ""), "url": x.get("url", ""),
+                          "after": x.get("after", "")})
+        b[k] = lines
+    b.setdefault("footer_nav", [])
+    if not isinstance(b["footer_nav"], list) or any(
+            not isinstance(n, dict) or not str(n.get("label", "")) or
+            not re.match(r"^(/|https://)", str(n.get("url", ""))) for n in b["footer_nav"]):
+        raise ConfigError("[branding] footer_nav must be a list of { label, url } with / or https:// urls")
 
     db = r["database"]
     db.setdefault("admin_url", "")

@@ -311,6 +311,26 @@ def test_shared_characters_lists_member_shares(seeded, tmp_path, monkeypatch):
 
 
 @needs_db
+def test_shared_characters_sort_and_sticky_bar(seeded, tmp_path, monkeypatch):
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    sh = {"overview": "members", "gear": "members"}
+    _shared(seeded, cfg, 95, "Alpha Sorter", shares=sh)                    # item level 25
+    _shared(seeded, cfg, 97, "Bravo Sorter", shares=sh)                    # item level 27
+    _shared(seeded, cfg, 96, "Charlie Sorter", shares={"gear": "members"})  # item level not shared: always last
+    c = login(a, 98)
+    order = lambda html: [n for n in sorted(("Alpha", "Bravo", "Charlie"), key=html.find) if n in html]
+    page = c.get("/wow/quester/players").text
+    assert order(page) == ["Alpha", "Bravo", "Charlie"] and "data-sticky-bar" in page and "data-sortable" in page
+    assert 'data-sort-key="name" aria-sort="ascending"' in page and 'href="?sort=name&amp;dir=desc"' in page
+    assert order(c.get("/wow/quester/players?sort=ilvl&dir=desc").text) == ["Bravo", "Alpha", "Charlie"]
+    assert order(c.get("/wow/quester/players?sort=ilvl:desc").text) == ["Bravo", "Alpha", "Charlie"]
+    assert order(c.get("/wow/quester/players?sort=name&dir=desc").text) == ["Charlie", "Bravo", "Alpha"]
+    page = c.get("/wow/quester/players?sort=nonsense&class=warrior").text
+    assert order(page) == ["Alpha", "Bravo", "Charlie"] and "(1 active)" in page
+    assert 'href="?class=warrior&amp;sort=level"' in page and " style=" not in page
+
+
+@needs_db
 def test_portrait_is_served_by_questersboard(seeded, tmp_path, monkeypatch):
     def h(req):
         if req.url.host == "render.worldofwarcraft.com":

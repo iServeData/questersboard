@@ -7,6 +7,9 @@
 {% else %}
 <p class="note">Characters whose owners shared at least one group of details with all QuestersBoard members.</p>
 {% endif %}
+<div class="wq-table-bar" data-sticky-bar>
+<details class="wq-filter-box" data-filter-box open>
+<summary>Filter and sort{% if active_filters %} <span class="wq-filter-count">({{ active_filters }} active)</span>{% endif %}</summary>
 <form method="get" class="wq-roster-filters" aria-label="Filter characters">
   {% macro pick(name, label, values, pretty=false) %}<label>{{ label }}<select name="{{ name }}"><option value="">Any</option>{% for v in values %}<option value="{{ v }}"{% if f[name] == v %} selected{% endif %}>{{ v.replace('_', ' ')|title if pretty else v }}</option>{% endfor %}</select></label>{% endmacro %}
   {% if opts.edition|length > 1 %}<label>Edition<select name="edition"><option value="">Any</option>{% for v in opts.edition %}<option value="{{ v }}"{% if f.edition == v %} selected{% endif %}>{{ editions[v].name }}</option>{% endfor %}</select></label>{% endif %}
@@ -17,22 +20,26 @@
   {% if opts.craft or f.craft %}<label class="wq-craft-filter">Who can craft<input type="search" name="craft" value="{{ f.craft }}" maxlength="80" list="craft-recipes" placeholder="Recipe name" autocomplete="off"></label><datalist id="craft-recipes">{% for v in opts.craft %}<option value="{{ v }}">{% endfor %}</datalist>{% endif %}
   <label>Min level<input type="number" name="min_level" min="1" max="90" value="{{ f.min_level }}"></label>
   <label>Min item level<input type="number" name="min_ilvl" min="1" max="999" value="{{ f.min_ilvl }}"></label>
-  <button class="btn" type="submit">Filter</button>{% if f.values()|select|list %} <a class="linkish" href="{{ request.url.path }}">Clear</a>{% endif %}
+  <label class="wq-sort-pick">Sort by<select name="sort" data-sort-select>{% for k, lab in sort_columns.items() %}{% for d in (false, true) %}<option value="{{ k }}{{ ':desc' if d else '' }}"{% if sort == k and desc == d %} selected{% endif %}>{{ lab }} ({{ ('Z–A' if d else 'A–Z') if k in ('name', 'class', 'spec', 'roles', 'professions') else ('highest first' if d else 'lowest first') }})</option>{% endfor %}{% endfor %}</select></label>
+  <button class="btn" type="submit">Filter</button>{% if active_filters %} <a class="linkish" href="{{ request.url.path }}">Clear</a>{% endif %}
 </form>
-<p class="note">{{ rows|length }} of {{ total }} character{{ "s" if total != 1 }}.</p>
+</details>
+<p class="note wq-table-count">{{ rows|length }} of {{ total }} character{{ "s" if total != 1 }}.</p>
+</div>
 {% if rows %}
-<table class="wq-roster-table">
-  <thead><tr><th scope="col">Character</th><th scope="col">Class</th><th scope="col">Level</th><th scope="col">Spec</th><th scope="col">Item level</th><th scope="col">Roles</th><th scope="col">Professions</th>{% if f.craft %}<th scope="col">Can craft</th>{% endif %}</tr></thead>
+<table class="wq-roster-table" data-sortable>
+  {% macro th(key, num=false) %}<th scope="col" data-sort-key="{{ key }}"{% if num %} data-sort-num{% endif %} aria-sort="{{ ('descending' if desc else 'ascending') if sort == key else 'none' }}"><a href="{{ sort_links[key] }}" data-sort-link>{{ sort_columns[key] }}<span class="wq-sort-ind" aria-hidden="true"></span></a></th>{% endmacro %}
+  <thead><tr>{{ th("name") }}{{ th("class") }}{{ th("level", true) }}{{ th("spec") }}{{ th("ilvl", true) }}{{ th("roles") }}{{ th("professions") }}{% if f.craft %}<th scope="col">Can craft</th>{% endif %}</tr></thead>
   <tbody>
   {% for r in rows %}
   <tr>
-    <td><a href="{{ mp }}/characters/{{ r.ch.id }}/view">{{ r.ch.name }}</a>{% if scope == "members" and r.prof.guild_name and "guild" in r.visible %} <span class="note">{{ r.prof.guild_name }}</span>{% endif %}</td>
-    <td data-label="Class">{{ r.ch.race_key.replace('_',' ')|title }} {{ r.ch.class_key.replace('_',' ')|title }}</td>
-    <td data-label="Level">{{ r.ch.level or "—" }}</td>
-    <td data-label="Spec">{{ r.spec or "—" }}</td>
-    <td data-label="Item level">{{ r.item_level or "—" }}</td>
-    <td data-label="Roles">{{ r.ch.eligible_roles|join(", ") or "—" }}</td>
-    <td data-label="Professions">{{ r.professions|join(", ") or "—" }}</td>
+    <td data-v="{{ r.ch.name }}"><a href="{{ mp }}/characters/{{ r.ch.id }}/view">{{ r.ch.name }}</a>{% if scope == "members" and r.prof.guild_name and "guild" in r.visible %} <span class="note">{{ r.prof.guild_name }}</span>{% endif %}</td>
+    <td data-label="Class" data-v="{{ r.ch.class_key }} {{ r.ch.race_key }}">{{ r.ch.race_key.replace('_',' ')|title }} {{ r.ch.class_key.replace('_',' ')|title }}</td>
+    <td data-label="Level" data-v="{{ r.ch.level or '' }}">{{ r.ch.level or "—" }}</td>
+    <td data-label="Spec" data-v="{{ r.spec }}">{{ r.spec or "—" }}</td>
+    <td data-label="Item level" data-v="{{ r.item_level or '' }}">{{ r.item_level or "—" }}</td>
+    <td data-label="Roles" data-v="{{ r.ch.eligible_roles|join(', ') }}">{{ r.ch.eligible_roles|join(", ") or "—" }}</td>
+    <td data-label="Professions" data-v="{{ r.professions|join(', ') }}">{{ r.professions|join(", ") or "—" }}</td>
     {% if f.craft %}<td data-label="Can craft">{% for name, prof in r.crafts %}{{ name }} <span class="note">{{ prof }}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}</td>{% endif %}
   </tr>
   {% endfor %}

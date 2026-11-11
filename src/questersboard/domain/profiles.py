@@ -1035,6 +1035,30 @@ def _row(ch: Character, prof: CharacterProfile, vis: list[str]) -> RosterRow:
     return RosterRow(ch, prof, vis, ilvl, spec, [p["name"] for p in shown], recipes)
 
 
+# Roster columns that can be sorted: key -> (label, value). Empty values always sort last.
+SORT_COLUMNS = {
+    "name": ("Character", lambda r: (r.ch.name or "").casefold()),
+    "class": ("Class", lambda r: f"{r.ch.class_key or ''} {r.ch.race_key or ''}".strip()),
+    "level": ("Level", lambda r: r.ch.level),
+    "spec": ("Spec", lambda r: (r.spec or "").casefold()),
+    "ilvl": ("Item level", lambda r: r.item_level),
+    "roles": ("Roles", lambda r: ", ".join(r.ch.eligible_roles or [])),
+    "professions": ("Professions", lambda r: ", ".join(r.professions).casefold()),
+}
+
+
+def sort_rows(rows: list[RosterRow], key: str, desc: bool = False) -> tuple[list[RosterRow], str, bool]:
+    """Sort by a SORT_COLUMNS key (unknown keys: by name). Returns (rows, key used, descending)."""
+    if key not in SORT_COLUMNS:
+        key, desc = "name", False
+    val = SORT_COLUMNS[key][1]
+    have = [r for r in rows if val(r) not in (None, "")]
+    empty = [r for r in rows if val(r) in (None, "")]
+    have.sort(key=lambda r: ((r.ch.name or "").casefold()))
+    have.sort(key=val, reverse=desc)
+    return have + empty, key, desc
+
+
 def guild_roster(s: Session, cfg: Config, actor: Actor, edition: str, region: str, guild_id: str):
     """Characters that shared their guild membership, for confirmed members of that guild only.
     Returns (guild name, rows). NotFound for anyone outside the guild or when nobody shared."""

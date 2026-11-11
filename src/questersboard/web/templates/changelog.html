@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="wq-changelog">
+  <div class="section-head"><span class="label"><span class="num">//</span> QuestersBoard</span><h1>Changelog</h1></div>
+  <p class="note">What's new and what's fixed, newest first. Running: commit {{ build.commit }}{% if build.date %} from {{ build.date.strftime("%b %-d, %Y") }}{% endif %}.</p>
+  {% for r in releases %}
+  <details class="panel wq-release" id="{{ r.id }}"{% if loop.first %} open{% endif %}>
+    <summary>
+      <span class="wq-release-date">{{ r.date.strftime("%b %-d, %Y") }}</span>
+      <span class="wq-release-title">{{ r.title }}</span>
+      <span class="note wq-release-meta">{{ r.changes|length }} change{{ "" if r.changes|length == 1 else "s" }}{% if r.since %} · since {{ r.since.strftime("%b %-d") }}{% endif %}</span>
+      <span class="wq-release-areas">{% for a in r.areas %}<span class="wq-chip">{{ a }}</span>{% endfor %}</span>
+    </summary>
+    <ul class="wq-release-list">
+      {% for c in r.changes %}
+      <li><span class="wq-kind wq-kind-{{ c.kind }}">{{ c.kind_label }}</span><span class="wq-release-text">{{ c.text }} <span class="wq-release-area">{{ c.area }}</span></span></li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endfor %}
+</section>
+{% endblock %}

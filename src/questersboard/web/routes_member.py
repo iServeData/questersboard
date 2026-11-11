@@ -883,13 +883,21 @@ def router(cfg: Config) -> APIRouter:
                                                            "min_ilvl", "edition", "craft")}
         f["craft"] = profiles.craft_query(f["craft"])
         shown = profiles.filter_rows(rows, f)
+        sk, _, sd = request.query_params.get("sort", "").partition(":")   # "level:desc" from the phone picker
+        shown, sort, desc = profiles.sort_rows(shown, sk, "desc" in (sd, request.query_params.get("dir", "")))
         with w.db.tx() as s:
             guild_links = profiles.my_guild_links(s, a.member_id)
+        from urllib.parse import urlencode
+        keep = {k: v for k, v in f.items() if v}
+        sort_links = {k: "?" + urlencode({**keep, "sort": k, **({"dir": "desc"} if k == sort and not desc else {})})
+                      for k in profiles.SORT_COLUMNS}
         return render(request, "roster.html", {"title": title, "rows": shown, "total": len(rows), "f": f,
                                                "opts": profiles.filter_options(rows), "scope": scope,
                                                "guild": guild, "editions": w.cfg.editions,
                                                "presets": {p.key: p.label for p in w.cfg.role_presets},
-                                               "guild_links": guild_links})
+                                               "guild_links": guild_links, "sort": sort, "sort_links": sort_links, "desc": desc,
+                                               "sort_columns": {k: v[0] for k, v in profiles.SORT_COLUMNS.items()},
+                                               "active_filters": sum(1 for v in f.values() if v)})
 
     @r.get(mp + "/guilds/{edition}/{region}/{guild_id}")
     def guild_page(request: Request, edition: str, region: str, guild_id: str):

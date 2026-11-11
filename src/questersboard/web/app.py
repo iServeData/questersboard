@@ -236,6 +236,8 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
                            ruleset_label=lambda r: RULESET_LABELS.get(r or "", (r or "").replace("_", " ").title()))
     from ..domain import profiles as _profiles
     sil = frozenset(f.stem for f in (HERE / "static" / "silhouettes").glob("*.svg"))
+    from .. import build as _build
+    tpl.env.globals.update(build=_build.info())
     tpl.env.globals.update(portrait_state=_profiles.portrait_state,
                            silhouette=lambda race: _profiles.silhouette_key(race, sil))
     tpl.env.autoescape = True

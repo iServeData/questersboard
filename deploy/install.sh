@@ -60,6 +60,10 @@ trap cleanup_failed ERR
 run install -d -o root -g root -m 0755 "$REL"
 run cp -a "$REPO/src" "$REPO/deploy" "$REPO/pyproject.toml" "$REPO/requirements.lock" "$REPO/alembic.ini" \
           "$REPO/LICENSE" "$REPO/README.md" "$REL/"
+# Build stamp for the page footer: the commit and its date (read-only git; "local" if unavailable).
+BUILD_LINE="$(git -c safe.directory="$REPO" -C "$REPO" log -1 --format='%h %cs' 2>/dev/null || true)"
+if [[ $DRY == 1 ]]; then echo "+ write $REL/BUILD (${BUILD_LINE:-local})"
+else printf '%s\n' "${BUILD_LINE:-local}" > "$REL/BUILD"; fi
 run $PY -m venv "$REL/venv"
 run "$REL/venv/bin/pip" install --quiet --disable-pip-version-check --no-cache-dir --require-hashes --no-deps -r "$REL/requirements.lock"
 run "$REL/venv/bin/pip" install --quiet --disable-pip-version-check --no-cache-dir --require-hashes --no-deps -r "$REL/deploy/build_requirements.lock"

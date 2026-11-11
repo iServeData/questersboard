@@ -76,10 +76,44 @@ textarea{resize:vertical;max-width:100%;min-height:3.2em}
 .wq-checks{display:grid;gap:.35rem;border:0;padding:0;margin:0 0 .75rem}
 .wq-checks label{display:flex;gap:.5rem;align-items:center}
 .shot img,.wq-story img{max-width:100%;height:auto;display:block}
-.wq-foot{padding:30px 24px calc(clamp(18px,3vw,32px) + 56px);border-top:1px solid var(--line)}
+/* Footer: same layout as the host site's footer, self-contained so the bundled CSS matches. */
+.wq-foot{border-top:1px solid var(--line);background:var(--bg-2,#151617);padding:42px 0 calc(clamp(18px,3vw,32px) + 56px);font-size:.92rem;color:var(--muted);margin-top:40px}
 /* The Top button stays at the bottom: leave room so it never covers the footer links. */
 body:has(.wq-fab) .wq-foot{padding-bottom:calc(clamp(18px,3vw,32px) + 108px)}
-.wq-foot a{white-space:nowrap}
+.wq-foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:20px}
+.wq-foot-main{flex:1 1 420px;min-width:0}
+.wq-foot .wordmark{display:inline-block;font-weight:600;letter-spacing:.08em;color:var(--text);text-decoration:none;opacity:1}
+.wq-foot .wordmark b{font-weight:700}
+.wq-foot-notes{margin:10px 0 0}
+.wq-foot-links{margin:12px 0 0}
+.wq-foot-links a{white-space:nowrap}
+.wq-foot nav a{margin-right:20px;color:var(--text);text-decoration:none;font:500 .76rem var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase}
+.wq-foot nav a:hover{color:var(--sand)}
+.wq-foot .credit{margin:14px 0 0;font-size:.8rem;line-height:1.55;color:#80848a}
+.wq-foot .credit a{color:#80848a;text-decoration-color:rgba(128,132,138,.45)}
+.wq-foot .credit a:hover{color:var(--muted)}
+.wq-foot .credit .credit-line,.wq-foot .credit .build{display:block}
+.wq-foot .credit .credit-line + .credit-line{margin-top:2px}
+.wq-foot .credit .build{margin-top:6px;font-family:var(--font-mono,monospace);font-size:.74rem;letter-spacing:.04em}
+/* Changelog: one collapsible card per release, newest open. */
+.wq-changelog{max-width:860px}
+.wq-release{margin:0 0 12px;padding:0}
+.wq-release summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;padding:16px 20px;cursor:pointer;list-style:none}
+.wq-release summary::-webkit-details-marker{display:none}
+.wq-release summary::before{content:"\25B8";color:var(--muted);transition:transform .15s}
+.wq-release[open] summary::before{transform:rotate(90deg)}
+.wq-release-date{font:600 .78rem var(--font-mono,monospace);letter-spacing:.1em;text-transform:uppercase;color:var(--sand)}
+.wq-release-title{font-weight:600;color:var(--text);flex:1 1 220px}
+.wq-release-areas{display:flex;flex-wrap:wrap;gap:6px;flex-basis:100%;padding-left:22px}
+.wq-chip{font:500 .68rem var(--font-mono,monospace);letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line-strong);padding:2px 7px;color:var(--muted)}
+.wq-release-list{margin:0;padding:4px 20px 18px 42px;display:grid;gap:10px;list-style:none}
+.wq-release-list li{display:grid;grid-template-columns:6.2em 1fr;gap:2px 8px;align-items:baseline}
+.wq-kind{display:inline-block;min-width:5.5em;font:600 .68rem var(--font-mono,monospace);letter-spacing:.1em;text-transform:uppercase}
+.wq-kind-new{color:#5fae7b}.wq-kind-improved{color:#7fb3e8}.wq-kind-fixed{color:#d6a64a}
+.wq-release-area{color:var(--muted);font-size:.85rem;white-space:nowrap}
+.wq-release-area::before{content:"· "}
+
+.wq-release-text{grid-column:2}
 .wq .nav{position:relative}
 .wq-state-in_progress{border-color:var(--accent,#c4493c)}
 .wq-state-cancelled{opacity:.8;text-decoration:line-through}
@@ -174,7 +208,29 @@ tr[hidden]{display:none}
 .wq-roster-filters input{max-width:110px}
 .wq-roster-filters .wq-craft-filter{min-width:200px}
 .wq-roster-filters .wq-craft-filter input{max-width:none;width:100%}
-.wq-roster-table{width:100%;border-collapse:collapse}
+/* Long tables: filter bar and headings stay in view while the rows scroll. */
+.wq-table-bar{position:sticky;top:0;z-index:20;background:var(--bg,#101112);border-bottom:1px solid var(--line);padding:6px 0 2px;margin:0 0 0}
+.wq-filter-box > summary{display:none;cursor:pointer;font:600 .8rem var(--font-mono,monospace);letter-spacing:.1em;text-transform:uppercase;padding:8px 0;list-style:none}
+.wq-filter-box > summary::-webkit-details-marker{display:none}
+.wq-filter-box > summary::before{content:"\25B8  ";color:var(--muted)}
+.wq-filter-box[open] > summary::before{content:"\25BE  "}
+.wq-filter-count{color:var(--sand)}
+.wq-table-count{margin:.3em 0 .4em}
+.wq-sort-pick{display:none!important}
+.wq-roster-table{width:100%;border-collapse:separate;border-spacing:0}
+.wq-roster-table thead th{position:sticky;top:var(--wq-bar-h,0px);z-index:10;background:var(--bg-2,#151617);border-bottom:1px solid var(--line-strong,rgba(225,228,232,.24))}
+.wq-roster-table th a[data-sort-link]{color:inherit;text-decoration:none;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.wq-roster-table th a[data-sort-link]:hover{color:var(--sand)}
+.wq-sort-ind::after{content:"\2195";opacity:.35;font-size:.8em}
+th[aria-sort="ascending"] .wq-sort-ind::after{content:"\25B2";opacity:1;color:var(--sand)}
+th[aria-sort="descending"] .wq-sort-ind::after{content:"\25BC";opacity:1;color:var(--sand)}
+@media (max-width:700px){
+  .wq-filter-box > summary{display:block}
+  .wq-sort-pick{display:flex!important}
+  .wq-roster-filters label{min-width:calc(50% - 8px);flex:1 1 calc(50% - 8px)}
+  .wq-roster-filters input{max-width:none}
+  .wq-table-bar{max-height:70vh;overflow:auto}
+}
 .wq-roster-table th,.wq-roster-table td{text-align:left;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
 .wq-roster-table th{font-weight:600;font-size:.85rem}
 @media (max-width:700px){.wq-roster-table thead{display:none}.wq-roster-table tr{display:block;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)}.wq-roster-table td{display:block;border:0;padding:1px 0}.wq-roster-table td[data-label]:not(:first-child)::before{content:attr(data-label) ": ";opacity:.7}}
@@ -333,3 +389,10 @@ tr[hidden]{display:none}
 @media (prefers-reduced-motion:reduce){.wq-fab{transition:none}}
 .wq-fab:focus-visible{outline:2px solid #ffd100;outline-offset:3px}
 @media print{.wq-fab{display:none}}
+@media (max-width:600px){
+  .wq-release summary{padding:14px 16px}
+  .wq-release-areas{padding-left:0}
+  .wq-release-list{padding:2px 16px 16px}
+  .wq-release-list li{display:block}
+  .wq-kind{display:block;margin-bottom:2px}
+}

@@ -41,7 +41,7 @@ version = { attr = "questersboard.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-questersboard = ["web/templates/*.html", "web/templates/**/*.html", "web/static/*", "migrations/*.py", "migrations/*.mako", "migrations/versions/*.py", "catalog/*.toml"]
+questersboard = ["web/templates/*.html", "web/templates/**/*.html", "web/static/*", "web/static/**/*", "web/*.toml", "migrations/*.py", "migrations/*.mako", "migrations/versions/*.py", "catalog/*.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

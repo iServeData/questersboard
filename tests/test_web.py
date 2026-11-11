@@ -503,7 +503,8 @@ def test_host_flow_through_the_browser_forms(app):
     host = login(app, 91, "event_creator")
     new = host.get("/wow/quester/events/new").text
     data = {**_form_defaults(new, "/wow/quester/events/new"),
-            "title": "Test run", "location": "Test", "edition": "forever", "date": "2026-11-10",
+            "title": "Test run", "location": "Test", "edition": "forever",
+            "date": (__import__("datetime").date.today() + __import__("datetime").timedelta(days=7)).isoformat(),
             "start_time": "19:00", "timezone": "America/Los_Angeles"}
     r = host.post("/wow/quester/events/new", data=data)
     assert r.status_code == 303, r.text[:300]

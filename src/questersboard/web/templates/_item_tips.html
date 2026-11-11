@@ -9,7 +9,7 @@
 <div class="wq-item wq-item-{{ side }} wq-q-{{ q }}" data-tip>
   <button type="button" class="wq-item-btn" aria-expanded="false">
     {% if i.icon %}<img class="wq-icon" src="{{ mp }}/characters/{{ c.id }}/icon/gear/{{ n }}?v={{ ver() }}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif %}
-    <span class="wq-item-txt"><span class="wq-item-name">{{ i.name }}</span><span class="note">{{ i.slot }}{% if i.item_level %} · ilvl {{ i.item_level }}{% endif %}</span></span>
+    <span class="wq-item-txt"><span class="wq-item-name">{{ i.name }}</span><span class="note">{{ i.slot }}{% if i.item_level %} · Item level {{ i.item_level }}{% endif %}</span></span>
   </button>
   <div class="wq-tip" role="tooltip">
     <div class="wq-tip-name">{{ i.name }}</div>

@@ -497,4 +497,72 @@
     document.addEventListener("click", function (ev) { if (!ev.target.closest("[data-tip]")) { closeAll(null); } });
     document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { closeAll(null); } });
   }
+  // Long tables: the filter bar and headings stay in view (CSS sticky). The headings sit just under the
+  // bar, so its height is measured into --wq-bar-h. Headings sort in the browser; the links still work
+  // without this file, and the phone "Sort by" picker drives the same sort.
+  document.querySelectorAll("[data-sticky-bar]").forEach(function (bar) {
+    var root = document.documentElement;
+    var setH = function () { root.style.setProperty("--wq-bar-h", bar.offsetHeight + "px"); };
+    setH();
+    if (window.ResizeObserver) { new ResizeObserver(setH).observe(bar); } else { window.addEventListener("resize", setH); }
+  });
+  var narrow = window.matchMedia ? window.matchMedia("(max-width: 700px)") : null;
+  document.querySelectorAll("[data-filter-box]").forEach(function (box) {
+    var fit = function () { box.open = !(narrow && narrow.matches); };
+    fit();
+    if (narrow && narrow.addEventListener) { narrow.addEventListener("change", fit); }
+  });
+  document.querySelectorAll("table[data-sortable]").forEach(function (table) {
+    var body = table.tBodies[0], heads = table.querySelectorAll("th[data-sort-key]");
+    var pick = document.querySelector("[data-sort-select]");
+    if (!body || !heads.length) { return; }
+    var cmp = function (a, b, num) {
+      if (a === "" || b === "") { return a === b ? 0 : (a === "" ? 1 : -1); }
+      if (num) { return parseFloat(a) - parseFloat(b); }
+      return a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
+    };
+    var sortBy = function (key, desc) {
+      var th = table.querySelector('th[data-sort-key="' + key + '"]');
+      if (!th) { return; }
+      var col = Array.prototype.indexOf.call(th.parentNode.children, th), num = th.hasAttribute("data-sort-num");
+      var rows = Array.prototype.slice.call(body.rows).map(function (tr, i) {
+        var td = tr.cells[col], v = td ? (td.getAttribute("data-v") || "").trim() : "";
+        var name = tr.cells[0] ? (tr.cells[0].getAttribute("data-v") || "") : "";
+        return { tr: tr, v: v, name: name, i: i };
+      });
+      rows.sort(function (a, b) {
+        var c = cmp(a.v, b.v, num);
+        if (c !== 0 && a.v !== "" && b.v !== "" && desc) { c = -c; }
+        return c || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || a.i - b.i;
+      });
+      var frag = document.createDocumentFragment();
+      rows.forEach(function (r) { frag.appendChild(r.tr); });
+      body.appendChild(frag);
+      heads.forEach(function (h) {
+        h.setAttribute("aria-sort", h === th ? (desc ? "descending" : "ascending") : "none");
+      });
+      if (pick) { pick.value = key + (desc ? ":desc" : ""); }
+      if (window.history && history.replaceState && window.URLSearchParams) {
+        var q = new URLSearchParams(location.search);
+        q.set("sort", key);
+        if (desc) { q.set("dir", "desc"); } else { q.delete("dir"); }
+        history.replaceState(null, "", location.pathname + "?" + q.toString() + location.hash);
+      }
+    };
+    heads.forEach(function (th) {
+      var a = th.querySelector("[data-sort-link]");
+      if (!a) { return; }
+      a.setAttribute("role", "button");
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        sortBy(th.getAttribute("data-sort-key"), th.getAttribute("aria-sort") === "ascending");
+      });
+    });
+    if (pick) {
+      pick.addEventListener("change", function () {
+        var p = pick.value.split(":");
+        sortBy(p[0], p[1] === "desc");
+      });
+    }
+  });
 })();

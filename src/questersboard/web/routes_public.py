@@ -228,6 +228,14 @@ def router(cfg: Config) -> APIRouter:
                                  "characters, Blizzard character details, guild rosters, events, voice, guest links and "
                                  "Chronicle stories.")}, public=True)
 
+    @r.get(mp + "/changelog")
+    def changelog_page(request: Request):
+        from . import changelog
+        return render(request, "changelog.html", {"title": "Changelog", "releases": changelog.releases(),
+                                                  "seo": seo.meta(request, description=(
+                                                      f"What's new in {web(request).cfg['branding']['site_name']}'s"
+                                                      " WoW event tools."))}, public=True)
+
     @r.get(mp + "/terms")
     def terms(request: Request):
         return render(request, "terms.html", {"title": "Terms of use", "seo": seo.meta(
