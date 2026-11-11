@@ -428,3 +428,38 @@ def test_character_page_refreshes_from_blizzard_with_the_same_choices(seeded, tm
     assert "Refreshed from Blizzard." in c.get(r.headers["location"]).text
     with seeded.tx() as s:
         assert list(s.execute(text("select groups from character_profiles")).scalar()) == ["gear"]
+
+
+def _crafter_groups(n, recipes):
+    return {"overview": {"equipped_item_level": 20}, "guild": {"id": "9001", "name": "Fixture Guild"},
+            "professions": [{"name": "Leatherworking", "kind": "primary", "skill": 95, "max": 150,
+                             "recipes": [{"id": 1000 + i, "name": r} for i, r in enumerate(recipes)]}]}
+
+
+@needs_db
+def test_who_can_craft_searches_shared_recipes_only(seeded, tmp_path, monkeypatch):
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    guild_all = {g: "guild" for g in profiles.GROUP_KEYS}
+    _shared(seeded, cfg, 90, "Belt Maker", shares=guild_all,
+            groups=_crafter_groups(90, ["Fixture Leather Belt", "Fixture Boots"]))
+    _shared(seeded, cfg, 91, "Boot Maker", shares=guild_all, groups=_crafter_groups(91, ["Fixture Boots"]))
+    _shared(seeded, cfg, 92, "Quiet Maker", shares={"guild": "guild"},             # Professions kept private
+            groups=_crafter_groups(92, ["Fixture Leather Belt"]))
+    url = "/wow/quester/guilds/forever/us/9001"
+    c = login(a, 90)
+    page = c.get(url).text
+    assert 'name="craft"' in page and '<option value="Fixture Leather Belt">' in page   # suggestions
+    belt = c.get(url + "?craft=%20leather%20%20BELT%20").text                      # any case, spaces tidied
+    assert "Belt Maker" in belt and "Boot Maker" not in belt and "Quiet Maker" not in belt
+    assert "<th scope=\"col\">Can craft</th>" in belt and "Fixture Leather Belt <span class=\"note\">Leatherworking" in belt
+    assert 'value="leather BELT"' in belt
+    boots = c.get(url + "?craft=boots").text
+    assert "Belt Maker" in boots and "Boot Maker" in boots and "Quiet Maker" not in boots
+    none = c.get(url + "?craft=fixture%20sword").text
+    assert "Nobody here has shared a recipe matching" in none and none.count("/view") == 0
+    assert c.get(url + "?craft=" + "x" * 300).status_code == 200                  # long input is cut, not an error
+
+
+def test_craft_query_and_filter_rows_without_a_database():
+    assert profiles.craft_query("  a   b ") == "a b" and len(profiles.craft_query("y" * 200)) == 80
+    assert profiles.craft_query(None) == ""

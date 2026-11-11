@@ -14,6 +14,7 @@
   {{ pick("role", "Role", opts.role, true) }}
   {{ pick("spec", "Spec", opts.spec) }}
   {{ pick("profession", "Profession", opts.profession) }}
+  {% if opts.craft or f.craft %}<label class="wq-craft-filter">Who can craft<input type="search" name="craft" value="{{ f.craft }}" maxlength="80" list="craft-recipes" placeholder="Recipe name" autocomplete="off"></label><datalist id="craft-recipes">{% for v in opts.craft %}<option value="{{ v }}">{% endfor %}</datalist>{% endif %}
   <label>Min level<input type="number" name="min_level" min="1" max="90" value="{{ f.min_level }}"></label>
   <label>Min item level<input type="number" name="min_ilvl" min="1" max="999" value="{{ f.min_ilvl }}"></label>
   <button class="btn" type="submit">Filter</button>{% if f.values()|select|list %} <a class="linkish" href="{{ request.url.path }}">Clear</a>{% endif %}
@@ -21,7 +22,7 @@
 <p class="note">{{ rows|length }} of {{ total }} character{{ "s" if total != 1 }}.</p>
 {% if rows %}
 <table class="wq-roster-table">
-  <thead><tr><th scope="col">Character</th><th scope="col">Class</th><th scope="col">Level</th><th scope="col">Spec</th><th scope="col">Item level</th><th scope="col">Roles</th><th scope="col">Professions</th></tr></thead>
+  <thead><tr><th scope="col">Character</th><th scope="col">Class</th><th scope="col">Level</th><th scope="col">Spec</th><th scope="col">Item level</th><th scope="col">Roles</th><th scope="col">Professions</th>{% if f.craft %}<th scope="col">Can craft</th>{% endif %}</tr></thead>
   <tbody>
   {% for r in rows %}
   <tr>
@@ -32,9 +33,11 @@
     <td data-label="Item level">{{ r.item_level or "—" }}</td>
     <td data-label="Roles">{{ r.ch.eligible_roles|join(", ") or "—" }}</td>
     <td data-label="Professions">{{ r.professions|join(", ") or "—" }}</td>
+    {% if f.craft %}<td data-label="Can craft">{% for name, prof in r.crafts %}{{ name }} <span class="note">{{ prof }}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}</td>{% endif %}
   </tr>
   {% endfor %}
   </tbody>
 </table>
+{% elif f.craft %}<p class="note">Nobody here has shared a recipe matching “{{ f.craft }}”. Only recipes in Professions shared with you are searched.</p>
 {% else %}<p class="note">No characters match.</p>{% endif %}
 {% endblock %}

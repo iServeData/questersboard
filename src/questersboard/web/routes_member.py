@@ -880,7 +880,8 @@ def router(cfg: Config) -> APIRouter:
     def _roster_page(request, w, a, title, rows, scope, guild=None):
         from ..domain import profiles
         f = {k: request.query_params.get(k, "") for k in ("class", "role", "spec", "profession", "min_level",
-                                                           "min_ilvl", "edition")}
+                                                           "min_ilvl", "edition", "craft")}
+        f["craft"] = profiles.craft_query(f["craft"])
         shown = profiles.filter_rows(rows, f)
         with w.db.tx() as s:
             guild_links = profiles.my_guild_links(s, a.member_id)

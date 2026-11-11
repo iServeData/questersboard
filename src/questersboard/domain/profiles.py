@@ -11,7 +11,7 @@ member can refresh or remove them at any time.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from urllib.parse import parse_qsl, urlsplit
 
 from sqlalchemy import delete, select
@@ -1022,14 +1022,17 @@ class RosterRow:
     item_level: int | None
     spec: str
     professions: list[str]
+    recipes: list[tuple[str, str]] = field(default_factory=list)    # (recipe, profession), when shared
+    crafts: list[tuple[str, str]] = field(default_factory=list)     # the ones matching "Who can craft"
 
 
 def _row(ch: Character, prof: CharacterProfile, vis: list[str]) -> RosterRow:
     g = prof.groups or {}
     ilvl = (g.get("overview") or {}).get("equipped_item_level") if "overview" in vis else None
     spec = (_best_spec(g.get("talents")) if "talents" in vis else "") or (ch.spec or "")
-    profs = [p["name"] for p in g.get("professions") or [] if p.get("name")] if "professions" in vis else []
-    return RosterRow(ch, prof, vis, ilvl, spec, profs)
+    shown = [p for p in g.get("professions") or [] if p.get("name")] if "professions" in vis else []
+    recipes = [(r["name"], p["name"]) for p in shown for r in p.get("recipes") or [] if r.get("name")]
+    return RosterRow(ch, prof, vis, ilvl, spec, [p["name"] for p in shown], recipes)
 
 
 def guild_roster(s: Session, cfg: Config, actor: Actor, edition: str, region: str, guild_id: str):
@@ -1069,8 +1072,14 @@ def shared_with_members(s: Session, cfg: Config, actor: Actor) -> list[RosterRow
     return out
 
 
+def craft_query(text: str | None) -> str:
+    """The "Who can craft" search, tidied: trimmed, single spaces, at most 80 characters."""
+    return " ".join((text or "").split())[:80]
+
+
 def filter_rows(rows: list[RosterRow], f: dict) -> list[RosterRow]:
-    """Filters from the query string: class, role, spec, profession, min_level, min_ilvl, edition."""
+    """Filters from the query string: class, role, spec, profession, min_level, min_ilvl, edition, and
+    craft (part of a recipe name; only recipes in Professions shared with this viewer count)."""
     def num(k):
         try:
             return int(f.get(k) or 0)
@@ -1092,6 +1101,12 @@ def filter_rows(rows: list[RosterRow], f: dict) -> list[RosterRow]:
             continue
         if num("min_ilvl") and (r.item_level or 0) < num("min_ilvl"):
             continue
+        q = craft_query(f.get("craft")).casefold()
+        if q:
+            hits = [x for x in r.recipes if q in x[0].casefold()]
+            if not hits:
+                continue
+            r = replace(r, crafts=hits)
         out.append(r)
     return out
 
@@ -1101,6 +1116,7 @@ def filter_options(rows: list[RosterRow]) -> dict[str, list[str]]:
             "role": sorted({x for r in rows for x in (r.ch.eligible_roles or [])}),
             "spec": sorted({r.spec for r in rows if r.spec}),
             "profession": sorted({p for r in rows for p in r.professions}),
+            "craft": sorted({x[0] for r in rows for x in r.recipes}, key=str.casefold),
             "edition": sorted({r.ch.edition for r in rows})}
 
 
