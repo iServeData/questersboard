@@ -368,6 +368,81 @@ class Worker:
                 outbox.enqueue(s, "discord.close_voice", str(eid), {"event_id": eid})
         return len(due)
 
+    # ------------------------------------------------------------------ item cards ([item_links])
+    _hooks: dict[str, dict] = {}
+
+    @property
+    def bz(self):
+        if getattr(self, "_bz", None) is None:
+            from .integrations.blizzard import Blizzard
+            self._bz = Blizzard(self.cfg)
+        return self._bz
+
+    @bz.setter
+    def bz(self, v):
+        self._bz = v
+
+    def _item_hook(self, rest, channel_id: str, fresh: bool = False) -> dict:
+        """This application's item-card webhook in the channel: found again on Discord, or created.
+        Kept in memory only (never stored or logged)."""
+        name = self.cfg["item_links"]["webhook_name"]
+        if fresh or channel_id not in self._hooks:
+            self._hooks = {**self._hooks, channel_id: rest.own_webhook(channel_id, name)
+                           or rest.create_webhook(channel_id, name)}
+        return self._hooks[channel_id]
+
+    def job_item_links_post(self, s: Session, p: dict) -> None:
+        """Cards for the [bracketed] names in one message. Payload: channel_id, message_id, names."""
+        from .domain import item_links
+        il = self.cfg["item_links"]
+        if not il["enabled"]:
+            return
+        rest = self._need_rest()
+        ed = self.cfg.edition(il["edition"])
+        hours = self.cfg["blizzard"].get("cache_hours_static", 168)
+        items, missing = [], []
+        for name in (p.get("names") or [])[:il["max_per_message"]]:
+            got = item_links.lookup(s, self.bz, ed, il["region"], hours, name, il["search_pages"])
+            (items.append(got) if got else missing.append(name))
+        guild = self.cfg["community"]["guild_id"]
+        jump = f"https://discord.com/channels/{guild}/{p['channel_id']}/{p['message_id']}" if guild else ""
+        msg = item_links.message(items, missing, jump, ed.name, il["say_not_found"])
+        if msg is None:
+            return
+        msg["username"] = il["webhook_name"]
+        avatar = il["avatar_url"] or rest.avatar_url()
+        if avatar:
+            msg["avatar_url"] = avatar
+        target = il["post_channel"] or p["channel_id"]
+        try:
+            card_id = rest.execute_webhook(self._item_hook(rest, target), msg)
+        except dr.Gone:                         # someone deleted the webhook: make a new one, once
+            card_id = rest.execute_webhook(self._item_hook(rest, target, fresh=True), msg)
+        s.execute(text("UPDATE outbox SET payload = payload || CAST(:extra AS jsonb) "
+                       "WHERE kind = 'item_links.post' AND key = :k AND done_at IS NULL"),
+                  {"k": f"{p['channel_id']}:{p['message_id']}",
+                   "extra": json.dumps({"card_id": card_id, "card_channel": target})})
+
+    def job_item_links_delete(self, s: Session, p: dict) -> None:
+        """The player deleted their message: remove its cards too (while the delivery record is kept)."""
+        key = f"{p['channel_id']}:{p['message_id']}"
+        row = s.execute(text("SELECT id, payload, done_at FROM outbox WHERE kind = 'item_links.post' AND key = :k "
+                             "ORDER BY id DESC LIMIT 1"), {"k": key}).mappings().first()
+        if row is None:
+            return
+        if row["done_at"] is None:              # not posted yet: just don't
+            s.execute(text("UPDATE outbox SET done_at = now(), last_error = 'message deleted' WHERE id = :id"),
+                      {"id": row["id"]})
+            return
+        card, where = (row["payload"] or {}).get("card_id"), (row["payload"] or {}).get("card_channel")
+        if not card or not where:
+            return
+        rest = self._need_rest()
+        try:
+            rest.delete_webhook_message(self._item_hook(rest, where), card)
+        except dr.Gone:
+            pass
+
     def job_dm(self, s: Session, p: dict) -> None:
         if not self.cfg["discord"].get("dm_enabled", True):
             return

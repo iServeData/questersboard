@@ -221,3 +221,39 @@ class DiscordRest:
     def put_commands(self, application_id: str, guild_id: str, commands: list[dict]) -> list[dict]:
         """Registers slash commands. Only called by `questersboard-admin sync-commands --yes` (approval required)."""
         return self._call("PUT", f"/applications/{application_id}/guilds/{guild_id}/commands", commands)
+
+    # Item cards ([item_links]). Discord refuses bot posts in channels linked to WoW guild chat (403,
+    # code 20062), but a webhook the bot creates can post there; verified live once (Nov 2026). Needs
+    # Manage Webhooks in the channel. The webhook's token is never stored or logged: it's read back from
+    # Discord when needed (only the application that created a webhook gets its token).
+    def own_webhook(self, channel_id: str, name: str) -> dict | None:
+        """{id, token} of this application's webhook called `name` in the channel, if there is one."""
+        me = self.me()
+        for w in self._call("GET", f"/channels/{channel_id}/webhooks") or []:
+            if w.get("type") == 1 and w.get("name") == name and w.get("token") and \
+                    str((w.get("user") or {}).get("id", "")) == me:
+                return {"id": str(w["id"]), "token": w["token"]}
+        return None
+
+    def create_webhook(self, channel_id: str, name: str) -> dict:
+        w = self._call("POST", f"/channels/{channel_id}/webhooks", {"name": name[:80]})
+        return {"id": str(w["id"]), "token": w["token"]}
+
+    def execute_webhook(self, hook: dict, payload: dict) -> str:
+        body = dict(payload, allowed_mentions=NO_PINGS)
+        return str(self._call("POST", f"/webhooks/{hook['id']}/{hook['token']}?wait=true", body)["id"])
+
+    def delete_webhook_message(self, hook: dict, message_id: str) -> None:
+        try:
+            self._call("DELETE", f"/webhooks/{hook['id']}/{hook['token']}/messages/{message_id}")
+        except Gone:
+            pass
+
+    def avatar_url(self) -> str:
+        """The bot's own picture on Discord's image server, or "" when it has none."""
+        if getattr(self, "_avatar", None) is None:
+            u = self._call("GET", "/users/@me") or {}
+            self._me = str(u.get("id", "")) or getattr(self, "_me", None)
+            h = u.get("avatar")
+            self._avatar = f"https://cdn.discordapp.com/avatars/{u['id']}/{h}.png" if h and u.get("id") else ""
+        return self._avatar

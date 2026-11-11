@@ -22,7 +22,7 @@
 
   <h2 class="sub" id="keep">What we keep</h2>
   <ul>
-    <li><strong>Your Discord identity.</strong> When you log in with Discord we ask only for the <code>identify</code> permission. That gives us your Discord user ID, username and display name (the username lets hosts add you as a co-host by name). We do not see your email, your servers or your messages. Your community roles are checked through the community bot when you use QuestersBoard; they aren't stored as a profile.</li>
+    <li><strong>Your Discord identity.</strong> When you log in with Discord we ask only for the <code>identify</code> permission. That gives us your Discord user ID, username and display name (the username lets hosts add you as a co-host by name). We do not see your email, your servers or your messages{% if cfg["item_links"]["enabled"] %} through login (item cards are explained below){% endif %}. Your community roles are checked through the community bot when you use QuestersBoard; they aren't stored as a profile.</li>
     <li><strong>Your characters.</strong> What you type in: name, game edition, region, realm or ruleset, faction, race, class, level, spec, preferred role and any notes. You can remove a character at any time.</li>
     <li><strong>Events.</strong> Events you plan, co-host, sign up for or withdraw from, and attendance that an organiser records.</li>
     <li><strong>Chronicle stories.</strong> Story drafts, their revisions and review decisions.</li>
@@ -31,6 +31,7 @@
     <li><strong>Short-lived technical records.</strong> To stop abuse we count requests per minute, which can briefly involve your IP address. A security log records actions such as creating, approving or removing things, and who did them.</li>
     <li><strong>Calendar links.</strong> If you create a personal calendar link, we store only a hashed copy, and you can revoke it.</li>
     {% if cfg["voice"]["enabled"] %}<li><strong>Event voice channels.</strong> While an event is running, its voice channel lets in the people signed up, and we note on the channel who has access. We don't record who talks, what is said or how long anyone stays; the bot only counts how many people are in the channel.{% if cfg["voice"]["guest_invites"] %} If someone opens a guest voice link, Discord asks them to let us see their Discord name and add them to the {{ cfg["community"]["name"] }} server. We keep their Discord ID only while the event runs and delete it when it ends; the sign-in permission is used once and not kept, and no QuestersBoard profile is made for them.{% endif %} If a host removes or bans someone from the channel, the security log records it.</li>{% endif %}
+    {% if cfg["item_links"]["enabled"] %}<li><strong>Item cards.</strong> In the Discord channels set up for item cards, the community bot reads new messages only to find item names written in [square brackets], then posts a card with that item's game details. We don't keep the messages or who wrote them; only the item names and a link to the message are kept, for up to {{ ret.outbox_done_days }} days, and looked-up item details are kept as cached game data. If you delete your message, its card is removed too.</li>{% endif %}
   </ul>
 
   <h2 class="sub" id="public">What the public can see</h2>
@@ -69,6 +70,7 @@
   <h2 class="sub" id="changes">Recent changes</h2>
   <ul>
     {% if cfg["blizzard"]["enabled"] %}<li><strong>November 2026.</strong> Hunter pet pictures and gear and talent icons are now shown from this site, the same way as portraits. Professions now include the recipes each character knows, shared with the same people as the rest of its Professions. After a QuestersBoard update, organisers may refresh everyone's imported character details so they keep displaying correctly, with each person's own groups and sharing choices unchanged. Nothing new is collected and nothing is shared more widely.</li>{% endif %}
+    {% if cfg["item_links"]["enabled"] %}<li><strong>November 2026.</strong> Item cards: writing an item name in [square brackets] in the chosen Discord channels shows that item's details. Only the item names and a link to the message are kept, never the message itself.</li>{% endif %}
     <li>Earlier changes that mattered were announced in the Discord.</li>
   </ul>
 

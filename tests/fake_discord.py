@@ -36,6 +36,10 @@ class FakeDiscord:
              "deny": "0"},
             {"id": self.other_role, "type": 0, "allow": str(1 << 10), "deny": "0"}]
         self.bot_guild_perms = (1 << 10) | (1 << 20) | (1 << 11) | (1 << 16)   # FIXTURE server-wide: basics only
+        self.webhooks: dict[str, dict] = {}      # FIXTURE webhook id -> {channel, name, token, owner}
+        self.hook_posts: list[dict] = []         # FIXTURE {hook, id, body} sent through webhooks
+        self.hook_deletes: list[tuple[str, str]] = []
+        self.no_manage_webhooks: set[str] = set()   # FIXTURE channels where the bot lacks Manage Webhooks
 
     def handler(self, req: httpx.Request) -> httpx.Response:
         path = req.url.path.replace("/api/v10", "")
@@ -45,6 +49,33 @@ class FakeDiscord:
             return httpx.Response(code, json={"retry_after": 0.01, "message": "fixture"})
         parts = path.strip("/").split("/")
         body = json.loads(req.content or b"{}")
+        if parts[0] == "channels" and parts[2:] == ["webhooks"]:
+            if parts[1] in self.no_manage_webhooks:
+                return httpx.Response(403, json={"code": 50013})
+            if req.method == "POST":
+                hid = "h" + str(next(self.ids))
+                self.webhooks[hid] = {"channel": parts[1], "name": body["name"], "token": "fixture-token-" + hid,
+                                      "owner": self.bot_id}
+            return httpx.Response(200, json=[{"id": i, "type": 1, "name": w["name"], "channel_id": w["channel"],
+                                              "user": {"id": w["owner"]},
+                                              **({"token": w["token"]} if w["owner"] == self.bot_id else {})}
+                                             for i, w in self.webhooks.items() if w["channel"] == parts[1]]
+                                  if req.method == "GET" else
+                                  {"id": hid, "token": self.webhooks[hid]["token"], "name": body["name"]})
+        if parts[0] == "webhooks":
+            w = self.webhooks.get(parts[1])
+            if w is None or w["token"] != parts[2]:
+                return httpx.Response(404, json={"code": 10015})
+            if req.method == "POST":
+                assert req.url.params.get("wait") == "true"
+                mid = "m" + str(next(self.ids))
+                self.hook_posts.append({"hook": parts[1], "id": mid, "body": body})
+                return httpx.Response(200, json={"id": mid})
+            if req.method == "DELETE":
+                if not any(p["id"] == parts[4] for p in self.hook_posts):
+                    return httpx.Response(404, json={"code": 10008})
+                self.hook_deletes.append((parts[1], parts[4]))
+                return httpx.Response(204)
         if parts[0] == "applications" and parts[2:] == ["emojis"]:
             if req.method == "POST":
                 assert body["image"].startswith("data:image/png;base64,") and body["name"] not in self.app_emojis

@@ -110,7 +110,9 @@ creates it only if it is missing and never changes its owner or mode.
 
 In the Discord developer portal for the QuestersBoard application:
 - OAuth2 redirect: `<public_base_url>/wow/quester/oauth/callback`; scope `identify` only.
-- Bot: no privileged intents (QuestersBoard uses the Guilds intent only).
+- Bot: no privileged intents (QuestersBoard uses the Guilds and Voice States intents only). Optional
+  item cards (`[item_links]`) need Message Content switched on under Bot > Privileged Gateway Intents,
+  and Manage Webhooks in the watched channels.
 - Invite with scopes `bot applications.commands` and permissions **84992**
   (View Channel 1024 + Send Messages 2048 + Embed Links 16384 + Read Message History 65536),
   limited to the event channel (and review channel) by channel overrides.

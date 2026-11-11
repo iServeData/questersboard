@@ -33,7 +33,7 @@ sudo -u questersboard /opt/questersboard/current/venv/bin/questersboard-admin ch
 | Section | Applies |
 | --- | --- |
 | `[roles]`, `[scheduling]`, `[signups]`, `[reminders]`, `[chronicle]`, `[rate_limits]`, `[event_posts]` | **Live**: re-read about every 30 s when the file changes, only if the whole file validates. A bad edit is logged and the old settings stay in force. |
-| everything else (`[community]`, `[discord]`, `[web]`, `[database]`, `[blizzard]`, `[ai]`, `[uploads]`, `[feeds]`, `[calendar]`, `[branding]`, `[retention]`, `[event_threads]`, `[voice]`, `[[editions]]`, presets, activities) | **Restart**: `sudo systemctl restart questersboard-web questersboard-bot questersboard-worker`. The services log which changed sections still need a restart. |
+| everything else (`[community]`, `[discord]`, `[web]`, `[database]`, `[blizzard]`, `[ai]`, `[uploads]`, `[feeds]`, `[calendar]`, `[branding]`, `[retention]`, `[event_threads]`, `[voice]`, `[item_links]`, `[[editions]]`, presets, activities) | **Restart**: `sudo systemctl restart questersboard-web questersboard-bot questersboard-worker`. The services log which changed sections still need a restart. |
 
 Each applied change is recorded in `config_changes` (section hashes, not values).
 
@@ -101,6 +101,17 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
 - **AI** (`[ai]`): off by default. When on, only publication-safe text is sent (no Discord IDs,
   no opted-out names), output is only ever a draft suggestion, and any failure falls back to the
   built-in template.
+- **Item cards** (`[item_links]`): off by default. When on, a message in a `watch_channels` channel
+  that names items in [square brackets] gets one card per item (at most `max_per_message`), posted by a
+  webhook the bot creates in that channel (or `post_channel`) called `webhook_name`. Webhook posts,
+  because Discord refuses bot posts in a channel linked to in-game guild chat (403, code 20062). The card
+  has no link; its details come from Blizzard's item data for `edition`/`region` (exact name, any letter
+  case; with several items of that name the lowest ID wins, searching at most `search_pages` pages of
+  100). `cooldown_minutes` skips the same name in the same channel; `say_not_found` adds a line for
+  names with no item; `ignore_bots` skips other bots (not webhooks). Only the names and message IDs are
+  queued, never the message text or author. Needs the Message Content intent (Developer Portal), View
+  Channel, Read Message History and Manage Webhooks in the channel, and `[blizzard] enabled`. Restart
+  section.
 
 ## Credentials
 

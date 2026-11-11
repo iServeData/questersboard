@@ -177,6 +177,38 @@ def cmd_blizzard(args):
         ok = sum(r["status"] == "200" for r in rows)
         print(f"{ok} of {len(rows)} checks answered. 404 = Blizzard doesn't serve it for this edition.")
         return 0
+    if args.action == "probe-item":
+        import json as _json
+        from .domain import item_links
+        from .integrations.blizzard import ApiError, Blizzard
+        if not args.name:
+            print("usage: questersboard-admin blizzard probe-item EDITION --name \"Item Name\" [--region us]",
+                  file=sys.stderr)
+            return 2
+        ed = cfg.edition(args.edition)
+        region = args.region or ed.default_region
+        pages = cfg["item_links"]["search_pages"]
+        trace: list = []
+        try:
+            item = item_links.lookup(None, Blizzard(cfg), ed, region, 0, args.name, pages, trace)
+        except ApiError as exc:
+            print(f"refused: {exc}", file=sys.stderr)
+            return 3
+        print(f"{args.edition} {region.upper()} {ed.namespace('static', region)}  item search for "
+              f"{args.name!r}  (read-only; nothing saved)")
+        for t in trace:
+            if t.get("error"):
+                print(f"  page {t['page']}: not answered ({t['error']})")
+                continue
+            print(f"  page {t['page']} of {t['page_count']}: {t['results']} results, exact matches {t['exact'] or 'none'}")
+        if not trace:
+            print("  the search wasn't answered (or this edition has no static namespace)")
+        if item is None:
+            print("no card: nothing with exactly that name" + (f" in the first {pages} pages" if trace else ""))
+            return 1
+        print(f"chosen item {item['id']} ({item.get('quality') or 'no quality'}); the card:")
+        print(_json.dumps(item_links.card(item, ed.name), indent=2, ensure_ascii=False))
+        return 0
     from .integrations.blizzard import Blizzard
     db = _db(cfg, "app")
     bz = Blizzard(cfg)
@@ -460,10 +492,10 @@ def main(argv=None) -> int:
     m.set_defaults(fn=cmd_migrate)
     sub.add_parser("seed-catalog").set_defaults(fn=cmd_seed_catalog)
     b = sub.add_parser("blizzard")
-    b.add_argument("action", choices=("probe", "import-reference", "probe-character", "probe-media"))
+    b.add_argument("action", choices=("probe", "import-reference", "probe-character", "probe-media", "probe-item"))
     b.add_argument("edition")
     b.add_argument("--region")
-    b.add_argument("--name", help="probe-character / probe-media: the character's name (Forever: first name and surname)")
+    b.add_argument("--name", help="probe-character / probe-media: the character's name (Forever: first name and surname); probe-item: the item's name")
     b.add_argument("--realm", help="probe-character / probe-media: realm, for editions that use realms")
     b.add_argument("--detail", help="probe-character: show one page's structure (e.g. specializations); probe-media: recipes = only the recipe checks")
     b.set_defaults(fn=cmd_blizzard)

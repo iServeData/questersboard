@@ -21,7 +21,7 @@ from sqlalchemy import func, select
 
 from ..config import Config, ConfigError, ConfigHolder, load
 from ..db import Database, make_engine
-from ..domain import catalog, events, permissions, roster, signups, status, voice
+from ..domain import catalog, events, item_links, permissions, roster, signups, status, voice
 from ..domain.actor import Actor
 from ..domain.errors import DomainError
 from ..domain.timeutil import discord_ts, find_zone, now, resolve_local
@@ -696,7 +696,15 @@ class Bot(discord.Client):
         intents = discord.Intents.none()
         intents.guilds = True          # no privileged intents (no message content, no member list)
         intents.voice_states = True    # non-privileged: only to count people in event voice channels
+        holder = getattr(Ctx, "holder", None)
+        self.item_links = bool(holder and holder.cfg["item_links"]["enabled"])
+        if self.item_links:
+            # [item_links]: the one privileged intent, read at startup only. Message Content must be
+            # switched on in the Developer Portal (Bot -> Privileged Gateway Intents) or Discord refuses.
+            intents.guild_messages = True
+            intents.message_content = True
         super().__init__(intents=intents, allowed_mentions=discord.AllowedMentions.none())
+        self.item_cooldown = item_links.Cooldown()
         self.tree = build_tree(self)
         self.started_at = now()
 
@@ -738,6 +746,34 @@ class Bot(discord.Client):
                 await run_tx(voice.record_counts, self.voice_counts(mine))
         except Exception:  # noqa: BLE001
             log.warning("voice count update failed", exc_info=True)
+
+    async def on_message(self, message):
+        """[item_links]: cards for [Item Name] in the chosen channels. Only the names are kept."""
+        if not self.item_links or message.guild is None:
+            return
+        il = Ctx.cfg()["item_links"]
+        author = message.author
+        if not item_links.should_read(il, str(message.channel.id), self_id=str(self.user.id if self.user else ""),
+                                      author_id=str(author.id), is_bot=bool(getattr(author, "bot", False)),
+                                      webhook_id=str(message.webhook_id) if message.webhook_id else None,
+                                      author_name=getattr(author, "name", "") or ""):
+            return
+        names = item_links.parse_names(message.content or "", il["max_per_message"])
+        names = self.item_cooldown.allow(str(message.channel.id), names, il["cooldown_minutes"])
+        if not names:
+            return
+        try:
+            await run_tx(item_links.enqueue, str(message.channel.id), str(message.id), names)
+        except Exception:  # noqa: BLE001
+            log.warning("item card queueing failed", exc_info=True)
+
+    async def on_raw_message_delete(self, payload):
+        if not self.item_links or str(payload.channel_id) not in Ctx.cfg()["item_links"]["watch_channels"]:
+            return
+        try:
+            await run_tx(item_links.enqueue_delete, str(payload.channel_id), str(payload.message_id))
+        except Exception:  # noqa: BLE001
+            log.warning("item card removal queueing failed", exc_info=True)
 
     async def setup_hook(self):
         self.add_dynamic_items(EventButton)
@@ -796,7 +832,12 @@ def main() -> int:  # pragma: no cover - service entry point
     Ctx.db = Database(make_engine(cfg["database"]["app_url"], "db-app-password", 3, "questersboard-bot"))
     Ctx.rest = dr.DiscordRest(token=token)
     bot = Bot()
-    bot.run(token, log_handler=None)
+    try:
+        bot.run(token, log_handler=None)
+    except discord.PrivilegedIntentsRequired:
+        log.error("Discord refused the Message Content intent needed by [item_links]: switch it on in the "
+                  "Developer Portal (Bot -> Privileged Gateway Intents) or set [item_links] enabled = false")
+        return 78
     return 0
 
 

@@ -27,6 +27,7 @@ _REDACT = [
     re.compile(r"(?i)(client_secret=)[^&\s]+"),
     re.compile(r"(?i)(access_token['\"]?\s*[:=]\s*['\"]?)[^\s'\",}&]+"),
     re.compile(r"sk-[A-Za-z0-9_-]{16,}"),
+    re.compile(r"(/webhooks/[0-9A-Za-z]+/)[A-Za-z0-9_.-]{20,}"),                   # webhook token in a URL
 ]
 
 
@@ -99,3 +100,4 @@ def setup_logging(level: str = "INFO") -> None:
     f = RedactingFilter()
     for h in logging.getLogger().handlers:
         h.addFilter(f)
+    logging.getLogger("httpx").setLevel(logging.WARNING)    # request lines carry full URLs

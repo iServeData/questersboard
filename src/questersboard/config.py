@@ -651,7 +651,52 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             roles={k: _positive(v, f"{where} roles.{k}") for k, v in a.get("roles", {}).items()},
             tags=tuple(a.get("tags", []))))
     r["_activities"] = tuple(acts)
+    _item_links(r)
     return r
+
+
+def _item_links(r: dict) -> None:
+    """[item_links]: item cards for names in [brackets] in chosen channels, posted through a webhook.
+    Off by default; turning it on needs the Message Content intent and a restart."""
+    il = r.setdefault("item_links", {})
+    for k, dflt in (("enabled", False), ("say_not_found", True), ("ignore_bots", False)):
+        if not isinstance(il.setdefault(k, dflt), bool):
+            raise ConfigError(f"[item_links] {k} must be true or false")
+    il["watch_channels"] = _snowflakes(il.setdefault("watch_channels", []), "[item_links] watch_channels")
+    il["post_channel"] = _snowflake(il.setdefault("post_channel", ""), "[item_links] post_channel")
+    eds = r["_editions"]
+    il.setdefault("edition", next(iter(eds), ""))
+    if il["edition"] not in eds:
+        raise ConfigError("[item_links] edition must be one of the [[editions]] keys: " + ", ".join(eds))
+    ed = eds[il["edition"]]
+    il.setdefault("region", ed.default_region)
+    if il["region"] not in ed.regions:
+        raise ConfigError(f"[item_links] region must be one of {', '.join(ed.regions)} for {ed.name}")
+    for k, dflt, lo, hi in (("max_per_message", 5, 1, 10), ("cooldown_minutes", 10, 0, 1440),
+                            ("search_pages", 3, 1, 10)):
+        _positive(il.setdefault(k, dflt), f"[item_links] {k}", lo)
+        if il[k] > hi:
+            raise ConfigError(f"[item_links] {k} must be {lo} to {hi}")
+    name = il.setdefault("webhook_name", "QuestersBoard Items")
+    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 80 or \
+            any(w in name.lower() for w in ("discord", "clyde")):
+        raise ConfigError("[item_links] webhook_name must be 1 to 80 characters and can't contain "
+                          "\"discord\" or \"clyde\" (Discord refuses those)")
+    av = il.setdefault("avatar_url", "")
+    if not isinstance(av, str) or (av and (not av.startswith("https://") or len(av) > 300)):
+        raise ConfigError("[item_links] avatar_url must be empty (the bot's own picture) or an https:// address")
+    if il["enabled"]:
+        if not il["watch_channels"]:
+            raise ConfigError("[item_links] watch_channels must list at least one channel when item links are on")
+        if not r["blizzard"].get("enabled"):
+            raise ConfigError("[item_links] needs [blizzard] enabled = true: item details come from Blizzard")
+        if not ed.namespace("static", il["region"]):
+            raise ConfigError(f"[item_links] {ed.name} has no static_namespace, so items can't be looked up")
+    unknown = set(il) - {"enabled", "watch_channels", "post_channel", "edition", "region", "max_per_message",
+                         "cooldown_minutes", "search_pages", "say_not_found", "ignore_bots", "webhook_name",
+                         "avatar_url"}
+    if unknown:
+        raise ConfigError(f"[item_links] unknown setting(s): {', '.join(sorted(unknown))}")
 
 
 def _link_template(v: Any, where: str) -> str:

@@ -217,6 +217,27 @@ web_requests_per_minute = 120
 icon_requests_per_minute = 600                # gear and talent icons (a character page can show 30 or more)
 actions_per_minute = 30
 
+[item_links]                                  # restart. Item cards for names in [brackets] (off until approved)
+# The bot reads new messages in watch_channels, finds names in [brackets] and posts a card for each
+# item (details and icon from Blizzard, no link) through a webhook it creates itself. Webhook posts
+# are not relayed to in-game guild chat. Turning this on needs, before the restart:
+#   - Discord Developer Portal > the app > Bot > Message Content Intent ON (otherwise the bot can't connect);
+#   - [blizzard] enabled = true;
+#   - in each channel, for the bot: View Channel, Read Message History and Manage Webhooks.
+enabled = false
+watch_channels = []                           # channel IDs to read, e.g. the guild chat channel
+post_channel = ""                             # where cards go; empty = the channel the message was in
+edition = "forever"                           # which game's items to look up ([[editions]] key)
+region = "us"
+max_per_message = 5                           # more names than this in one message are ignored
+cooldown_minutes = 10                         # the same item in the same channel within this time: no new card
+say_not_found = true                          # list names with no exact item match under the cards
+search_pages = 3                              # Blizzard item-search pages read per name (100 results each)
+ignore_bots = false                           # true: skip other bots' messages (webhook posts, such as relayed
+                                              # game chat, are still read; our own cards never are)
+webhook_name = "QuestersBoard Items"          # the name the cards are posted under
+avatar_url = ""                               # empty = the bot's own picture
+
 [database]                                    # restart
 # No password here. App/worker passwords come from credentials db-app-password / db-worker-password.
 app_url = "postgresql+psycopg://questersboard_app@127.0.0.1:5432/questersboard"

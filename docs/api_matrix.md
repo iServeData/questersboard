@@ -57,13 +57,14 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 
 | Surface | Detail |
 | --- | --- |
-| Intents | Guilds only; no privileged intents |
+| Intents | Guilds and Voice States; with `[item_links]` on, also Guild Messages and the privileged Message Content |
 | Bot permissions | 84992 = View Channel, Send Messages, Embed Links, Read Message History |
 | Slash commands | `/quest list · my · join · leave · create` (create saves a draft), `/character add · list · edit · remove`; edition autocomplete |
 | Components | persistent buttons on the canonical event post (`wq:ev:<action>:<event_id>`), re-registered at startup |
 | Messages | worker only, via REST: one canonical post per event (edited in place, recreated if deleted); DMs for reminders, approvals, review results; `allowed_mentions` empty |
 | Role icons | `GET /applications/{app}/emojis` (worker, at most every 30 min); `POST /applications/{app}/emojis` only from `questersboard-admin role-emojis --yes` after approval. FIXTURE-tested; live unverified |
 | Event threads (off by default) | `POST /channels/{ch}/messages/{msg}/threads` (public) or `POST /channels/{ch}/threads` type 12 (private); `PUT`/`DELETE /channels/{thread}/thread-members/{user}`; `PATCH /channels/{thread}` `archived`+`locked`. Needs Create Public/Private Threads, Send Messages in Threads, Manage Threads. FIXTURE-tested; live unverified |
+| Item cards (off by default) | `GET`/`POST /channels/{ch}/webhooks` (find or create the app's own webhook; its token is read back from Discord and never stored or logged), `POST /webhooks/{id}/{token}?wait=true`, `DELETE /webhooks/{id}/{token}/messages/{msg}`. Needs Manage Webhooks. Bot posts in a channel linked to WoW guild chat fail with 403 code 20062; one webhook post there was verified live. Card flow FIXTURE-tested; live unverified |
 | Registration | `questersboard-admin sync-commands` is a dry run unless `--yes` and `QUESTERSBOARD_APPROVED_CHANGE=sync-commands` |
 
 ## Blizzard
@@ -73,6 +74,7 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | Retail | `profile-{region}`, `static-{region}` | `/profile/wow/character/{realm}/{name}` (realm required) | `/profile/user/wow` with `wow.profile` | `/data/wow/playable-race/index`, `/data/wow/playable-class/index`, … |
 | WoW: Forever | empty: no published namespace | **unsupported**: refused, zero requests | **unsupported** | packaged seed catalog, labelled `unverified` |
 | Instance details | `static-{region}` | | | `/data/wow/journal-instance/{id}`: `modes`, `minimum_level`, `category` (`[blizzard] instance_details`); FIXTURE-tested, live unverified |
+| Item cards | the `[item_links] edition`'s static namespace | | | `/data/wow/search/item?name.en_US=&orderby=id&_pageSize=100&_page=`, `/data/wow/item/{id}` (`preview_item` tooltip), `/data/wow/media/item/{id}`; cached `cache_hours_static`. FIXTURE-tested; exact-name search for WoW: Forever live unverified (`blizzard probe-item`) |
 | any `*ptr*` | rejected by config validation | | | |
 
 OAuth: client credentials for game data (token cached until expiry); authorization code for the

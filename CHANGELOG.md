@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Item cards in Discord (off by default).** `[item_links]`: an item name in [square brackets] in a
+  watched channel gets a card in the item's quality colour with its Blizzard tooltip (binding, type,
+  damage, stats, requirements, sell price) and icon, and no link. Cards are posted by a webhook the bot
+  creates in the channel ("QuestersBoard Items"), since Discord refuses bot posts in channels linked to
+  in-game guild chat and webhook posts aren't relayed to the game. One card message per player message
+  (up to `max_per_message` items), a per-name cooldown, "No item called … found." for unknown names, and
+  the card is deleted with the player's message. Only names and message IDs are queued. Needs the
+  Message Content intent and Manage Webhooks, and a restart. `questersboard-admin blizzard probe-item`
+  shows what a card would contain. Webhook URLs are redacted from logs and `httpx` request lines are no
+  longer logged. Privacy page: an "Item cards" paragraph and a Recent changes entry, shown only when on.
+
 No database migration. No config change needed: the role icons are on by default and appear once the
 emojis are uploaded.
 
