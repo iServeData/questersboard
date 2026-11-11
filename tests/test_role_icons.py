@@ -33,7 +33,7 @@ def _roles(msg):
 def test_config_defaults_and_validation():
     cfg = make_cfg()
     assert cfg["event_posts"]["role_icons"] == {"tank": "qb_tank", "healer": "qb_healer", "damage": "qb_damage"}
-    assert cfg["event_posts"]["role_icon_position"] == "line"
+    assert cfg["event_posts"]["role_icon_position"] == "heading"
     assert make_cfg(event_posts={"role_icons": {}})["event_posts"]["role_icons"] == {}
     with pytest.raises(ConfigError, match="role_icons"):
         make_cfg(event_posts={"role_icons": {"tank": "not ok!"}})
@@ -42,22 +42,22 @@ def test_config_defaults_and_validation():
 
 
 @needs_db
-def test_icon_starts_the_line_and_falls_back_to_plain_text(seeded):
+def test_icon_before_the_heading_or_line_and_plain_fallback(seeded):
     cfg = make_cfg()
     with seeded.tx() as s:
         ev = event(s, cfg, ORG, 30, 2, roles=ROLES)
         p = actor(61)
         signups.join(s, cfg, p, ev.id, char(s, cfg, p, "Fixture Ironhide").id, role_key="tank", recognition=True)
         f = _roles(render.event_message(s, cfg, ev, EMOJIS))
-        assert f["Tank"]["name"] == "Tank (1/1)"
-        assert f["Tank"]["value"].startswith("<:qb_tank:e101> Fixture Ironhide")
-        assert f["Healer"]["value"].startswith("<:qb_healer:e102> —")
+        assert f["<:qb_tank:e101> Tank"]["value"].startswith("Fixture Ironhide")      # default: in the heading
+        assert f["<:qb_healer:e102> Healer"]["value"].startswith("—")
         assert f["Guide"]["value"].startswith("—")                       # custom role: no icon set up
         plain = _roles(render.event_message(s, cfg, ev))                 # emojis not looked up / not uploaded
         assert plain["Tank"]["value"].startswith("Fixture Ironhide") and "<:" not in str(plain)
-        head = make_cfg(event_posts={"role_icon_position": "heading"})
-        h = _roles(render.event_message(s, head, ev, EMOJIS))
-        assert h["<:qb_tank:e101> Tank"]["value"].startswith("Fixture Ironhide")
+        line = make_cfg(event_posts={"role_icon_position": "line"})
+        ln = _roles(render.event_message(s, line, ev, EMOJIS))
+        assert ln["Tank"]["name"] == "Tank (1/1)"
+        assert ln["Tank"]["value"].startswith("<:qb_tank:e101> Fixture Ironhide")
         off = make_cfg(event_posts={"role_icons": {}})
         assert "<:" not in str(render.event_message(s, off, ev, EMOJIS))
 
@@ -74,8 +74,7 @@ def test_worker_looks_up_the_bots_emojis_and_survives_failures(seeded, worker_db
         if not w.tick():
             break
     post = next(iter(fake.messages.values()))
-    tank = next(f for f in post["embeds"][0]["fields"] if f["name"].startswith("Tank"))
-    assert tank["value"].startswith("<:qb_tank:e201> ")
+    assert any(f["name"] == "<:qb_tank:e201> Tank (0/1)" for f in post["embeds"][0]["fields"])
     assert ("GET", f"/applications/{cfg['discord']['application_id']}/emojis") in fake.calls
     # A failing lookup only means plain text, and it is retried later rather than on every post.
     w2 = Worker(ConfigHolder(cfg), worker_db, FakeDiscord().client())

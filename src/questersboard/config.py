@@ -405,7 +405,7 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             isinstance(k, str) and isinstance(v, str) and EMOJI_NAME.match(v) for k, v in icons.items()):
         raise ConfigError("[event_posts] role_icons maps a role key to the bot's emoji name, e.g. "
                           "{ tank = \"qb_tank\" } (2-32 letters, digits or _); {} turns the icons off")
-    if ep.setdefault("role_icon_position", "line") not in ("line", "heading"):
+    if ep.setdefault("role_icon_position", "heading") not in ("line", "heading"):
         raise ConfigError("[event_posts] role_icon_position must be \"line\" or \"heading\"")
     th = r.setdefault("event_threads", {})
     th.setdefault("enabled", False)

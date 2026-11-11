@@ -134,7 +134,7 @@ def event_message(s: Session, cfg: Config, ev: Event, emojis: dict[str, str] | N
             names, others = _who(s, ev, "confirmed", r.key)
             icon = role_emoji(cfg, emojis, r.key)
             head, line = f"{r.label} ({len(names) + others}/{r.quantity})", _line(names, others)
-            if icon and cfg["event_posts"].get("role_icon_position", "line") == "heading":
+            if icon and cfg["event_posts"].get("role_icon_position", "heading") == "heading":
                 head = f"{icon} {head}"
             elif icon:
                 line = f"{icon} {line}"

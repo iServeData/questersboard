@@ -6,8 +6,9 @@ No database migration. No config change needed: the role icons are on by default
 emojis are uploaded.
 
 - **Role icons on event posts.** A shield, a healing cross and crossed swords (QuestersBoard's own
-  artwork, `web/static/roles/`) start each role's line of names on the Discord post (`[event_posts]
-  role_icons`, role key -> emoji name; `role_icon_position = "line"` or `"heading"`). They are the
+  artwork, `web/static/roles/`) sit before each role's heading on the Discord post ("🛡 Tank (1/2)"; `[event_posts]
+  role_icons`, role key -> emoji name; `role_icon_position = "heading"` or `"line"` for the start of the
+  names line). They are the
   application's own emojis, so they work in every server the bot is in without Use External Emojis. The
   worker looks them up at most every 30 minutes; a role without an uploaded emoji, or a failed lookup,
   stays plain text. The event page shows the same icons. `role_icons = {}` turns them off.
