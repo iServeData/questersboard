@@ -14,10 +14,10 @@
   sends them (no "Non-equippable" line), a link back to the message only when cards go to `post_channel`, and
   the card is deleted with the player's message. Only names and message IDs are queued. Needs the
   Message Content intent and Manage Webhooks, and a restart. `questersboard-admin blizzard probe-item`
-  shows what a card would contain. Profession-window links ("Leatherworking: Dark Leather Cloak") show
+  shows what a card would contain (`sudo ./deploy/probe_item.sh "Item Name"`). Profession-window links ("Leatherworking: Dark Leather Cloak") show
   the item made, "Crafted with Leatherworking (skill)" and the reagents from the recipe item when there
   is one (`professions`, `crafted_text`); recipes that make no item show the recipe item. Up to 10
-  search pages per name by default (`search_pages`, up to 25). `questersboard-admin refresh-item-cards` looks recent cards up again
+  search pages per name by default (`search_pages`, up to 25). `sudo ./deploy/refresh_item_cards.sh` (or `questersboard-admin refresh-item-cards`) looks recent cards up again
   and edits them in place (dry run unless `--yes`). Webhook URLs are redacted from logs and `httpx` request lines are no
   longer logged. Privacy page: an "Item cards" paragraph and a Recent changes entry, shown only when on.
 
