@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Event page: voice while it opens.** Right after an event starts, people who can join voice see
+  "Voice: Opening in Discord; reload this page in a moment for the link" until the channel exists; then
+  the existing "Join the voice channel in Discord" link replaces it.
 - **Item cards in Discord (off by default).** `[item_links]`: an item name in [square brackets] in a
   watched channel gets a card in the item's quality colour with its Blizzard tooltip (binding, type,
   damage, stats, requirements, sell price) and icon, and no link. Cards are posted by a webhook the bot

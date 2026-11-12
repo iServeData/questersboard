@@ -510,6 +510,9 @@ def router(cfg: Config) -> APIRouter:
                    "voice_url": (voice.link(w.cfg, ev.discord_voice_channel_id)
                                  if ev.state == "in_progress" and ev.discord_voice_channel_id and a is not None
                                  and voice.can_join(s, w.cfg, a, ev) else ""),
+                   "voice_opening": (w.cfg["voice"]["enabled"] and ev.state == "in_progress"
+                                     and not ev.discord_voice_channel_id and ev.voice_closed_at is None
+                                     and a is not None and voice.can_join(s, w.cfg, a, ev)),
                    "voice_reopen": (manager and w.cfg["voice"]["enabled"] and ev.state == "in_progress"
                                     and not ev.discord_voice_channel_id and ev.voice_closed_at is not None)}
             return render(request, "event.html", ctx)   # rendered inside the session (lazy loads)

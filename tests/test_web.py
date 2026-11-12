@@ -921,7 +921,15 @@ def test_event_page_voice_link_and_reopen(seeded, tmp_path):
                   {"v": fake_id(70), "e": ev.id})
         pid = ev.public_id
     url = f"/wow/quester/events/{pid}"
-    assert f"/channels/{cfg.guild_id}/{fake_id(70)}" in login(a, 80, "member").get(url).text
+    with seeded.tx() as s:                     # just started: the worker hasn't made the channel yet
+        s.execute(text("UPDATE events SET discord_voice_channel_id = NULL WHERE public_id = :p"), {"p": pid})
+    assert "reload this page in a moment" in login(a, 80, "member").get(url).text
+    assert "reload this page" not in login(a, 81, "member").get(url).text
+    with seeded.tx() as s:
+        s.execute(text("UPDATE events SET discord_voice_channel_id = :v WHERE public_id = :p"),
+                  {"v": fake_id(70), "p": pid})
+    page = login(a, 80, "member").get(url).text
+    assert f"/channels/{cfg.guild_id}/{fake_id(70)}" in page and "reload this page" not in page
     assert "Join the voice channel" not in login(a, 81, "member").get(url).text        # not signed up
     with seeded.tx() as s:
         s.execute(text("UPDATE events SET discord_voice_channel_id = NULL, voice_closed_at = now() "

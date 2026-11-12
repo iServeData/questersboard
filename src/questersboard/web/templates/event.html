@@ -16,7 +16,8 @@
     {% if ev.eligibility %}<li><span>Who can join</span>{{ ev.eligibility }}</li>{% endif %}
     {% if host_name %}<li><span>Hosted by</span>{{ host_name }}</li>{% endif %}
     {% if thread_url and (mine or show_names) %}<li><span>Event chat</span><a href="{{ thread_url }}" rel="noopener">Open the thread in Discord</a></li>{% endif %}
-    {% if voice_url %}<li><span>Voice</span><a href="{{ voice_url }}" rel="noopener">Join the voice channel in Discord</a></li>{% endif %}
+    {% if voice_url %}<li><span>Voice</span><a href="{{ voice_url }}" rel="noopener">Join the voice channel in Discord</a></li>
+    {% elif voice_opening %}<li><span>Voice</span>Opening in Discord; reload this page in a moment for the link</li>{% endif %}
   </ul>
   {% if ev.description %}<p class="wq-desc">{{ ev.description }}</p>{% endif %}
   {% if ev.objective %}<h2 class="sub">Objective</h2><p class="wq-desc">{{ ev.objective }}</p>{% endif %}
