@@ -174,7 +174,7 @@ def test_refresh_item_cards_is_dry_run_unless_yes(cfg_file, db, capsys):
         s.execute(text("INSERT INTO outbox (kind, key, payload, done_at) VALUES ('item_links.post', :k, "
                        "CAST(:p AS jsonb), now())"),
                   {"k": key, "p": json.dumps({"names": ["Fixture Cloak"], "card_id": "m1", "card_channel": "c"})})
-    assert cli.main(["--config", cfg_file, "refresh-item-cards"]) == 0
+    assert cli.main(["--config", cfg_file, "refresh-item-cards", "--hours", "24"]) == 0   # as the deploy script passes it
     out = capsys.readouterr().out
     assert "[Fixture Cloak]" in out and "dry run:" in out
     with db.tx() as s:

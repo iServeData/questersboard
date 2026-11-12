@@ -425,7 +425,8 @@ def cmd_refresh_item_cards(args):
         rows = list(s.execute(text(
             "SELECT DISTINCT ON (key) key, payload->'names' AS names FROM outbox "
             "WHERE kind = 'item_links.post' AND done_at IS NOT NULL AND payload ? 'card_id' "
-            "AND done_at > now() - make_interval(hours => :h) ORDER BY key, id DESC"), {"h": args.hours}))
+            "AND done_at > now() - make_interval(secs => :secs) ORDER BY key, id DESC"),
+            {"secs": float(args.hours) * 3600}))
         for r in rows:
             print("  " + ", ".join(f"[{n}]" for n in (r.names or [])))
         if not args.yes:
