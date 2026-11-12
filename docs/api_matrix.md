@@ -74,7 +74,7 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | Retail | `profile-{region}`, `static-{region}` | `/profile/wow/character/{realm}/{name}` (realm required) | `/profile/user/wow` with `wow.profile` | `/data/wow/playable-race/index`, `/data/wow/playable-class/index`, … |
 | WoW: Forever | empty: no published namespace | **unsupported**: refused, zero requests | **unsupported** | packaged seed catalog, labelled `unverified` |
 | Instance details | `static-{region}` | | | `/data/wow/journal-instance/{id}`: `modes`, `minimum_level`, `category` (`[blizzard] instance_details`); FIXTURE-tested, live unverified |
-| Item cards | the `[item_links] edition`'s static namespace | | | `/data/wow/search/item?name.en_US=&orderby=id&_pageSize=100&_page=`, `/data/wow/item/{id}` (`preview_item` tooltip), `/data/wow/media/item/{id}`; cached `cache_hours_static`. FIXTURE-tested; exact-name search for WoW: Forever live unverified (`blizzard probe-item`) |
+| Item cards | the `[item_links] edition`'s static namespace, then each of `fallbacks` (default Classic Era `static-classic1x-{region}`) | | | `/data/wow/search/item?name.en_US=&orderby=id&_pageSize=100&_page=`, `/data/wow/item/{id}` (`preview_item` tooltip), `/data/wow/media/item/{id}`; cached `cache_hours_static`. FIXTURE-tested; exact-name search for WoW: Forever live unverified (`blizzard probe-item`) |
 | any `*ptr*` | rejected by config validation | | | |
 
 OAuth: client credentials for game data (token cached until expiry); authorization code for the

@@ -398,17 +398,16 @@ class Worker:
         if not il["enabled"]:
             return
         rest = self._need_rest()
-        ed = self.cfg.edition(il["edition"])
         hours = self.cfg["blizzard"].get("cache_hours_static", 168)
         items, missing = [], []
         for name in (p.get("names") or [])[:il["max_per_message"]]:
-            got = item_links.lookup(s, self.bz, ed, il["region"], hours, name, il["search_pages"])
+            got = item_links.find(s, self.bz, self.cfg, hours, name)
             (items.append(got) if got else missing.append(name))
         target = il["post_channel"] or p["channel_id"]
         guild = self.cfg["community"]["guild_id"]
         jump = f"https://discord.com/channels/{guild}/{p['channel_id']}/{p['message_id']}" \
             if guild and target != p["channel_id"] else ""          # same channel: the card is right below
-        msg = item_links.message(items, missing, jump, ed.name, il["say_not_found"], il["not_found_text"])
+        msg = item_links.message(items, missing, jump, il["say_not_found"], il["not_found_text"])
         if msg is None:
             return
         msg["username"] = il["webhook_name"]

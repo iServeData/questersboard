@@ -685,7 +685,22 @@ def _item_links(r: dict) -> None:
     av = il.setdefault("avatar_url", "")
     if not isinstance(av, str) or (av and (not av.startswith("https://") or len(av) > 300)):
         raise ConfigError("[item_links] avatar_url must be empty (the bot's own picture) or an https:// address")
-    nf = il.setdefault("not_found_text", "No details from Blizzard for **{name}** yet.")
+    fb = il.setdefault("fallbacks", [k for k in ("classic_era",) if k in eds and k != il["edition"]])
+    if not isinstance(fb, list) or len(fb) > 4 or len(set(fb)) != len(fb) or il["edition"] in fb or \
+            any(k not in eds for k in fb):
+        raise ConfigError("[item_links] fallbacks must list up to 4 other [[editions]] keys, searched in order "
+                          "when the main edition has no item of that name")
+    labels = {"forever": "WoW: Forever", "classic_era": "WoW Classic Era", "retail": "WoW",
+              **il.setdefault("source_labels", {})}
+    if not all(isinstance(v, str) and 1 <= len(v) <= 40 for v in labels.values()):
+        raise ConfigError("[item_links] source_labels must map edition keys to short names (1 to 40 characters)")
+    il["source_labels"] = labels
+    for k, dflt in (("footer_text", "Source: Blizzard · {source} API"),
+                    ("footer_fallback_text", "Source: Blizzard · {source} API (not in {main} yet; may differ)")):
+        v = il.setdefault(k, dflt)
+        if not isinstance(v, str) or "{source}" not in v or not 8 <= len(v) <= 200:
+            raise ConfigError(f"[item_links] {k} must be 8 to 200 characters and contain {{source}}")
+    nf = il.setdefault("not_found_text", "No item called **{name}** found in Blizzard's public game data.")
     if not isinstance(nf, str) or "{name}" not in nf or not 8 <= len(nf) <= 200:
         raise ConfigError("[item_links] not_found_text must be 8 to 200 characters and contain {name}")
     if il["enabled"]:
@@ -693,11 +708,14 @@ def _item_links(r: dict) -> None:
             raise ConfigError("[item_links] watch_channels must list at least one channel when item links are on")
         if not r["blizzard"].get("enabled"):
             raise ConfigError("[item_links] needs [blizzard] enabled = true: item details come from Blizzard")
-        if not ed.namespace("static", il["region"]):
-            raise ConfigError(f"[item_links] {ed.name} has no static_namespace, so items can't be looked up")
+        for k in [il["edition"], *fb]:
+            e = eds[k]
+            if not e.namespace("static", il["region"] if il["region"] in e.regions else e.default_region):
+                raise ConfigError(f"[item_links] {e.name} has no static_namespace, so items can't be looked up")
     unknown = set(il) - {"enabled", "watch_channels", "post_channel", "edition", "region", "max_per_message",
                          "cooldown_minutes", "search_pages", "say_not_found", "ignore_bots", "webhook_name",
-                         "avatar_url", "not_found_text"}
+                         "avatar_url", "not_found_text", "fallbacks", "source_labels",
+                         "footer_text", "footer_fallback_text"}
     if unknown:
         raise ConfigError(f"[item_links] unknown setting(s): {', '.join(sorted(unknown))}")
 

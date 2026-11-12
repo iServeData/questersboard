@@ -107,7 +107,9 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   because Discord refuses bot posts in a channel linked to in-game guild chat (403, code 20062). The card
   has no link; its details come from Blizzard's item data for `edition`/`region` (exact name, any letter
   case; with several items of that name the lowest ID wins, searching at most `search_pages` pages of
-  100). `cooldown_minutes` skips the same name in the same channel; `say_not_found` adds `not_found_text` (with `{name}`) for
+  100), then each of `fallbacks` in order (default `["classic_era"]`, closest to Forever; Retail
+  stats differ a lot). The card footer names the source (`footer_text`, or `footer_fallback_text` for a
+  fallback, with `{source}` from `source_labels` and `{main}`). `cooldown_minutes` skips the same name in the same channel; `say_not_found` adds `not_found_text` (with `{name}`) for
   names Blizzard has no item for; a link back to the message is added only when cards go to
   `post_channel`; `ignore_bots` skips other bots (not webhooks). Only the names and message IDs are
   queued, never the message text or author. Needs the Message Content intent (Developer Portal), View

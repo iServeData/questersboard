@@ -98,6 +98,38 @@ def lookup(s: Session | None, bz, ed, region: str, hours: float, name: str, page
     return out
 
 
+def sources(cfg, first: str | None = None) -> list[tuple]:
+    """(edition, region, label) to search in order: [item_links] edition (or `first`), then `fallbacks`."""
+    il = cfg["item_links"]
+    keys = [first or il["edition"]] + [k for k in il["fallbacks"] if k != (first or il["edition"])]
+    out = []
+    for k in keys:
+        ed = cfg.edition(k)
+        region = il["region"] if il["region"] in ed.regions else ed.default_region
+        out.append((ed, region, il["source_labels"].get(k) or ed.name))
+    return out
+
+
+def find(s: Session | None, bz, cfg, hours: float, name: str, first: str | None = None,
+         trace: list | None = None) -> dict | None:
+    """The first edition in `sources` whose Blizzard data has an item of exactly this name. The card's
+    footer names where it came from, and says so when it isn't the main edition."""
+    il = cfg["item_links"]
+    chain = sources(cfg, first)
+    main = chain[0][2]
+    for i, (ed, region, label) in enumerate(chain):
+        t: list = []
+        got = lookup(s, bz, ed, region, hours, name, il["search_pages"], t)
+        if trace is not None:
+            trace.append({"edition": ed.key, "region": region, "namespace": ed.namespace("static", region),
+                          "pages": t, "found": got["id"] if got else None})
+        if got:
+            tpl = il["footer_text"] if i == 0 else il["footer_fallback_text"]
+            got["footer"] = tpl.replace("{source}", label).replace("{main}", main)
+            return got
+    return None
+
+
 def _coins(sell: dict) -> str:
     parts = [f"{sell[k]}{k[0]}" for k in ("gold", "silver", "copper") if sell.get(k, "0") != "0"]
     return " ".join(parts)
@@ -134,11 +166,12 @@ def tooltip_lines(t: dict) -> list[str]:
     return lines
 
 
-def card(item: dict, edition_name: str) -> dict:
-    """One Discord embed: the item's name in its quality colour (no link), tooltip lines and icon."""
+def card(item: dict) -> dict:
+    """One Discord embed: the item's name in its quality colour (no link), tooltip lines, icon, and the
+    source in the footer (set by `find`)."""
     e = {"title": item["name"][:256], "color": QUALITY_COLORS.get(item.get("quality") or "", 0xFFFFFF),
          "description": "\n".join(tooltip_lines(item.get("tip") or {}))[:4000],
-         "footer": {"text": f"{edition_name} · item details from Blizzard"[:200]}}
+         "footer": {"text": (item.get("footer") or "Source: Blizzard")[:200]}}
     if item.get("icon"):
         e["thumbnail"] = {"url": item["icon"]}
     if not e["description"]:
@@ -146,10 +179,10 @@ def card(item: dict, edition_name: str) -> dict:
     return e
 
 
-NOT_FOUND = "No details from Blizzard for **{name}** yet."
+NOT_FOUND = "No item called **{name}** found in Blizzard's public game data."
 
 
-def message(items: list[dict], missing: list[str], jump_url: str, edition_name: str, say_not_found: bool,
+def message(items: list[dict], missing: list[str], jump_url: str, say_not_found: bool,
             not_found_text: str = NOT_FOUND) -> dict | None:
     """The webhook message for one player message, or None when there is nothing to post. `jump_url`
     (a link back to the player's message) is only given when the cards go to another channel."""
@@ -158,7 +191,7 @@ def message(items: list[dict], missing: list[str], jump_url: str, edition_name: 
         return None
     lines = ([f"Items from {jump_url}"] if jump_url else []) + \
         [not_found_text.replace("{name}", _md(n)) for n in missing]
-    out = {"embeds": [card(i, edition_name) for i in items][:10], "allowed_mentions": {"parse": []}}
+    out = {"embeds": [card(i) for i in items][:10], "allowed_mentions": {"parse": []}}
     if lines:
         out["content"] = "\n".join(lines)[:2000]
     return out

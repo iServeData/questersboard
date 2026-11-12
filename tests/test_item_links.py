@@ -22,7 +22,13 @@ ITEMS = {
     102: {"name": "Fixture Blade of Testing", "quality": "RARE"},       # same name, higher id
     103: {"name": "Fixture Blade of Testing Mk II", "quality": "COMMON"},
     104: {"name": "Fixture Cloak", "quality": "UNCOMMON"},
+    105: {"name": "Fixture Old Shield", "quality": "RARE", "only": "classic1x"},   # missing from the main edition
 }
+
+
+def _served(iid, ns):
+    only = ITEMS[iid].get("only")
+    return (only in ns) if only else "classic1x" not in ns
 
 
 def _item_body(iid):
@@ -48,11 +54,15 @@ def _fake_bz(cfg, searches):
         if p == "/data/wow/search/item":
             name = req.url.params["name.en_US"]
             searches.append((name, req.url.params["_page"]))
+            ns = req.url.params["namespace"]
             hits = [{"data": {"id": i, "name": {"en_US": v["name"]}}} for i, v in sorted(ITEMS.items(), reverse=True)
-                    if name.casefold() in v["name"].casefold()]
+                    if name.casefold() in v["name"].casefold() and _served(i, ns)]
             return httpx.Response(200, json={"page": 1, "pageCount": 1, "results": hits})
         if p.startswith("/data/wow/item/"):
-            return httpx.Response(200, json=_item_body(int(p.rsplit("/", 1)[1])))
+            iid = int(p.rsplit("/", 1)[1])
+            if not _served(iid, req.url.params["namespace"]):
+                return httpx.Response(404)
+            return httpx.Response(200, json=_item_body(iid))
         if p.startswith("/data/wow/media/item/"):
             iid = p.rsplit("/", 1)[1]
             return httpx.Response(200, json={"assets": [
@@ -137,24 +147,24 @@ def test_lookup_takes_exact_name_lowest_id_and_builds_a_card():
     got = item_links.lookup(None, bz, ed, region, 0, "fixture blade of testing", 3, trace)
     assert got["id"] == 101 and got["quality"] == "epic" and trace[0]["exact"] == [101, 102]
     assert got["icon"].endswith("fixture_101.jpg")
-    e = item_links.card(got, ed.name)
+    e = item_links.card({**got, "footer": "Fixture footer"})
     assert e["title"] == "Fixture Blade of Testing" and e["color"] == 0xA335EE and "url" not in e
     lines = e["description"].split("\n")
     assert lines[:3] == ["Binds when equipped", "One-Hand · Sword", "41 - 77 Damage · Speed 2.60"]
     assert "+7 Stamina" in lines and "Requires Level 40" in lines and lines[-1] == "Sell Price: 1g 2s 3c"
-    assert e["thumbnail"]["url"].endswith("fixture_101.jpg") and e["footer"]["text"].startswith(ed.name)
+    assert e["thumbnail"]["url"].endswith("fixture_101.jpg") and e["footer"]["text"] == "Fixture footer"
     assert item_links.lookup(None, bz, ed, region, 0, "Fixture Nothing", 3) is None
 
 
 def test_message_says_not_found_and_escapes_formatting():
-    m = item_links.message([], ["Fixture *bold* `x`"], "https://discord.com/channels/1/2/3", "Fixture Ed", True)
+    m = item_links.message([], ["Fixture *bold* `x`"], "https://discord.com/channels/1/2/3", True)
     assert m["content"].startswith("Items from https://discord.com/channels/1/2/3\n")
-    assert "No details from Blizzard for **Fixture \\*bold\\* \\`x\\`** yet." in m["content"]
+    assert "No item called **Fixture \\*bold\\* \\`x\\`** found in Blizzard's public game data." in m["content"]
     assert m["allowed_mentions"] == {"parse": []}
-    assert item_links.message([], ["Fixture Nothing"], "", "Fixture Ed", False) is None
-    only = item_links.message([{"name": "Fixture Cloak", "quality": "common"}], [], "", "Fixture Ed", True)
+    assert item_links.message([], ["Fixture Nothing"], "", False) is None
+    only = item_links.message([{"name": "Fixture Cloak", "quality": "common"}], [], "", True)
     assert "content" not in only and only["embeds"][0]["title"] == "Fixture Cloak"
-    m = item_links.message([], ["Fixture Nothing"], "", "Fixture Ed", True, "Fixture text {name}.")
+    m = item_links.message([], ["Fixture Nothing"], "", True, "Fixture text {name}.")
     assert m["content"] == "Fixture text Fixture Nothing."
 
 
@@ -192,7 +202,8 @@ def test_worker_posts_cards_through_one_reused_webhook_then_removes_them(db, wor
     first = fake.hook_posts[0]["body"]
     assert first["username"] == "QuestersBoard Items" and first["allowed_mentions"] == {"parse": []}
     assert first["embeds"][0]["title"] == "Fixture Cloak" and first["embeds"][0]["color"] == 0x1EFF00
-    assert first["content"] == "No details from Blizzard for **Fixture Nothing** yet."   # same channel: no link back
+    assert first["content"] == "No item called **Fixture Nothing** found in Blizzard's public game data."   # no link back
+    assert first["embeds"][0]["footer"]["text"] == "Source: Blizzard · WoW: Forever API"
     assert not any(m == "POST" and p.startswith(f"/channels/{WATCH}/messages") for m, p in fake.calls)
     with db.tx() as s:
         pl = s.execute(text("SELECT payload FROM outbox WHERE kind='item_links.post' AND key=:k"),
@@ -288,7 +299,11 @@ def test_probe_item_prints_the_search_and_card(monkeypatch, capsys):
     ed = cfg["item_links"]["edition"]
     assert cli.main(["blizzard", "probe-item", ed, "--name", "Fixture Cloak"]) == 0
     out = capsys.readouterr().out
-    assert "exact matches [104]" in out and "chosen item 104" in out and '"title": "Fixture Cloak"' in out
+    assert "exact matches [104]" in out and "chosen item 104 (uncommon) from forever" in out
+    assert '"title": "Fixture Cloak"' in out and "classic_era" not in out          # found first time: no fallback
+    assert cli.main(["blizzard", "probe-item", ed, "--name", "Fixture Old Shield"]) == 0
+    out = capsys.readouterr().out
+    assert "chosen item 105 (rare) from classic_era" in out and "not in WoW: Forever yet" in out
     assert cli.main(["blizzard", "probe-item", ed, "--name", "Fixture Nothing"]) == 1
     assert cli.main(["blizzard", "probe-item", ed]) == 2
 
@@ -304,3 +319,21 @@ def test_cards_in_another_channel_link_back_to_the_message(db, worker_db):
     _drain(w)
     assert next(iter(fake.webhooks.values()))["channel"] == post
     assert fake.hook_posts[0]["body"]["content"] == f"Items from https://discord.com/channels/{fake_id(1)}/{WATCH}/{fake_id(541)}"
+
+
+def test_falls_back_to_classic_era_and_says_so_in_the_footer():
+    cfg = _cfg()
+    assert cfg["item_links"]["fallbacks"] == ["classic_era"]
+    bz = _fake_bz(cfg, [])
+    trace = []
+    got = item_links.find(None, bz, cfg, 0, "Fixture Old Shield", trace=trace)
+    assert got["id"] == 105 and [t["edition"] for t in trace] == ["forever", "classic_era"]
+    assert got["footer"] == "Source: Blizzard · WoW Classic Era API (not in WoW: Forever yet; may differ)"
+    assert item_links.find(None, bz, cfg, 0, "Fixture Cloak")["footer"] == "Source: Blizzard · WoW: Forever API"
+    assert item_links.find(None, bz, cfg, 0, "Fixture Nothing") is None
+    assert item_links.find(None, bz, _cfg(fallbacks=[]), 0, "Fixture Old Shield") is None
+    own = _cfg(source_labels={"classic_era": "Fixture Era"}, footer_fallback_text="From {source}, not {main}")
+    assert item_links.find(None, bz, own, 0, "Fixture Old Shield")["footer"] == "From Fixture Era, not WoW: Forever"
+    for bad in ({"fallbacks": ["forever"]}, {"fallbacks": ["nope"]}, {"footer_text": "no placeholder"}):
+        with pytest.raises(ConfigError, match="fallbacks|footer_text"):
+            _cfg(**bad)
