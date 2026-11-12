@@ -404,16 +404,17 @@ class Worker:
         for name in (p.get("names") or [])[:il["max_per_message"]]:
             got = item_links.lookup(s, self.bz, ed, il["region"], hours, name, il["search_pages"])
             (items.append(got) if got else missing.append(name))
+        target = il["post_channel"] or p["channel_id"]
         guild = self.cfg["community"]["guild_id"]
-        jump = f"https://discord.com/channels/{guild}/{p['channel_id']}/{p['message_id']}" if guild else ""
-        msg = item_links.message(items, missing, jump, ed.name, il["say_not_found"])
+        jump = f"https://discord.com/channels/{guild}/{p['channel_id']}/{p['message_id']}" \
+            if guild and target != p["channel_id"] else ""          # same channel: the card is right below
+        msg = item_links.message(items, missing, jump, ed.name, il["say_not_found"], il["not_found_text"])
         if msg is None:
             return
         msg["username"] = il["webhook_name"]
         avatar = il["avatar_url"] or rest.avatar_url()
         if avatar:
             msg["avatar_url"] = avatar
-        target = il["post_channel"] or p["channel_id"]
         try:
             card_id = rest.execute_webhook(self._item_hook(rest, target), msg)
         except dr.Gone:                         # someone deleted the webhook: make a new one, once

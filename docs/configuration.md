@@ -107,8 +107,9 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   because Discord refuses bot posts in a channel linked to in-game guild chat (403, code 20062). The card
   has no link; its details come from Blizzard's item data for `edition`/`region` (exact name, any letter
   case; with several items of that name the lowest ID wins, searching at most `search_pages` pages of
-  100). `cooldown_minutes` skips the same name in the same channel; `say_not_found` adds a line for
-  names with no item; `ignore_bots` skips other bots (not webhooks). Only the names and message IDs are
+  100). `cooldown_minutes` skips the same name in the same channel; `say_not_found` adds `not_found_text` (with `{name}`) for
+  names Blizzard has no item for; a link back to the message is added only when cards go to
+  `post_channel`; `ignore_bots` skips other bots (not webhooks). Only the names and message IDs are
   queued, never the message text or author. Needs the Message Content intent (Developer Portal), View
   Channel, Read Message History and Manage Webhooks in the channel, and `[blizzard] enabled`. Restart
   section.

@@ -118,7 +118,8 @@ def test_config_defaults_off_and_validates():
                      ({"avatar_url": "http://example.org/a.png"}, "avatar_url"),
                      ({"edition": "nope"}, "edition"),
                      ({"surprise": 1}, "unknown"),
-                     ({"watch_channels": ["not-a-channel"]}, "watch_channels")):
+                     ({"watch_channels": ["not-a-channel"]}, "watch_channels"),
+                     ({"not_found_text": "Nothing here"}, "not_found_text")):
         with pytest.raises(ConfigError, match=msg):
             make_cfg(blizzard={"enabled": True}, item_links=bad)
     with pytest.raises(ConfigError, match="blizzard"):
@@ -147,9 +148,14 @@ def test_lookup_takes_exact_name_lowest_id_and_builds_a_card():
 
 def test_message_says_not_found_and_escapes_formatting():
     m = item_links.message([], ["Fixture *bold* `x`"], "https://discord.com/channels/1/2/3", "Fixture Ed", True)
-    assert m["content"].startswith("Items from https://discord.com/channels/1/2/3")
-    assert "**Fixture \\*bold\\* \\`x\\`**" in m["content"] and m["allowed_mentions"] == {"parse": []}
+    assert m["content"].startswith("Items from https://discord.com/channels/1/2/3\n")
+    assert "No details from Blizzard for **Fixture \\*bold\\* \\`x\\`** yet." in m["content"]
+    assert m["allowed_mentions"] == {"parse": []}
     assert item_links.message([], ["Fixture Nothing"], "", "Fixture Ed", False) is None
+    only = item_links.message([{"name": "Fixture Cloak", "quality": "common"}], [], "", "Fixture Ed", True)
+    assert "content" not in only and only["embeds"][0]["title"] == "Fixture Cloak"
+    m = item_links.message([], ["Fixture Nothing"], "", "Fixture Ed", True, "Fixture text {name}.")
+    assert m["content"] == "Fixture text Fixture Nothing."
 
 
 def test_webhook_tokens_are_redacted_from_logs():
@@ -186,7 +192,7 @@ def test_worker_posts_cards_through_one_reused_webhook_then_removes_them(db, wor
     first = fake.hook_posts[0]["body"]
     assert first["username"] == "QuestersBoard Items" and first["allowed_mentions"] == {"parse": []}
     assert first["embeds"][0]["title"] == "Fixture Cloak" and first["embeds"][0]["color"] == 0x1EFF00
-    assert f"/{WATCH}/{m1}" in first["content"] and "No item called **Fixture Nothing** found." in first["content"]
+    assert first["content"] == "No details from Blizzard for **Fixture Nothing** yet."   # same channel: no link back
     assert not any(m == "POST" and p.startswith(f"/channels/{WATCH}/messages") for m, p in fake.calls)
     with db.tx() as s:
         pl = s.execute(text("SELECT payload FROM outbox WHERE kind='item_links.post' AND key=:k"),
@@ -285,3 +291,16 @@ def test_probe_item_prints_the_search_and_card(monkeypatch, capsys):
     assert "exact matches [104]" in out and "chosen item 104" in out and '"title": "Fixture Cloak"' in out
     assert cli.main(["blizzard", "probe-item", ed, "--name", "Fixture Nothing"]) == 1
     assert cli.main(["blizzard", "probe-item", ed]) == 2
+
+
+@needs_db
+def test_cards_in_another_channel_link_back_to_the_message(db, worker_db):
+    post = fake_id(72)
+    cfg = _cfg(post_channel=post)
+    fake = FakeDiscord()
+    w = _worker(cfg, worker_db, fake)
+    with db.tx() as s:
+        item_links.enqueue(s, WATCH, fake_id(541), ["Fixture Cloak"])
+    _drain(w)
+    assert next(iter(fake.webhooks.values()))["channel"] == post
+    assert fake.hook_posts[0]["body"]["content"] == f"Items from https://discord.com/channels/{fake_id(1)}/{WATCH}/{fake_id(541)}"

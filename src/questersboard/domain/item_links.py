@@ -146,15 +146,22 @@ def card(item: dict, edition_name: str) -> dict:
     return e
 
 
-def message(items: list[dict], missing: list[str], jump_url: str, edition_name: str, say_not_found: bool) -> dict | None:
-    """The webhook message for one player message, or None when there is nothing to post."""
+NOT_FOUND = "No details from Blizzard for **{name}** yet."
+
+
+def message(items: list[dict], missing: list[str], jump_url: str, edition_name: str, say_not_found: bool,
+            not_found_text: str = NOT_FOUND) -> dict | None:
+    """The webhook message for one player message, or None when there is nothing to post. `jump_url`
+    (a link back to the player's message) is only given when the cards go to another channel."""
     missing = missing if say_not_found else []
     if not items and not missing:
         return None
-    head = f"Items from {jump_url}" if jump_url else "Items"
-    lines = [head] + [f"No item called **{_md(n)}** found." for n in missing]
-    return {"content": "\n".join(lines)[:2000], "embeds": [card(i, edition_name) for i in items][:10],
-            "allowed_mentions": {"parse": []}}
+    lines = ([f"Items from {jump_url}"] if jump_url else []) + \
+        [not_found_text.replace("{name}", _md(n)) for n in missing]
+    out = {"embeds": [card(i, edition_name) for i in items][:10], "allowed_mentions": {"parse": []}}
+    if lines:
+        out["content"] = "\n".join(lines)[:2000]
+    return out
 
 
 def _md(name: str) -> str:

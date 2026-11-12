@@ -232,6 +232,7 @@ region = "us"
 max_per_message = 5                           # more names than this in one message are ignored
 cooldown_minutes = 10                         # the same item in the same channel within this time: no new card
 say_not_found = true                          # list names with no exact item match under the cards
+not_found_text = "No details from Blizzard for **{name}** yet."   # {name} = the name as typed
 search_pages = 3                              # Blizzard item-search pages read per name (100 results each)
 ignore_bots = false                           # true: skip other bots' messages (webhook posts, such as relayed
                                               # game chat, are still read; our own cards never are)

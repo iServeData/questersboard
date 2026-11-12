@@ -7,7 +7,8 @@
   damage, stats, requirements, sell price) and icon, and no link. Cards are posted by a webhook the bot
   creates in the channel ("QuestersBoard Items"), since Discord refuses bot posts in channels linked to
   in-game guild chat and webhook posts aren't relayed to the game. One card message per player message
-  (up to `max_per_message` items), a per-name cooldown, "No item called … found." for unknown names, and
+  (up to `max_per_message` items), a per-name cooldown, "No details from Blizzard for … yet." for names Blizzard
+  doesn't serve (`not_found_text`), a link back to the message only when cards go to `post_channel`, and
   the card is deleted with the player's message. Only names and message IDs are queued. Needs the
   Message Content intent and Manage Webhooks, and a restart. `questersboard-admin blizzard probe-item`
   shows what a card would contain. Webhook URLs are redacted from logs and `httpx` request lines are no

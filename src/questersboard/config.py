@@ -685,6 +685,9 @@ def _item_links(r: dict) -> None:
     av = il.setdefault("avatar_url", "")
     if not isinstance(av, str) or (av and (not av.startswith("https://") or len(av) > 300)):
         raise ConfigError("[item_links] avatar_url must be empty (the bot's own picture) or an https:// address")
+    nf = il.setdefault("not_found_text", "No details from Blizzard for **{name}** yet.")
+    if not isinstance(nf, str) or "{name}" not in nf or not 8 <= len(nf) <= 200:
+        raise ConfigError("[item_links] not_found_text must be 8 to 200 characters and contain {name}")
     if il["enabled"]:
         if not il["watch_channels"]:
             raise ConfigError("[item_links] watch_channels must list at least one channel when item links are on")
@@ -694,7 +697,7 @@ def _item_links(r: dict) -> None:
             raise ConfigError(f"[item_links] {ed.name} has no static_namespace, so items can't be looked up")
     unknown = set(il) - {"enabled", "watch_channels", "post_channel", "edition", "region", "max_per_message",
                          "cooldown_minutes", "search_pages", "say_not_found", "ignore_bots", "webhook_name",
-                         "avatar_url"}
+                         "avatar_url", "not_found_text"}
     if unknown:
         raise ConfigError(f"[item_links] unknown setting(s): {', '.join(sorted(unknown))}")
 
