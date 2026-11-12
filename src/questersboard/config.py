@@ -673,7 +673,7 @@ def _item_links(r: dict) -> None:
     if il["region"] not in ed.regions:
         raise ConfigError(f"[item_links] region must be one of {', '.join(ed.regions)} for {ed.name}")
     for k, dflt, lo, hi in (("max_per_message", 5, 1, 10), ("cooldown_minutes", 10, 0, 1440),
-                            ("search_pages", 3, 1, 10)):
+                            ("search_pages", 10, 1, 25)):
         _positive(il.setdefault(k, dflt), f"[item_links] {k}", lo)
         if il[k] > hi:
             raise ConfigError(f"[item_links] {k} must be {lo} to {hi}")
@@ -703,6 +703,18 @@ def _item_links(r: dict) -> None:
     nf = il.setdefault("not_found_text", "No item called **{name}** found in Blizzard's public game data.")
     if not isinstance(nf, str) or "{name}" not in nf or not 8 <= len(nf) <= 200:
         raise ConfigError("[item_links] not_found_text must be 8 to 200 characters and contain {name}")
+    profs = {"Alchemy": ["Recipe"], "Blacksmithing": ["Plans"], "Cooking": ["Recipe"], "Enchanting": ["Formula"],
+             "Engineering": ["Schematic"], "First Aid": ["Manual"], "Leatherworking": ["Pattern"],
+             "Tailoring": ["Pattern"], "Jewelcrafting": ["Design"], "Inscription": ["Technique"], "Mining": [],
+             **il.setdefault("professions", {})}
+    if not all(isinstance(k, str) and 2 <= len(k) <= 30 and ":" not in k and isinstance(v, list) and len(v) <= 4
+               and all(isinstance(x, str) and 2 <= len(x) <= 30 for x in v) for k, v in profs.items()):
+        raise ConfigError("[item_links] professions must map profession names (as in the game's links, e.g. "
+                          "\"Leatherworking\") to lists of recipe-item prefixes (e.g. [\"Pattern\"])")
+    il["professions"] = profs
+    ct = il.setdefault("crafted_text", "Crafted with {profession}")
+    if not isinstance(ct, str) or "{profession}" not in ct or not 8 <= len(ct) <= 100:
+        raise ConfigError("[item_links] crafted_text must be 8 to 100 characters and contain {profession}")
     if il["enabled"]:
         if not il["watch_channels"]:
             raise ConfigError("[item_links] watch_channels must list at least one channel when item links are on")
@@ -715,7 +727,7 @@ def _item_links(r: dict) -> None:
     unknown = set(il) - {"enabled", "watch_channels", "post_channel", "edition", "region", "max_per_message",
                          "cooldown_minutes", "search_pages", "say_not_found", "ignore_bots", "webhook_name",
                          "avatar_url", "not_found_text", "fallbacks", "source_labels",
-                         "footer_text", "footer_fallback_text"}
+                         "footer_text", "footer_fallback_text", "professions", "crafted_text"}
     if unknown:
         raise ConfigError(f"[item_links] unknown setting(s): {', '.join(sorted(unknown))}")
 

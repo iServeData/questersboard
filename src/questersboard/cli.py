@@ -188,14 +188,14 @@ def cmd_blizzard(args):
         cfg.edition(args.edition)                   # unknown edition: a clear error
         trace: list = []
         try:
-            item = item_links.find(None, Blizzard(cfg), cfg, 0, args.name, args.edition, trace)
+            item = item_links.find_any(None, Blizzard(cfg), cfg, 0, args.name, args.edition, trace)
         except ApiError as exc:
             print(f"refused: {exc}", file=sys.stderr)
             return 3
         print(f"item search for {args.name!r}: {args.edition} first, then [item_links] fallbacks  "
               "(read-only; nothing saved)")
         for e in trace:
-            print(f"  {e['edition']} {e['region'].upper()} {e['namespace'] or '(no static namespace)'}")
+            print(f"  {e['name']!r} in {e['edition']} {e['region'].upper()} {e['namespace'] or '(no static namespace)'}")
             for t in e["pages"]:
                 if t.get("error"):
                     print(f"    page {t['page']}: not answered ({t['error']})")
@@ -207,7 +207,8 @@ def cmd_blizzard(args):
         if item is None:
             print("no card: no item with exactly that name in any of them")
             return 1
-        print(f"chosen item {item['id']} ({item.get('quality') or 'no quality'}) from {trace[-1]['edition']}; the card:")
+        print(f"chosen item {item['id']} ({item.get('quality') or 'no quality'}) "
+              f"from {next((e['edition'] for e in trace if e['found'] == item['id']), '?')}; the card:")
         print(_json.dumps(item_links.card(item), indent=2, ensure_ascii=False))
         return 0
     from .integrations.blizzard import Blizzard

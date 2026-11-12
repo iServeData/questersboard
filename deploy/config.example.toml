@@ -238,7 +238,11 @@ fallbacks = ["classic_era"]                   # editions searched next, in order
 source_labels = { forever = "WoW: Forever", classic_era = "WoW Classic Era", retail = "WoW" }
 footer_text = "Source: Blizzard · {source} API"
 footer_fallback_text = "Source: Blizzard · {source} API (not in {main} yet; may differ)"
-search_pages = 3                              # Blizzard item-search pages read per name (100 results each)
+crafted_text = "Crafted with {profession}"     # on cards for profession-window links ("Leatherworking: Dark …")
+# professions = { "First Aid" = ["Manual"] }  # profession -> recipe-item prefixes, merged with the built-in list
+                                              # (Leatherworking/Tailoring "Pattern", Blacksmithing "Plans", …)
+search_pages = 10                             # Blizzard item-search pages read per name (100 results each; common
+                                              # words like "Leather" can put the exact name several pages in)
 ignore_bots = false                           # true: skip other bots' messages (webhook posts, such as relayed
                                               # game chat, are still read; our own cards never are)
 webhook_name = "QuestersBoard Items"          # the name the cards are posted under

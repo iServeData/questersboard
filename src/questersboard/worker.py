@@ -398,7 +398,7 @@ class Worker:
         hours = self.cfg["blizzard"].get("cache_hours_static", 168)
         items, missing = [], []
         for name in (p.get("names") or [])[:il["max_per_message"]]:
-            got = item_links.find(s, self.bz, self.cfg, hours, name)
+            got = item_links.find_any(s, self.bz, self.cfg, hours, name)
             (items.append(got) if got else missing.append(name))
         target = il["post_channel"] or p["channel_id"]
         guild = self.cfg["community"]["guild_id"]

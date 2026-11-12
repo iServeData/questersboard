@@ -125,7 +125,7 @@ def find(s: Session | None, bz, cfg, hours: float, name: str, first: str | None 
         t: list = []
         got = lookup(s, bz, ed, region, hours, name, il["search_pages"], t)
         if trace is not None:
-            trace.append({"edition": ed.key, "region": region, "namespace": ed.namespace("static", region),
+            trace.append({"name": name, "edition": ed.key, "region": region, "namespace": ed.namespace("static", region),
                           "pages": t, "found": got["id"] if got else None})
         if got:
             tpl = il["footer_text"] if i == 0 else il["footer_fallback_text"]
@@ -153,6 +153,40 @@ def _recipe(pv: dict) -> dict:
         if parts:
             out["reagents"] = ("Reagents: " + ", ".join(parts))[:300]
     return out
+
+
+def find_any(s: Session | None, bz, cfg, hours: float, name: str, first: str | None = None,
+             trace: list | None = None) -> dict | None:
+    """Like `find`, but a profession-window link such as "Leatherworking: Dark Leather Cloak" (a recipe,
+    not an item) becomes the item it makes, with "Crafted with Leatherworking (skill)" and the reagents
+    from the recipe item ("Pattern: Dark Leather Cloak") when there is one. Recipes that make no item
+    (most enchants) show the recipe item instead. Trainer-taught recipes have no recipe item, so their
+    cards show no reagents."""
+    il = cfg["item_links"]
+    m = re.fullmatch(r"([^\W\d_][^:]{1,30}):\s*(.{2,80})", name)
+    prof = next((k for k in il["professions"] if m and k.casefold() == m.group(1).strip().casefold()), None)
+    if prof is None:
+        return find(s, bz, cfg, hours, name, first, trace)
+    rest = m.group(2).strip()
+    made = find(s, bz, cfg, hours, rest, first, trace)
+    recipe = None
+    others = [k.casefold() for k in il["professions"] if k != prof]
+    for pre in il["professions"][prof]:
+        recipe = find(s, bz, cfg, hours, f"{pre}: {rest}", first, trace)
+        reqs = " ".join((recipe or {}).get("tip", {}).get("requirements") or []).casefold()
+        if recipe and any(f"requires {o}" in reqs for o in others):
+            recipe = None                       # another profession's recipe (Tailoring and Leatherworking share "Pattern")
+        if recipe:
+            break
+    if made is None:
+        return recipe
+    tip = made.setdefault("tip", {})
+    rtip = (recipe or {}).get("tip") or {}
+    skill = next((re.search(r"\((\d+)\)", r) for r in rtip.get("requirements") or []
+                  if prof.casefold() in r.casefold() and re.search(r"\((\d+)\)", r)), None)
+    tip["crafted"] = {"by": il["crafted_text"].replace("{profession}", prof + (f" ({skill.group(1)})" if skill else "")),
+                      "reagents": (rtip.get("recipe") or {}).get("reagents", "")}
+    return made
 
 
 def _coins(sell: dict) -> str:
@@ -194,6 +228,11 @@ def tooltip_lines(t: dict) -> list[str]:
         add(f"\u201c{t['description']}\u201d")
     if t.get("sell"):
         add("Sell Price: " + _coins(t["sell"]))
+    made = t.get("crafted") or {}
+    if made.get("by"):
+        add(made["by"])
+    if made.get("reagents"):
+        add(made["reagents"])
     return lines
 
 

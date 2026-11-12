@@ -24,6 +24,7 @@ ITEMS = {
     104: {"name": "Fixture Cloak", "quality": "UNCOMMON"},
     105: {"name": "Fixture Old Shield", "quality": "RARE", "only": "classic1x"},   # missing from the main edition
     106: {"name": "Pattern: Fixture Cloak", "quality": "UNCOMMON", "recipe": True},
+    107: {"name": "Formula: Enchant Fixture Bracer", "quality": "COMMON", "recipe": True},   # makes no item
 }
 
 
@@ -37,7 +38,8 @@ def _item_body(iid):
     if it.get("recipe"):
         return {"id": iid, "name": it["name"], "quality": {"type": it["quality"]},
                 "preview_item": {"name": it["name"], "inventory_type": {"type": "NON_EQUIP", "name": "Non-equippable"},
-                                 "requirements": {"skill": {"display_string": "Requires Tailoring (100)"}},
+                                 "requirements": {"skill": {"display_string": "Requires Enchanting (100)" if it["name"].startswith("Formula")
+                                                            else "Requires Tailoring (100)"}},
                                  "spells": [{"description": "Use: Teaches you how to sew a Fixture Cloak."}],
                                  "recipe": {"item": {"name": "Fixture Cloak", "id": 104},
                                             "reagents": [{"reagent": {"name": "Fixture Cloth"}, "quantity": 3},
@@ -388,3 +390,28 @@ def test_recipe_reagent_text_from_blizzard_gets_a_label_once():
     assert item_links._recipe(bare)["reagents"] == "Reagents: Fixture Cloth (5), Fixture Thread"
     done = {"recipe": {"reagents_display_string": "Reagents: Fixture Cloth (5)"}}
     assert item_links._recipe(done)["reagents"] == "Reagents: Fixture Cloth (5)"
+
+
+def test_profession_window_links_show_the_crafted_item_with_skill_and_reagents():
+    cfg = _cfg()
+    bz = _fake_bz(cfg, [])
+    trace = []
+    got = item_links.find_any(None, bz, cfg, 0, "Tailoring: Fixture Cloak", trace=trace)
+    assert got["id"] == 104 and got["name"] == "Fixture Cloak"
+    lines = item_links.card(got)["description"].split("\n")
+    assert lines[-2:] == ["Crafted with Tailoring (100)", "Reagents: Fixture Cloth (3), Fixture Thread"]
+    assert [t["name"] for t in trace][:1] == ["Fixture Cloak"] and "Pattern: Fixture Cloak" in [t["name"] for t in trace]
+    # no recipe item (trainer-taught): the item, and which profession makes it
+    got = item_links.find_any(None, bz, cfg, 0, "leatherworking: Fixture Cloak")
+    assert item_links.card(got)["description"].split("\n")[-1] == "Crafted with Leatherworking"
+    # a recipe that makes no item (an enchant): the recipe item itself
+    assert item_links.find_any(None, bz, cfg, 0, "Enchanting: Enchant Fixture Bracer")["id"] == 107
+    assert item_links.find_any(None, bz, cfg, 0, "Enchanting: Fixture Nothing") is None
+    # not a profession: searched as typed
+    assert item_links.find_any(None, bz, cfg, 0, "Pattern: Fixture Cloak")["id"] == 106
+    own = _cfg(professions={"Fixturecraft": ["Pattern"]}, crafted_text="Made by {profession}")
+    got = item_links.find_any(None, bz, own, 0, "Fixturecraft: Fixture Cloak")
+    assert "Made by Fixturecraft" in item_links.card(got)["description"] and own["item_links"]["professions"]["Tailoring"]
+    for bad in ({"professions": {"Bad:Name": []}}, {"crafted_text": "no placeholder"}):
+        with pytest.raises(ConfigError, match="professions|crafted_text"):
+            _cfg(**bad)

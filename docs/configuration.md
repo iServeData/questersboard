@@ -109,7 +109,12 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   case; with several items of that name the lowest ID wins, searching at most `search_pages` pages of
   100), then each of `fallbacks` in order (default `["classic_era"]`, closest to Forever; Retail
   stats differ a lot). The card footer names the source (`footer_text`, or `footer_fallback_text` for a
-  fallback, with `{source}` from `source_labels` and `{main}`). `cooldown_minutes` skips the same name in the same channel; `say_not_found` adds `not_found_text` (with `{name}`) for
+  fallback, with `{source}` from `source_labels` and `{main}`). A profession-window link such as
+  "Leatherworking: Dark Leather Cloak" (a recipe, not an item) shows the item it makes plus
+  `crafted_text` (`{profession}`, with the skill level when known) and the reagents from the recipe item
+  (`professions` maps each profession to its recipe-item prefixes, e.g. Leatherworking → "Pattern";
+  merged with the built-in list). Trainer-taught recipes have no recipe item, so no reagents; recipes
+  that make no item (most enchants) show the recipe item. `cooldown_minutes` skips the same name in the same channel; `say_not_found` adds `not_found_text` (with `{name}`) for
   names Blizzard has no item for; a link back to the message is added only when cards go to
   `post_channel`; `ignore_bots` skips other bots (not webhooks). Only the names and message IDs are
   queued, never the message text or author. Needs the Message Content intent (Developer Portal), View
