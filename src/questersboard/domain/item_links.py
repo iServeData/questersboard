@@ -136,7 +136,8 @@ def find(s: Session | None, bz, cfg, hours: float, name: str, first: str | None 
 
 def _recipe(pv: dict) -> dict:
     """What a recipe item makes and needs, when Blizzard sends it (preview_item.recipe; shape as in
-    Retail's item data, UNVERIFIED for Forever and Classic Era)."""
+    Retail's item data; Forever's verified Nov 2026 for a tailoring pattern, whose reagents_display_string
+    is the bare list without a label)."""
     r = pv.get("recipe") if isinstance(pv.get("recipe"), dict) else {}
     out = {}
     made = r.get("item") if isinstance(r.get("item"), dict) else {}
@@ -144,7 +145,8 @@ def _recipe(pv: dict) -> dict:
         out["makes"] = _label(made)[:120]
     rd = r.get("reagents_display_string")
     if isinstance(rd, str) and rd.strip():
-        out["reagents"] = rd.strip()[:300]
+        rd = rd.strip()
+        out["reagents"] = (rd if rd.lower().startswith(("reagents", "requires")) else "Reagents: " + rd)[:300]
     elif isinstance(r.get("reagents"), list):
         parts = [f"{_label(x.get('reagent'))}" + (f" ({x['quantity']})" if isinstance(x.get("quantity"), int) and x["quantity"] > 1 else "")
                  for x in r["reagents"] if isinstance(x, dict) and _label(x.get("reagent"))]

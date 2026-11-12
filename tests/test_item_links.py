@@ -381,3 +381,10 @@ def test_refresh_edits_the_card_already_posted_and_clears_the_not_found_line(db,
     _drain(new)
     with db.tx() as s:
         assert s.execute(text("SELECT count(*) FROM outbox WHERE kind='item_links.refresh' AND dead_at IS NOT NULL")).scalar() == 0
+
+
+def test_recipe_reagent_text_from_blizzard_gets_a_label_once():
+    bare = {"recipe": {"reagents_display_string": "Fixture Cloth (5), Fixture Thread"}}
+    assert item_links._recipe(bare)["reagents"] == "Reagents: Fixture Cloth (5), Fixture Thread"
+    done = {"recipe": {"reagents_display_string": "Reagents: Fixture Cloth (5)"}}
+    assert item_links._recipe(done)["reagents"] == "Reagents: Fixture Cloth (5)"
