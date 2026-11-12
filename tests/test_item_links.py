@@ -23,6 +23,7 @@ ITEMS = {
     103: {"name": "Fixture Blade of Testing Mk II", "quality": "COMMON"},
     104: {"name": "Fixture Cloak", "quality": "UNCOMMON"},
     105: {"name": "Fixture Old Shield", "quality": "RARE", "only": "classic1x"},   # missing from the main edition
+    106: {"name": "Pattern: Fixture Cloak", "quality": "UNCOMMON", "recipe": True},
 }
 
 
@@ -33,6 +34,14 @@ def _served(iid, ns):
 
 def _item_body(iid):
     it = ITEMS[iid]
+    if it.get("recipe"):
+        return {"id": iid, "name": it["name"], "quality": {"type": it["quality"]},
+                "preview_item": {"name": it["name"], "inventory_type": {"type": "NON_EQUIP", "name": "Non-equippable"},
+                                 "requirements": {"skill": {"display_string": "Requires Tailoring (100)"}},
+                                 "spells": [{"description": "Use: Teaches you how to sew a Fixture Cloak."}],
+                                 "recipe": {"item": {"name": "Fixture Cloak", "id": 104},
+                                            "reagents": [{"reagent": {"name": "Fixture Cloth"}, "quantity": 3},
+                                                         {"reagent": {"name": "Fixture Thread"}, "quantity": 1}]}}}
     return {"id": iid, "name": it["name"], "quality": {"type": it["quality"], "name": it["quality"].title()},
             "preview_item": {
                 "name": it["name"], "binding": {"type": "ON_EQUIP", "name": "Binds when equipped"},
@@ -337,3 +346,11 @@ def test_falls_back_to_classic_era_and_says_so_in_the_footer():
     for bad in ({"fallbacks": ["forever"]}, {"fallbacks": ["nope"]}, {"footer_text": "no placeholder"}):
         with pytest.raises(ConfigError, match="fallbacks|footer_text"):
             _cfg(**bad)
+
+
+def test_recipe_cards_show_what_they_make_and_need_without_non_equippable():
+    cfg = _cfg()
+    got = item_links.find(None, _fake_bz(cfg, []), cfg, 0, "Pattern: Fixture Cloak")
+    lines = item_links.card(got)["description"].split("\n")
+    assert lines == ["Requires Tailoring (100)", "Use: Teaches you how to sew a Fixture Cloak.",
+                     "Creates: Fixture Cloak", "Reagents: Fixture Cloth (3), Fixture Thread"]

@@ -10,7 +10,8 @@
   (up to `max_per_message` items), a per-name cooldown, a search of `fallbacks` (Classic Era by default) when Forever's
   data lacks the item, a footer naming the source ("Source: Blizzard · WoW: Forever API", or the fallback
   with "not in WoW: Forever yet; may differ"), "No item called … found in Blizzard's public game data."
-  when none has it (`not_found_text`), a link back to the message only when cards go to `post_channel`, and
+  when none has it (`not_found_text`), recipe cards with "Creates: …" and the reagents when Blizzard
+  sends them (no "Non-equippable" line), a link back to the message only when cards go to `post_channel`, and
   the card is deleted with the player's message. Only names and message IDs are queued. Needs the
   Message Content intent and Manage Webhooks, and a restart. `questersboard-admin blizzard probe-item`
   shows what a card would contain. Webhook URLs are redacted from logs and `httpx` request lines are no

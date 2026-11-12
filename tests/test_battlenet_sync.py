@@ -101,7 +101,7 @@ def test_forever_sync_verifies_offers_and_imports(seeded, tmp_path, monkeypatch)
                       {"i": mine}).one()
         snap = bytes(s.execute(text("select snapshot_enc from battlenet_links")).scalar_one())
     assert v == ("ownership_verified", 22, "501")             # verified and level brought up to date
-    assert b"Zulmara" not in snap and b"503" not in snap and b"Fixtureera" not in snap   # encrypted at rest
+    assert b"Zulmara" not in snap and b"Fixtureera" not in snap   # encrypted at rest (no digit check: ciphertext can contain any digits)
     # the ruleset select is prefilled from Blizzard's ID (3 = rp; 15 via the character profile = rp_pvp)
     idx = {n: _pick(page, n) for n in ("Zulmara Ashveil", "Vashka Duskmane", "Corwin Brightmere", "Fixtureera")}
     z_i, v_i = idx["Zulmara Ashveil"].split(":")[1], idx["Vashka Duskmane"].split(":")[1]

@@ -86,9 +86,13 @@ def lookup(s: Session | None, bz, ed, region: str, hours: float, name: str, page
     if st != 200 or not isinstance(item, dict):
         return None
     q = item.get("quality")
+    pv = item.get("preview_item") if isinstance(item.get("preview_item"), dict) else item
     out = {"id": iid, "name": _label(item)[:120] or name,
            "quality": ((q.get("type") or "") if isinstance(q, dict) else "").lower()[:16],
-           "tip": _tooltip(item.get("preview_item") if isinstance(item.get("preview_item"), dict) else item)}
+           "tip": _tooltip(pv)}
+    rec = _recipe(pv)
+    if rec:
+        out["tip"]["recipe"] = rec
     try:
         icon = _linked_icon(s, bz, region, sns, item, f"/data/wow/media/item/{iid}")
     except Exception:
@@ -130,6 +134,25 @@ def find(s: Session | None, bz, cfg, hours: float, name: str, first: str | None 
     return None
 
 
+def _recipe(pv: dict) -> dict:
+    """What a recipe item makes and needs, when Blizzard sends it (preview_item.recipe; shape as in
+    Retail's item data, UNVERIFIED for Forever and Classic Era)."""
+    r = pv.get("recipe") if isinstance(pv.get("recipe"), dict) else {}
+    out = {}
+    made = r.get("item") if isinstance(r.get("item"), dict) else {}
+    if _label(made):
+        out["makes"] = _label(made)[:120]
+    rd = r.get("reagents_display_string")
+    if isinstance(rd, str) and rd.strip():
+        out["reagents"] = rd.strip()[:300]
+    elif isinstance(r.get("reagents"), list):
+        parts = [f"{_label(x.get('reagent'))}" + (f" ({x['quantity']})" if isinstance(x.get("quantity"), int) and x["quantity"] > 1 else "")
+                 for x in r["reagents"] if isinstance(x, dict) and _label(x.get("reagent"))]
+        if parts:
+            out["reagents"] = ("Reagents: " + ", ".join(parts))[:300]
+    return out
+
+
 def _coins(sell: dict) -> str:
     parts = [f"{sell[k]}{k[0]}" for k in ("gold", "silver", "copper") if sell.get(k, "0") != "0"]
     return " ".join(parts)
@@ -142,8 +165,9 @@ def tooltip_lines(t: dict) -> list[str]:
     for k in ("binding", "unique"):
         if t.get(k):
             add(t[k])
-    if t.get("type") or t.get("subtype"):
-        add(" · ".join(x for x in (t.get("type"), t.get("subtype")) if x))
+    kind = [x for x in (t.get("type"), t.get("subtype")) if x and x != "Non-equippable"]   # the game shows neither
+    if kind:
+        add(" · ".join(kind))
     if t.get("damage") or t.get("speed"):
         add(" · ".join(x for x in (t.get("damage"), t.get("speed")) if x))
     for k in ("dps", "armor"):
@@ -159,6 +183,11 @@ def tooltip_lines(t: dict) -> list[str]:
     lines.extend(t.get("spells") or [])
     if t.get("set"):
         add(t["set"])
+    rec = t.get("recipe") or {}
+    if rec.get("makes"):
+        add(f"Creates: {rec['makes']}")
+    if rec.get("reagents"):
+        add(rec["reagents"])
     if t.get("description"):
         add(f"\u201c{t['description']}\u201d")
     if t.get("sell"):
