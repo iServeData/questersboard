@@ -39,6 +39,7 @@ class FakeDiscord:
         self.webhooks: dict[str, dict] = {}      # FIXTURE webhook id -> {channel, name, token, owner}
         self.hook_posts: list[dict] = []         # FIXTURE {hook, id, body} sent through webhooks
         self.hook_deletes: list[tuple[str, str]] = []
+        self.hook_edits: list[tuple[str, str]] = []
         self.no_manage_webhooks: set[str] = set()   # FIXTURE channels where the bot lacks Manage Webhooks
 
     def handler(self, req: httpx.Request) -> httpx.Response:
@@ -71,6 +72,13 @@ class FakeDiscord:
                 mid = "m" + str(next(self.ids))
                 self.hook_posts.append({"hook": parts[1], "id": mid, "body": body})
                 return httpx.Response(200, json={"id": mid})
+            if req.method == "PATCH":
+                hit = [p for p in self.hook_posts if p["id"] == parts[4] and p["hook"] == parts[1]]
+                if not hit:
+                    return httpx.Response(404, json={"code": 10008})
+                hit[0]["body"] = {**hit[0]["body"], **body}
+                self.hook_edits.append((parts[1], parts[4]))
+                return httpx.Response(200, json={"id": parts[4]})
             if req.method == "DELETE":
                 if not any(p["id"] == parts[4] for p in self.hook_posts):
                     return httpx.Response(404, json={"code": 10008})

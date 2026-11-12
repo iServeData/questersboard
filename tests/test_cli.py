@@ -167,6 +167,26 @@ def test_refresh_posts_is_dry_run_unless_yes(cfg_file, db, capsys):
         assert s.execute(text(q), {"k": str(eid)}).scalar() >= max(before, 1)
 
 
+@needs_db
+def test_refresh_item_cards_is_dry_run_unless_yes(cfg_file, db, capsys):
+    key = f"{fake_id(7792)}:{fake_id(7793)}"
+    with db.tx() as s:
+        s.execute(text("INSERT INTO outbox (kind, key, payload, done_at) VALUES ('item_links.post', :k, "
+                       "CAST(:p AS jsonb), now())"),
+                  {"k": key, "p": json.dumps({"names": ["Fixture Cloak"], "card_id": "m1", "card_channel": "c"})})
+    assert cli.main(["--config", cfg_file, "refresh-item-cards"]) == 0
+    out = capsys.readouterr().out
+    assert "[Fixture Cloak]" in out and "dry run:" in out
+    with db.tx() as s:
+        assert s.execute(text("SELECT count(*) FROM outbox WHERE kind='item_links.refresh' AND key=:k"),
+                         {"k": key}).scalar() == 0
+    assert cli.main(["--config", cfg_file, "refresh-item-cards", "--yes"]) == 0
+    assert "queued" in capsys.readouterr().out
+    with db.tx() as s:
+        assert s.execute(text("SELECT count(*) FROM outbox WHERE kind='item_links.refresh' AND key=:k"),
+                         {"k": key}).scalar() == 1
+
+
 def test_default_cover_installs_webp(cfg_file, tmp_path, capsys):
     import io
 

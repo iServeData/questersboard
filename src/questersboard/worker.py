@@ -391,13 +391,10 @@ class Worker:
                            or rest.create_webhook(channel_id, name)}
         return self._hooks[channel_id]
 
-    def job_item_links_post(self, s: Session, p: dict) -> None:
-        """Cards for the [bracketed] names in one message. Payload: channel_id, message_id, names."""
+    def _item_message(self, s: Session, p: dict) -> tuple[dict | None, str]:
+        """The card message for one player message (payload: channel_id, message_id, names) and where it goes."""
         from .domain import item_links
         il = self.cfg["item_links"]
-        if not il["enabled"]:
-            return
-        rest = self._need_rest()
         hours = self.cfg["blizzard"].get("cache_hours_static", 168)
         items, missing = [], []
         for name in (p.get("names") or [])[:il["max_per_message"]]:
@@ -407,7 +404,15 @@ class Worker:
         guild = self.cfg["community"]["guild_id"]
         jump = f"https://discord.com/channels/{guild}/{p['channel_id']}/{p['message_id']}" \
             if guild and target != p["channel_id"] else ""          # same channel: the card is right below
-        msg = item_links.message(items, missing, jump, il["say_not_found"], il["not_found_text"])
+        return item_links.message(items, missing, jump, il["say_not_found"], il["not_found_text"]), target
+
+    def job_item_links_post(self, s: Session, p: dict) -> None:
+        """Cards for the [bracketed] names in one message. Payload: channel_id, message_id, names."""
+        il = self.cfg["item_links"]
+        if not il["enabled"]:
+            return
+        rest = self._need_rest()
+        msg, target = self._item_message(s, p)
         if msg is None:
             return
         msg["username"] = il["webhook_name"]
@@ -422,6 +427,26 @@ class Worker:
                        "WHERE kind = 'item_links.post' AND key = :k AND done_at IS NULL"),
                   {"k": f"{p['channel_id']}:{p['message_id']}",
                    "extra": json.dumps({"card_id": card_id, "card_channel": target})})
+
+    def job_item_links_refresh(self, s: Session, p: dict) -> None:
+        """Look the names up again and edit the card already posted, in place (after an upgrade or once
+        Blizzard adds an item). Nothing new is posted; a card that's gone stays gone. Payload: key."""
+        if not self.cfg["item_links"]["enabled"]:
+            return
+        row = s.execute(text("SELECT payload FROM outbox WHERE kind = 'item_links.post' AND key = :k "
+                             "AND done_at IS NOT NULL ORDER BY id DESC LIMIT 1"), {"k": p["key"]}).scalar()
+        if not row or not row.get("card_id") or not row.get("card_channel"):
+            return
+        msg, _ = self._item_message(s, row)
+        if msg is None:                          # nothing to say any more: leave the old card alone
+            return
+        msg.setdefault("content", "")            # an edit keeps what it doesn't mention: clear old lines
+        msg.setdefault("embeds", [])
+        rest = self._need_rest()
+        try:
+            rest.edit_webhook_message(self._item_hook(rest, row["card_channel"]), row["card_id"], msg)
+        except dr.Gone:
+            log.info("item card %s is no longer there; not refreshed", row["card_id"])
 
     def job_item_links_delete(self, s: Session, p: dict) -> None:
         """The player deleted their message: remove its cards too (while the delivery record is kept)."""

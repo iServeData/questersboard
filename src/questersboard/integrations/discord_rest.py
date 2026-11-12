@@ -243,6 +243,12 @@ class DiscordRest:
         body = dict(payload, allowed_mentions=NO_PINGS)
         return str(self._call("POST", f"/webhooks/{hook['id']}/{hook['token']}?wait=true", body)["id"])
 
+    def edit_webhook_message(self, hook: dict, message_id: str, payload: dict) -> None:
+        """Edit a message this webhook posted. Name and picture can't change on an edit, so they're dropped."""
+        body = dict({k: v for k, v in payload.items() if k not in ("username", "avatar_url")},
+                    allowed_mentions=NO_PINGS)
+        self._call("PATCH", f"/webhooks/{hook['id']}/{hook['token']}/messages/{message_id}", body)
+
     def delete_webhook_message(self, hook: dict, message_id: str) -> None:
         try:
             self._call("DELETE", f"/webhooks/{hook['id']}/{hook['token']}/messages/{message_id}")

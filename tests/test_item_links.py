@@ -354,3 +354,30 @@ def test_recipe_cards_show_what_they_make_and_need_without_non_equippable():
     lines = item_links.card(got)["description"].split("\n")
     assert lines == ["Requires Tailoring (100)", "Use: Teaches you how to sew a Fixture Cloak.",
                      "Creates: Fixture Cloak", "Reagents: Fixture Cloth (3), Fixture Thread"]
+
+
+@needs_db
+def test_refresh_edits_the_card_already_posted_and_clears_the_not_found_line(db, worker_db):
+    fake = FakeDiscord()
+    old = _worker(_cfg(fallbacks=[]), worker_db, fake)        # before the fallback existed
+    m = fake_id(561)
+    with db.tx() as s:
+        item_links.enqueue(s, WATCH, m, ["Fixture Cloak", "Fixture Old Shield"])
+    _drain(old)
+    assert fake.hook_posts[0]["body"]["content"].startswith("No item called **Fixture Old Shield**")
+    new = _worker(_cfg(), worker_db, fake)
+    with db.tx() as s:
+        s.execute(text("INSERT INTO outbox (kind, key, payload) VALUES ('item_links.refresh', :k, CAST(:p AS jsonb))"),
+                  {"k": f"{WATCH}:{m}", "p": f'{{"key": "{WATCH}:{m}"}}'})
+    _drain(new)
+    assert len(fake.hook_posts) == 1 and fake.hook_edits == [(fake.hook_posts[0]["hook"], fake.hook_posts[0]["id"])]
+    body = fake.hook_posts[0]["body"]
+    assert body["content"] == "" and [e["title"] for e in body["embeds"]] == ["Fixture Cloak", "Fixture Old Shield"]
+    assert body["embeds"][1]["footer"]["text"].endswith("(not in WoW: Forever yet; may differ)")
+    with db.tx() as s:                                          # a card someone removed stays removed
+        fake.hook_posts.clear()
+        s.execute(text("INSERT INTO outbox (kind, key, payload) VALUES ('item_links.refresh', :k, CAST(:p AS jsonb))"),
+                  {"k": f"{WATCH}:{m}", "p": f'{{"key": "{WATCH}:{m}"}}'})
+    _drain(new)
+    with db.tx() as s:
+        assert s.execute(text("SELECT count(*) FROM outbox WHERE kind='item_links.refresh' AND dead_at IS NOT NULL")).scalar() == 0

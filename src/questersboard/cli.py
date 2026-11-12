@@ -414,6 +414,29 @@ def cmd_refresh_posts(args):
     return 0
 
 
+def cmd_refresh_item_cards(args):
+    """Look up the names in recent item cards again and edit those cards in place (after an upgrade, or
+    once Blizzard adds an item that wasn't found). Nothing new is posted. Dry run unless --yes."""
+    from .domain import outbox
+    cfg = _cfg(args)
+    db = _db(cfg, "app")
+    with db.tx() as s:
+        rows = list(s.execute(text(
+            "SELECT DISTINCT ON (key) key, payload->'names' AS names FROM outbox "
+            "WHERE kind = 'item_links.post' AND done_at IS NOT NULL AND payload ? 'card_id' "
+            "AND done_at > now() - make_interval(hours => :h) ORDER BY key, id DESC"), {"h": args.hours}))
+        for r in rows:
+            print("  " + ", ".join(f"[{n}]" for n in (r.names or [])))
+        if not args.yes:
+            print(f"dry run: {len(rows)} card message(s) from the last {args.hours:g} hours would be looked up "
+                  "again and edited. Re-run with --yes to queue the updates.")
+            return 0
+        for r in rows:
+            outbox.enqueue(s, "item_links.refresh", r.key, {"key": r.key})
+    print(f"queued {len(rows)} card update(s); the worker applies them within a minute.")
+    return 0
+
+
 def cmd_refresh_details(args):
     """Refresh every character's imported Blizzard details (after an upgrade changes how they're stored),
     as if each owner pressed Refresh from Blizzard: same groups, same sharing. Characters without
@@ -525,6 +548,11 @@ def main(argv=None) -> int:
     rp = sub.add_parser("refresh-posts", help="re-render upcoming events' Discord posts (dry run unless --yes)")
     rp.add_argument("--yes", action="store_true")
     rp.set_defaults(fn=cmd_refresh_posts)
+    ri = sub.add_parser("refresh-item-cards", help="look up recent item cards again and edit them in place "
+                        "(dry run unless --yes)")
+    ri.add_argument("--hours", type=float, default=24, help="cards posted in the last this many hours (default 24)")
+    ri.add_argument("--yes", action="store_true")
+    ri.set_defaults(fn=cmd_refresh_item_cards)
     rd = sub.add_parser("refresh-details", help="refresh everyone's imported Blizzard details (dry run unless --yes)")
     rd.add_argument("--yes", action="store_true")
     rd.set_defaults(fn=cmd_refresh_details)
