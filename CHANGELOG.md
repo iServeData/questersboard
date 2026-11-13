@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Support Admin.** New `[support_admin]` (on by default; `role_ids` empty = the `[roles] admin` roles).
+  The event post's Organizer reply offers admins **Support Admin**: into the event chat (also invite-only)
+  and voice without signing up, a character or a roster spot. The chat says "<name> joined as Support
+  Admin (not signed up)" and "left"; the audit log records it; access ends with the event. Stored with
+  the event's voice guests (no database migration). `discord-permissions` shows who has it.
+- **`discord-permissions`: commands offered in extra channels.** When Integrations allows QuestersBoard
+  commands in channels besides `[discord] allowed_command_channel_ids`, the report now says so in one
+  note (they're refused there) instead of "only offers ... in". Slash commands used elsewhere now answer
+  with the channel to use.
 - **`discord-permissions`: who else can get in.** A new last section checks every server role, not only the
   ones in config: roles with Administrator (which Discord lets past every channel permission, invite-only
   event chat and event voice) and, when the bot may list members (Server Members Intent), the people in them

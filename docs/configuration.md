@@ -33,7 +33,7 @@ sudo -u questersboard /opt/questersboard/current/venv/bin/questersboard-admin ch
 | Section | Applies |
 | --- | --- |
 | `[roles]`, `[scheduling]`, `[signups]`, `[reminders]`, `[chronicle]`, `[rate_limits]`, `[event_posts]` | **Live**: re-read about every 30 s when the file changes, only if the whole file validates. A bad edit is logged and the old settings stay in force. |
-| everything else (`[community]`, `[discord]`, `[web]`, `[database]`, `[blizzard]`, `[ai]`, `[uploads]`, `[feeds]`, `[calendar]`, `[branding]`, `[retention]`, `[event_threads]`, `[voice]`, `[item_links]`, `[[editions]]`, presets, activities) | **Restart**: `sudo systemctl restart questersboard-web questersboard-bot questersboard-worker`. The services log which changed sections still need a restart. |
+| everything else (`[community]`, `[discord]`, `[web]`, `[database]`, `[blizzard]`, `[ai]`, `[uploads]`, `[feeds]`, `[calendar]`, `[branding]`, `[retention]`, `[event_threads]`, `[voice]`, `[support_admin]`, `[item_links]`, `[[editions]]`, presets, activities) | **Restart**: `sudo systemctl restart questersboard-web questersboard-bot questersboard-worker`. The services log which changed sections still need a restart. |
 
 Each applied change is recorded in `config_changes` (section hashes, not values).
 
@@ -81,6 +81,13 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   `waitlisted`, that is Join, Tentative and the waitlist; also `pending`), `archive_after_hours` (24), `reminders_in_thread` (true), `name_suffix`. The bot needs Create
   Public (or Private) Threads, Send Messages in Threads and Manage Threads in the event channel; run
   `questersboard-admin discord-permissions` to check.
+- **Support Admin** (`[support_admin]`, restart): `enabled` (true), `role_ids` (empty = the `[roles] admin`
+  roles), `announce` (true). People with those roles get **Support Admin** in an event's Organizer reply:
+  it adds them to the event chat (also an invite-only one) and lets them use Join voice, without signing up,
+  a character or a roster spot. The chat shows "<name> joined as Support Admin (not signed up)" (and
+  "left"), the audit log records `event.support_admin_join` / `_leave`, and access ends with the event.
+  Everyone else takes part with Join or Tentative. To stop officers dropping into event voice silently,
+  set `[voice] moderators_can_join = false` and leave `staff_role_ids` empty.
 - **Event voice channels** (`[voice]`, restart): `enabled` (default false), `category_id`, `name_template`
   (`{title}`, `{id}`), `user_limit` (0 = no cap), `empty_teardown_minutes` (5), `member_states`
   (confirmed, tentative), `moderators_can_join` (true), `staff_role_ids` (more server roles, such as admins,

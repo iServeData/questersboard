@@ -146,6 +146,13 @@ invite_dm = "off"                             # off | hosts | everyone: DM guest
 guest_link_template = ""                      # "" = public_base_url + member_path + "/v/{code}";
                                               # a short domain, e.g. "https://short.example.org/v/{code}"
 
+[support_admin]                               # restart. Admins step into an event's chat and voice without
+enabled = true                                # signing up: Organizer > Support Admin. Not a signup (no character
+                                              # or roster spot); the chat shows "<name> joined as Support Admin"
+                                              # and it's in the audit log. Access ends with the event.
+role_ids = []                                 # [] = the [roles] admin roles; or list the roles that get it
+announce = true                               # the note in the event chat (needs [event_threads])
+
 [ai]                                          # restart
 enabled = false                               # explicit opt-in
 provider = "openai_compatible"                # openai_compatible | none

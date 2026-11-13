@@ -91,8 +91,10 @@ def wanted_members(s: Session, cfg: Config, ev: Event) -> set[int]:
 
 
 def can_join(s: Session, cfg: Config, actor: Actor, ev: Event) -> bool:
-    """Signed up (in member_states), a host, or holding a staff role."""
+    """Signed up (in member_states), a host, holding a staff role, or in as Support Admin."""
     if actor.role_ids & cfg.voice_staff_roles():
+        return True
+    if actor.discord_id in support_ids(s, ev):
         return True
     if actor.member_id is None:
         return False
@@ -379,3 +381,62 @@ def due_for_teardown(s: Session, cfg: Config, at: datetime | None = None) -> lis
 def discord_ids(s: Session, member_ids) -> dict[int, str]:
     return dict(s.execute(select(Member.id, Member.discord_id).where(
         Member.id.in_(set(member_ids)), Member.erased_at.is_(None))).all())
+
+
+# --------------------------------------------------------------------------- Support Admin
+
+# Support Admin rows live in event_voice_guests with this code (guest link codes are letters and digits
+# only), so they get the event's voice like a guest and go when the event ends (end_session).
+SUPPORT_CODE = "+support"
+
+
+def is_support_admin(cfg: Config, actor: Actor) -> bool:
+    return bool(actor.role_ids & cfg.support_admin_roles())
+
+
+def support_ids(s: Session, ev: Event) -> set[str]:
+    """Discord ids of the people in this event as Support Admin."""
+    return set(s.scalars(select(EventVoiceGuest.discord_id).where(
+        EventVoiceGuest.event_id == ev.id, EventVoiceGuest.code == SUPPORT_CODE)))
+
+
+def _support_note(s: Session, cfg: Config, ev: Event, text: str) -> None:
+    if cfg["support_admin"]["announce"] and cfg["event_threads"]["enabled"]:
+        outbox.enqueue(s, "discord.thread_message", f"support:{ev.id}:{now().timestamp()}",
+                       {"event_id": ev.id, "content": text})
+
+
+def support_join(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
+    """An admin steps into the event's chat (and voice, while it's open) without signing up. Visible:
+    the chat gets a note, it's in the audit log, and it isn't a signup (no roster spot or character)."""
+    require_member(cfg, actor)
+    if not is_support_admin(cfg, actor):
+        raise PermissionDenied("Support Admin is for server admins. Use Join or Tentative to take part.")
+    ev = s.get(Event, event_id, with_for_update=True)
+    if ev is None or ev.state not in ("scheduled", "in_progress"):
+        raise NotFound("This event isn't open.")
+    if s.get(EventVoiceGuest, (ev.id, actor.discord_id)) is None:
+        s.add(EventVoiceGuest(event_id=ev.id, discord_id=actor.discord_id, code=SUPPORT_CODE))
+        audit.record(s, actor, "event.support_admin_join", "event", ev.id)
+        name = _md_plain(actor.display_name or actor.username or "An admin")
+        _support_note(s, cfg, ev, f"**{name}** joined as Support Admin (not signed up).")
+        outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})   # chat and voice
+    return ev
+
+
+def support_leave(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
+    ev = s.get(Event, event_id, with_for_update=True)
+    if ev is None:
+        raise NotFound("This event isn't open.")
+    row = s.get(EventVoiceGuest, (ev.id, actor.discord_id))
+    if row is not None and row.code == SUPPORT_CODE:
+        s.delete(row)
+        audit.record(s, actor, "event.support_admin_leave", "event", ev.id)
+        name = _md_plain(actor.display_name or actor.username or "An admin")
+        _support_note(s, cfg, ev, f"**{name}** left as Support Admin.")
+        outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})
+    return ev
+
+
+def _md_plain(text: str) -> str:
+    return "".join("\\" + c if c in "*_~`|>\\" else c for c in text)[:64].replace("@", "@\u200b")

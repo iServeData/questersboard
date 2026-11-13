@@ -55,7 +55,9 @@ def require_member(cfg: Config, actor: Actor) -> None:
     if actor.source == "slash":
         allowed = frozenset(cfg["discord"].get("allowed_command_channel_ids", []))
         if allowed and actor.channel_id not in allowed:
-            raise PermissionDenied("QuestersBoard commands are not enabled in this channel.")
+            raise PermissionDenied("QuestersBoard commands work in "
+                                   + ", ".join(f"<#{c}>" for c in cfg["discord"]["allowed_command_channel_ids"])
+                                   + ". Buttons on event posts work everywhere.")
     if actor.source == "dm" and not cfg["discord"].get("dm_enabled", False):
         raise PermissionDenied("QuestersBoard is not available in direct messages.")
 

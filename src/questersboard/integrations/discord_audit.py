@@ -206,13 +206,24 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
             line = f"Server Settings > Integrations > QuestersBoard: {scope} {state} for {where}"
             expected = kind == "channel" and ((tgt == all_ch and not pm.get("permission")) or
                                               (tgt in cmd_chs and pm.get("permission")))
-            (rep.ok if expected else rep.note if pm.get("permission") else rep.fix)(line)
+            if not expected and pm.get("permission") and kind == "channel":
+                rep.lines.append(f"        {line}")            # summed up in one note below
+            else:
+                (rep.ok if expected else rep.note if pm.get("permission") else rep.fix)(line)
     app_level = [pm for e in command_perms or [] if str(e.get("id")) == str(d.get("application_id"))
                  for pm in e.get("permissions", []) if int(pm.get("type", 0)) == 3]
     hidden_elsewhere = any(str(pm.get("id")) == all_ch and not pm.get("permission") for pm in app_level)
     shown_in = {str(pm.get("id")) for pm in app_level if pm.get("permission")}
     if commands and cmd_chs:
-        if hidden_elsewhere and set(cmd_chs) <= shown_in:
+        extra = sorted(shown_in - set(cmd_chs), key=lambda c: chans.get(c, {}).get("name", c))
+        if hidden_elsewhere and set(cmd_chs) <= shown_in and extra:
+            rep.note("Discord also offers QuestersBoard commands in "
+                     + ", ".join("#" + chans.get(c, {}).get("name", c) for c in extra)
+                     + ". They're refused there with a pointer to "
+                     + ", ".join("#" + chans.get(c, {}).get("name", c) for c in cmd_chs)
+                     + ", so nothing runs. To stop Discord suggesting them, someone with Manage Server: Server "
+                       "Settings > Integrations > QuestersBoard > Channels: remove them.")
+        elif hidden_elsewhere and set(cmd_chs) <= shown_in:
             rep.ok("Discord only offers QuestersBoard commands in: "
                    + ", ".join("#" + chans.get(c, {}).get("name", c) for c in cmd_chs)
                    + " (members with Administrator still see them everywhere).")
@@ -245,6 +256,9 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
                        (set(cfg["roles"].get("event_moderator", [])) if vc.get("moderators_can_join", True) else set()))
         rep.ok("Can join every event voice channel without signing up: "
                + (", ".join(rname(r) for r in staff) if staff else "nobody (only people signed up and hosts)"))
+        sup = sorted(cfg.support_admin_roles())
+        rep.ok("Support Admin (Organizer, shown in the event chat): "
+               + (", ".join(rname(r) for r in sup) if sup else "off"))
         if vc.get("guest_invites", True):
             # adding a guest to the server (guilds.join) needs Create Invite at server level
             if _missing(effective(guild_id, roles, None, bot), (CREATE_INVITE,)):
@@ -465,7 +479,8 @@ def _who_else(rep: Report, cfg: Config, guild_id: str, roles: dict, chans: dict,
 
 
 LEGEND = ("Columns: view = View Channel, send = Send Messages, history = Read Message History, "
-          "embed = Embed Links, /cmds = Use Application Commands, thread = Send Messages in Threads, "
+          "embed = Embed Links, /cmds = Use Application Commands (Discord's permission for any app's / commands; "
+          "which QuestersBoard commands Discord suggests is set in Integrations), thread = Send Messages in Threads, "
           "+thread = Create Public Threads, mod-threads = Manage Threads. '-' means not allowed.")
 
 

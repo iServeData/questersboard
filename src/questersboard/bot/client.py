@@ -29,7 +29,7 @@ from ..models import Event, Member, Signup
 from ..secrets import SecretError, get_secret, setup_logging
 
 log = logging.getLogger("questersboard.bot")
-CID = r"wq:ev:(?P<action>join|tentative|leave|manage|start|end|endyes|voice|reopen):(?P<event_id>\d+)"
+CID = r"wq:ev:(?P<action>join|tentative|leave|manage|start|end|endyes|voice|reopen|support|supportleave):(?P<event_id>\d+)"
 
 
 class Ctx:
@@ -167,8 +167,13 @@ def _organizer(s, cfg: Config, actor: Actor, event_id: int):
     """What the Organizer button offers this person: (public_id, manager?, actions)."""
     actor = roster.ensure_member(s, actor)
     ev = events.get(s, event_id)
-    if not voice.is_manager(s, cfg, actor, ev):
-        return str(ev.public_id), False, []
+    manager = voice.is_manager(s, cfg, actor, ev)
+    sup = []
+    if voice.is_support_admin(cfg, actor) and ev.state in ("scheduled", "in_progress") and \
+            actor.member_id not in voice.wanted_members(s, cfg, ev):
+        sup = ["supportleave" if actor.discord_id in voice.support_ids(s, ev) else "support"]
+    if not manager:
+        return str(ev.public_id), bool(sup), sup
     acts = []
     if ev.state == "scheduled":
         acts.append("start")
@@ -176,7 +181,7 @@ def _organizer(s, cfg: Config, actor: Actor, event_id: int):
         acts.append("end")
         if cfg["voice"]["enabled"] and not ev.discord_voice_channel_id and ev.voice_closed_at is not None:
             acts.append("reopen")
-    return str(ev.public_id), True, acts
+    return str(ev.public_id), True, acts + sup
 
 
 def _voice_for(s, cfg: Config, actor: Actor, event_id: int):
@@ -187,7 +192,8 @@ def _voice_for(s, cfg: Config, actor: Actor, event_id: int):
 
 
 ORGANIZER_LABELS = {"start": ("Start event", 3), "end": ("End event", 4), "reopen": ("Reopen voice", 1),
-                    "endyes": ("Yes, end it", 4)}
+                    "endyes": ("Yes, end it", 4), "support": ("Support Admin", 2),
+                    "supportleave": ("Leave Support Admin", 2)}
 
 
 class OrganizerView(discord.ui.View):
@@ -219,8 +225,13 @@ async def organizer(inter: discord.Interaction, event_id: int) -> None:
     if not manager:
         await reply(inter, f"Manage this event on the web: {url}")
         return
-    await reply(inter, "Organizer tools. Start opens the event (and its voice channel, when voice is on); "
-                       "End closes it." if acts else "Organizer tools.", OrganizerView(event_id, acts, url))
+    host = [a for a in acts if a not in ("support", "supportleave")]
+    text = ("Organizer tools. Start opens the event (and its voice channel, when voice is on); End closes it."
+            if host else "Organizer tools.")
+    if "support" in acts:
+        text += ("\n**Support Admin** lets you into this event's chat and voice without signing up. It isn't a "
+                 "signup (no character or roster spot), and the chat shows that you joined.")
+    await reply(inter, text, OrganizerView(event_id, acts, url))
 
 
 async def organizer_action(inter: discord.Interaction, action: str, event_id: int) -> None:
@@ -237,6 +248,13 @@ async def organizer_action(inter: discord.Interaction, action: str, event_id: in
     elif action == "endyes":
         await run_tx(lambda s: events.end(s, cfg, actor, event_id))
         await reply(inter, "Ended. You'll get a DM to record attendance and write the chronicle.")
+    elif action == "support":
+        await run_tx(lambda s: voice.support_join(s, cfg, actor, event_id))
+        await reply(inter, "You're in as Support Admin. The event chat adds you in a moment, and **Join voice** "
+                           "works for you while voice is open. The chat shows that you joined.")
+    elif action == "supportleave":
+        await run_tx(lambda s: voice.support_leave(s, cfg, actor, event_id))
+        await reply(inter, "You've left as Support Admin. The event chat removes you in a moment.")
     elif action == "reopen":
         await run_tx(lambda s: voice.reopen(s, cfg, actor, event_id))
         await reply(inter, "Reopening voice. The Join voice button comes back in a moment.")

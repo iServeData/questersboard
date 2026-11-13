@@ -162,6 +162,13 @@ class Config:
         return frozenset(v["staff_role_ids"]) | (self.role_ids("event_moderator") if v["moderators_can_join"]
                                                  else frozenset())
 
+    def support_admin_roles(self) -> frozenset[str]:
+        """Roles that get the Support Admin button: [support_admin] role_ids, or the [roles] admin roles."""
+        sa = self.raw["support_admin"]
+        if not sa["enabled"]:
+            return frozenset()
+        return frozenset(sa["role_ids"]) or self.role_ids("admin")
+
     @property
     def editions(self) -> dict[str, Edition]:
         return self.raw["_editions"]
@@ -468,6 +475,15 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
                          "guest_link_template"}
     if unknown:
         raise ConfigError(f"[voice] unknown setting {sorted(unknown)[0]!r}")
+
+    sa = r.setdefault("support_admin", {})
+    for k, dflt in (("enabled", True), ("announce", True)):
+        if not isinstance(sa.setdefault(k, dflt), bool):
+            raise ConfigError(f"[support_admin] {k} must be true or false")
+    sa["role_ids"] = _snowflakes(sa.setdefault("role_ids", []), "[support_admin] role_ids")
+    unknown = set(sa) - {"enabled", "announce", "role_ids"}
+    if unknown:
+        raise ConfigError(f"[support_admin] unknown setting {sorted(unknown)[0]!r}")
 
     # Who may publish events. open_to_all: every member may, except during probation (newer to the server
     # than probation_days), when their drafts go to the moderators. The event_creator role always may.

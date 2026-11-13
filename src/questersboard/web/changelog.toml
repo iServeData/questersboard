@@ -9,6 +9,10 @@ date = "2026-11-13"
 title = "Characters stay current from Blizzard on their own"
 [[release.change]]
 area = "Events"
+kind = "improved"
+text = "QuestersBoard commands typed in the wrong channel now tell you which channel to use."
+[[release.change]]
+area = "Events"
 kind = "new"
 text = "Each event page has Add to calendar: download that one event for Apple or Outlook, open it in Google Calendar, or subscribe to all guild events or only yours."
 [[release.change]]

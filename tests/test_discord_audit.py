@@ -173,3 +173,17 @@ def test_who_else_names_manage_threads_roles_and_locked_voice():
     assert "Manage Threads lets @Fixture Mods open every one" in t
     assert "Event voice channels are locked: only the people signed up, the hosts, @Fixture Mods" in t
     assert "and Administrator can join" in t
+
+
+def test_commands_also_allowed_in_other_channels_is_one_note_not_ok():
+    roles, chans, bot = _guild()
+    perms = [{"id": fake_id(2), "permissions": [{"id": str(int(G) - 1), "type": 3, "permission": False},
+                                                {"id": BOTCH, "type": 3, "permission": True},
+                                                {"id": CHAT, "type": 3, "permission": True},
+                                                {"id": EVENTS, "type": 3, "permission": True}]}]
+    rep = da.build(_cfg(), G, roles, chans, bot, [{"id": "1", "name": "quest"}], perms)
+    t = rep.text()
+    assert "Discord only offers" not in t
+    assert "Discord also offers QuestersBoard commands in #event-board, #world_of_warcraft. They're refused " \
+           "there with a pointer to #bot-commands" in t
+    assert rep.notes == 1 and rep.fixes == 0

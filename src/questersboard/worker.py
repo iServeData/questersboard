@@ -222,6 +222,9 @@ class Worker:
         want = set(s.scalars(select(Signup.member_id).where(
             Signup.event_id == ev.id, Signup.state.in_(th["member_states"])))) | \
             self._managers(s, ev)
+        sup = voice.support_ids(s, ev)                  # in as Support Admin (not signed up)
+        if sup:
+            want |= set(s.scalars(select(Member.id).where(Member.discord_id.in_(sup))))
         ids = dict(s.execute(select(Member.id, Member.discord_id).where(
             Member.id.in_(want | set(ev.discord_thread_members or [])), Member.erased_at.is_(None))).all())
         have = set(ev.discord_thread_members or [])
