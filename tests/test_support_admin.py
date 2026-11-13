@@ -92,3 +92,30 @@ def test_switched_off(seeded, worker_db, monkeypatch):
         assert client._organizer(s, cfg, actor(193, "admin"), eid)[1:] == (False, [])
         with pytest.raises(PermissionDenied):
             voice.support_join(s, cfg, actor(193, "admin"), eid)
+
+
+def test_admin_who_hosts_or_is_signed_up_keeps_host_tools_and_signup(seeded, worker_db, monkeypatch):
+    from dataclasses import replace
+    from test_event_voice import ORG
+    from questersboard.domain import signups
+    cfg, fake, w, eid = _setup(seeded, worker_db, monkeypatch)
+    host_admin = replace(ORG, role_ids=ORG.role_ids | {ROLE["admin"]})
+    player_admin = actor(80, "admin")                            # signed up (confirmed) in _run
+    with seeded.tx() as s:
+        pid, shown, acts = client._organizer(s, cfg, host_admin, eid)
+        assert shown and acts == ["end"]                         # host tools, no Support Admin
+        assert client._organizer(s, cfg, player_admin, eid)[2] == []
+        from questersboard.domain import roster
+        for a in (host_admin, player_admin):                     # the Join voice button, as the bot runs it
+            assert voice.can_join(s, cfg, roster.ensure_member(s, a), s.get(voice.Event, eid))
+    _drain(w)
+    th = next(iter(fake.threads.values()))
+    assert {ORG.discord_id, player_admin.discord_id} <= th["members"]
+    assert not [p for p in th["posts"] if "Support Admin" in p]
+    # leaving the signup takes an admin out like anyone else; Support Admin is then offered
+    with seeded.tx() as s:
+        signups.leave(s, cfg, player_admin, eid)
+    _drain(w)
+    assert player_admin.discord_id not in th["members"]
+    with seeded.tx() as s:
+        assert client._organizer(s, cfg, player_admin, eid)[2] == ["support"]
