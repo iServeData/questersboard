@@ -179,3 +179,30 @@ def test_owner_note_says_details_refresh_automatically(seeded, tmp_path, monkeyp
     page = login(a, 164).get(f"/wow/quester/characters/{ch.id}/view").text
     assert "Refreshed automatically every 4 hours" in page and "unless you refresh it" not in page
     assert "Last refreshed from Blizzard just now" in page
+
+
+@needs_db
+def test_refresh_from_blizzard_button_reads_blizzard_again_not_the_cache(seeded, tmp_path, monkeypatch):
+    """A member's Refresh from Blizzard (one, or all) must not reuse the 6-hour profile cache: right after
+    an import or a timed run the page would otherwise say "just now" with the old talents."""
+    GONE.clear()
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, _handler)
+    bz = a.state.web.bz
+    with seeded.tx() as s:
+        ash = char(s, cfg, actor(171), "Fixture Ashtail").id
+        from questersboard.domain.actor import SYSTEM
+        me = SYSTEM.with_member(s.get(profiles.Character, ash).member_id)
+        profiles.import_profile(s, cfg, bz, me, ash, {"portrait", "gear"}, {"portrait": "guild", "gear": "members"})
+    n = lambda: sum(1 for r in calls if r.url.path == _page("Fixture Ashtail"))  # noqa: E731
+    before = n()
+    with seeded.tx() as s:                          # a page view or lookup still uses the cache
+        bz.apply_lookup(s, s.get(profiles.Character, ash))
+        profiles.import_profile(s, cfg, bz, me, ash, {"portrait", "gear"}, {"portrait": "guild", "gear": "members"})
+    assert n() == before
+    with seeded.tx() as s:
+        profiles.refresh_one(s, cfg, bz, me, ash)
+    assert n() == before + 1
+    with seeded.tx() as s:
+        done, failed = profiles.refresh_all(s, cfg, bz, me)
+    assert done == ["Fixture Ashtail"] and not failed and n() == before + 2
+    assert bz.fresh_profiles_after is None          # nothing left switched on for other visitors

@@ -882,6 +882,13 @@ def remove_profile(s: Session, cfg: Config, actor: Actor, character_id: int) -> 
     return bool(n)
 
 
+def _fresh(bz):
+    """bz.reading_fresh() when the adapter has it (test doubles may not): skip cached character pages."""
+    from contextlib import nullcontext
+    f = getattr(bz, "reading_fresh", None)
+    return f() if callable(f) else nullcontext()
+
+
 def _bulk_groups(prof: CharacterProfile) -> set[str]:
     """The groups a refresh keeps: what was imported, plus groups since split out of those."""
     got = set(prof.groups or {})
@@ -911,7 +918,7 @@ def refresh_all(s: Session, cfg: Config, bz, actor: Actor, level: str = "") -> t
         groups = _bulk_groups(prof)
         shares = {g: (level or share_choice(prof, g)) for g in GROUP_KEYS}
         try:
-            with s.begin_nested():
+            with s.begin_nested(), _fresh(bz):
                 import_profile(s, cfg, bz, actor, ch.id, groups, shares)
             done.append(ch.name)
         except (Invalid, NotFound, ApiError, Unsupported):
@@ -926,8 +933,9 @@ def refresh_one(s: Session, cfg: Config, bz, actor: Actor, character_id: int) ->
     prof = s.get(CharacterProfile, character_id)
     if prof is None or prof.member_id != actor.member_id:
         raise NotFound("Nothing imported for this character yet.")
-    return import_profile(s, cfg, bz, actor, character_id, _bulk_groups(prof),
-                          {g: share_choice(prof, g) for g in GROUP_KEYS})
+    with _fresh(bz):                    # a member's refresh reads Blizzard again, never the cache
+        return import_profile(s, cfg, bz, actor, character_id, _bulk_groups(prof),
+                              {g: share_choice(prof, g) for g in GROUP_KEYS})
 
 
 def operator_refresh_list(s: Session, cfg: Config) -> list[tuple[int, str, int]]:

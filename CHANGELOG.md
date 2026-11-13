@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Fix: Refresh from Blizzard reused the profile cache.** The character page's Refresh from Blizzard
+  and Refresh all from Blizzard returned cached character pages (up to `cache_hours_profile`, 6 hours)
+  while saying "just now". They now read character pages afresh for that request only; page views and
+  lookups still use the cache. No config or database change.
 - **Timed refresh from Blizzard.** `[blizzard] auto_refresh_hours` (default 4; 0 = off; 1, 2, 3, 4, 6,
   8, 12 or 24) refreshes everyone's Blizzard data on their behalf every that many hours from midnight
   server time: imported details with each owner's groups and sharing, and Blizzard checks (with the

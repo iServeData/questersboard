@@ -16,12 +16,14 @@ Ground rules:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import secrets as pysecrets
 import threading
 import time
 from collections import OrderedDict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit
@@ -36,6 +38,9 @@ from ..config import Config, Edition
 from ..models import ApiCache, ApiProbe, BattlenetLink, Character, ReferenceOption
 from ..secrets import get_secret
 from ..domain.timeutil import now
+
+# Set while a member's Refresh from Blizzard runs (per request, so other visitors keep using the cache).
+_FRESH_AFTER: contextvars.ContextVar[datetime | None] = contextvars.ContextVar("bz_fresh_after", default=None)
 
 log = logging.getLogger("questersboard.blizzard")
 
@@ -215,6 +220,16 @@ class Blizzard:
         # time are ignored, so each run reads Blizzard afresh. Static data stays cached as usual.
         self.fresh_profiles_after: datetime | None = None
 
+    @contextmanager
+    def reading_fresh(self):
+        """Within this block, cached character pages (profile namespaces) fetched before now are ignored,
+        so Refresh from Blizzard really asks Blizzard again. Static data stays cached."""
+        tok = _FRESH_AFTER.set(now())
+        try:
+            yield
+        finally:
+            _FRESH_AFTER.reset(tok)
+
     # ------------------------------------------------------------------ plumbing
     def require(self, ed: Edition, cap: str, ns_kind: str, region: str) -> str:
         if not self.bz.get("enabled"):
@@ -268,9 +283,9 @@ class Blizzard:
         key = key[:300]
         if s is not None:
             hit = s.get(ApiCache, key)
+            after = _FRESH_AFTER.get() or self.fresh_profiles_after
             if hit and hit.expires_at > now() and not (
-                    self.fresh_profiles_after and namespace.startswith("profile-")
-                    and hit.fetched_at < self.fresh_profiles_after):
+                    after and namespace.startswith("profile-") and hit.fetched_at < after):
                 return hit.status, hit.body
         url = self.cfg["blizzard"]["api_host_template"].replace("{region}", region) + path
         r = self._send("GET", url, params={**(params or {}), "namespace": namespace, "locale": locale},

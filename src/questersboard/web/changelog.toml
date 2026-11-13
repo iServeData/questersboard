@@ -15,6 +15,10 @@ text = "Your characters are refreshed from Blizzard every few hours with the sam
 area = "Characters"
 kind = "improved"
 text = "A character Blizzard no longer has (renamed, moved or deleted) is shown as you entered it until you sync with Battle.net again."
+[[release.change]]
+area = "Characters"
+kind = "fixed"
+text = "Refresh from Blizzard and Refresh all from Blizzard now always ask Blizzard again, instead of showing what was read in the last few hours."
 
 [[release]]
 date = "2026-11-11"
