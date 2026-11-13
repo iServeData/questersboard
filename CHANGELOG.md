@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Privacy page, easier to scan.** In Who else is involved, the Blizzard entry now breaks out Forget my
+  Battle.net link, Refresh from Blizzard and Remove imported details into their own indented blocks.
 - **24-hour times everywhere.** Times converted to the viewer's own zone in the browser (event lists, My
   signups, the site widget) now use the 24-hour clock like the server-rendered times, instead of the
   browser's AM/PM default.
