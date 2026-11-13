@@ -168,6 +168,10 @@ def erase(s: Session, cfg: Config, member_id: int, source: str = "web") -> dict:
             outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})   # card drops the name
     s.execute(delete(ChronicleCoauthor).where(ChronicleCoauthor.member_id == member_id))
 
+    # "Join me next time" on other people's solo stories
+    from ..models import ChronicleInterest
+    s.execute(delete(ChronicleInterest).where(ChronicleInterest.member_id == member_id))
+
     # 4. characters (imported Blizzard details go first, whatever happens to the character)
     receipt["character_details"] = s.execute(delete(CharacterProfile)
                                              .where(CharacterProfile.member_id == member_id)).rowcount

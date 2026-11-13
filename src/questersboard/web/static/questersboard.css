@@ -612,3 +612,7 @@ body:has(.wq-more[open]) .wq-fab,body:has(.wq-acct[open]) .wq-fab{display:none}
 .wq-cal-menu a{padding:10px 14px;font:500 .76rem/1.3 var(--font-mono,monospace);letter-spacing:.06em;color:var(--text,#e1e4e8);text-decoration:none}
 .wq-cal-menu a:hover,.wq-cal-menu a:focus-visible{background:rgba(225,228,232,.08)}
 @media (max-width:760px){.wq-cal{display:block}.wq-cal>summary{display:flex;justify-content:center}.wq-cal-menu{position:static;margin-top:6px;min-width:0;box-shadow:none}}
+
+/* Solo adventures: their own shelf below group stories, and the Join me next time box */
+.wq-solo-head { margin-top: 2rem; }
+.wq-join-me { margin: 1.5rem 0; }

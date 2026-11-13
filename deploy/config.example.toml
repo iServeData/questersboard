@@ -93,6 +93,17 @@ social_image_width = 0                         # pixels; 0 = not stated
 social_image_height = 0
 sitemap = true                                 # serves PUBLIC_PATH/sitemap.xml (archive + published stories)
 
+[solo_stories]                                # [live] Solo adventure stories: a member writes up something
+enabled = true                                # they did on their own, about one of their characters. Same
+                                              # review and privacy rules as event stories. Shown in their own
+                                              # section of the Chronicle, below the event stories.
+role_ids = []                                 # [] = every member; or list the roles that may write them
+per_week = 3                                  # solo stories each member can start in 7 days (0 = no limit)
+join_me = true                                # "Join me next time" on each solo story: readers can say they'd
+                                              # like to come along, and are told when the author plans an event
+in_feeds = false                              # also list solo stories in the feeds and the site's latest-stories
+                                              # widget (false = event stories only there)
+
 [uploads]                                     # restart
 storage_dir = "/var/lib/questersboard/uploads"
 max_bytes = 5_000_000

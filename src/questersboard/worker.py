@@ -596,6 +596,33 @@ class Worker:
                  f"You were added as a co-author of a **{ev.title}** story. You can edit it here: "
                  f"{self._url('chronicle', str(e.id))}")
 
+    def job_notify_join_me(self, s: Session, p: dict) -> None:
+        """Someone pressed Join me next time on a solo story: tell the author who."""
+        from .models import ChronicleInterest
+        e = s.get(ChronicleEntry, p["entry_id"])
+        who = s.get(Member, p.get("member_id")) if p.get("member_id") else None
+        if e is None or who is None or who.erased_at or s.get(ChronicleInterest, (e.id, who.id)) is None:
+            return
+        ev = s.get(Event, e.event_id)
+        self._dm(s, [e.author_id], f"joinme:{e.id}", who.id,
+                 f"<@{who.discord_id}> would like to join you next time, after reading your solo story "
+                 f"**{ev.title}**. See everyone who asked, and plan a group event from it: "
+                 f"{self._url('chronicle', str(e.id))}")
+
+    def job_notify_join_me_event(self, s: Session, p: dict) -> None:
+        """The author planned a group event from their solo story: tell everyone who asked to come along."""
+        from .models import ChronicleInterest
+        ev = s.get(Event, p["event_id"])
+        e = s.get(ChronicleEntry, p["entry_id"])
+        if ev is None or e is None or ev.state not in ("scheduled", "in_progress"):
+            return
+        people = set(s.scalars(select(ChronicleInterest.member_id).join(Member, Member.id == ChronicleInterest.member_id)
+                               .where(ChronicleInterest.entry_id == e.id, Member.erased_at.is_(None))))
+        people -= {ev.creator_id}
+        self._dm(s, people, f"joinme-event:{ev.id}", 1,
+                 f"You asked to join next time, and it's happening: **{ev.title}**, {discord_ts(ev.start_at, 'F')}. "
+                 f"Sign up here: {self._url('events', str(ev.public_id))}")
+
     def job_notify_chronicle_review(self, s: Session, p: dict) -> None:
         ch = self.cfg["discord"].get("review_channel_id")
         if not ch:

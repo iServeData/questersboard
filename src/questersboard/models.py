@@ -216,6 +216,9 @@ class Event(Base):
     series_index: Mapped[int | None] = mapped_column(Integer)
     series_detached: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     copied_from_id: Mapped[int | None] = mapped_column(ForeignKey("events.id"))
+    # "event" = a group event; "solo" = the private record behind a Solo adventure story (never listed,
+    # posted to Discord or put in calendars; it exists so the story gets the same review and privacy rules).
+    kind: Mapped[str] = mapped_column(String(8), nullable=False, default="event", server_default="event")
     discord_channel_id: Mapped[str | None] = mapped_column(String(22))
     discord_message_id: Mapped[str | None] = mapped_column(String(22))
     cancelled_reason: Mapped[str] = mapped_column(String(500), nullable=False, default="")
@@ -227,6 +230,7 @@ class Event(Base):
     __table_args__ = (
         CheckConstraint("end_at > start_at", name="ck_event_interval"),
         CheckConstraint("state in ('draft','scheduled','in_progress','completed','cancelled')", name="ck_event_state"),
+        CheckConstraint("kind in ('event','solo')", name="ck_event_kind"),
         CheckConstraint("signup_policy in ('open','approval')", name="ck_event_policy"),
         CheckConstraint("participant_limit is null or participant_limit > 0", name="ck_event_limit"),
         CheckConstraint("level_min is null or level_max is null or level_min <= level_max", name="ck_event_levels"),
@@ -405,6 +409,15 @@ class ChronicleUpload(Base):
     created_at: Mapped[datetime] = _now()
 
 
+class ChronicleInterest(Base):
+    """"Join me next time" on a Solo adventure: this member would like to come along. Private to the author."""
+    __tablename__ = "chronicle_interest"
+    entry_id: Mapped[int] = mapped_column(ForeignKey("chronicle_entries.id", ondelete="CASCADE"), primary_key=True)
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), primary_key=True,
+                                           index=True)
+    created_at: Mapped[datetime] = _now()
+
+
 class RecognitionRemoval(Base):
     __tablename__ = "recognition_removals"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -433,6 +446,7 @@ class PublicChronicle(Base):
     banner: Mapped[dict | None] = mapped_column(JSONB)
     details: Mapped[str] = mapped_column(String(120), nullable=False, default="")
     ai_assisted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    kind: Mapped[str] = mapped_column(String(8), nullable=False, default="event", server_default="event")
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

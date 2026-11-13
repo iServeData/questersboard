@@ -159,6 +159,24 @@ Co-hosts can run the event but aren't chronicle co-authors unless the author add
 - Published stories appear at `/wow/chronicle/`, in the WoW page's chronicle widget, and in the RSS, Atom
   and JSON feeds. No site update or deployment is involved.
 
+### Solo adventures
+
+- **Chronicle → Write a solo adventure** (or the button on the Quests page) is for something you did on
+  your own: pick one of your characters, a title, the day it happened (today or earlier, up to about a
+  year back) and what kind of adventure it was, and say whether to name your character. Then write it like
+  any other story: the same questions, screenshots, review and privacy check.
+- Each member can start up to `[solo_stories] per_week` (default 3) in 7 days. A solo story that was
+  never published can be deleted from its page.
+- Solo stories are labelled **Solo** and kept apart: the Chronicle shows group stories first, with the
+  latest solo adventures below and all of them at `/wow/chronicle/solo/`. They aren't in the feeds or the
+  WoW page widget unless `[solo_stories] in_feeds` is on.
+- Behind each one is a private record that is never listed, posted to Discord, put in calendars or
+  offered for signups. Co-authors and other people's stories don't apply.
+- **Join me next time**: readers press it on a published solo story. The author gets a DM naming them
+  and sees the list on the story's page, with **Plan a group event from this story**: it opens a draft
+  event (same game version, realm, faction, activity and character) to edit and publish. When it's
+  published, everyone who asked gets a DM with the link. Readers can take themselves off the list.
+
 ## For admins
 
 - All settings live in `/etc/questersboard/config.toml` (see `configuration.md`). Discord role IDs per

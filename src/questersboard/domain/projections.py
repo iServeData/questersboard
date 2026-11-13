@@ -74,7 +74,8 @@ def refresh_chronicle(s: Session, cfg: Config, entry: ChronicleEntry) -> None:
     parts = []
     for e, rev in revs:
         html_, _ = render.story_html(cfg, rev, everyone, with_outcome=rev.outcome != outcome)
-        tag = "host" if e.author_id == ev.creator_id else ("co-host" if e.author_id in cohosts else "")
+        tag = "" if ev.kind == "solo" else ("host" if e.author_id == ev.creator_id
+                                            else ("co-host" if e.author_id in cohosts else ""))
         who, named = _author_label(cfg, e.author_id, people, everyone, tag)
         parts.append(f'<section class="wq-tale"><h2 class="wq-story-by">{escape(who)}'
                      + (f' <span class="note">· {tag}</span>' if tag and named else "")
@@ -105,7 +106,7 @@ def refresh_chronicle(s: Session, cfg: Config, entry: ChronicleEntry) -> None:
                 edition_name=cfg.edition(ev.edition).name, event_date=ev.actual_start or ev.start_at,
                 outcome=outcome, participants=plist, images=imgs, banner=banner,
                 details=difficulty_line(ev)[:120],
-                ai_assisted=any(r.ai_assisted for _, r in revs),
+                ai_assisted=any(r.ai_assisted for _, r in revs), kind=ev.kind,
                 published_at=min((e.first_published_at or now()) for e in live), updated_at=now())
     s.execute(insert(PublicChronicle).values(**vals).on_conflict_do_update(
         index_elements=[PublicChronicle.public_id], set_={k: v for k, v in vals.items() if k != "public_id"}))

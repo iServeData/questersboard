@@ -81,6 +81,8 @@ def story_eligible(s: Session, cfg: Config, actor: Actor, ev: Event) -> bool:
     """Hosts, co-hosts and anyone who took part (confirmed/tentative and not marked absent)."""
     if actor is None or actor.member_id is None or not ev.chronicle_enabled or ev.state != "completed":
         return False
+    if ev.kind == "solo":                              # a solo story has exactly one author
+        return actor.member_id == ev.creator_id
     from . import scheduling
     from .permissions import is_event_manager
     if is_event_manager(cfg, actor, ev.creator_id, scheduling.cohost_ids(s, ev.id)):
@@ -206,6 +208,8 @@ def coauthor_choices(s: Session, cfg: Config, e: ChronicleEntry) -> list[tuple[i
     """People who can be added: anyone connected to the event except the author. (member_id, character name)"""
     out: dict[int, str] = {}
     ev = s.get(Event, e.event_id)
+    if ev.kind == "solo":
+        return []
     for p in _people(s, cfg, e):
         if p.member_id != e.author_id and p.member_id not in out:
             out[p.member_id] = p.discord_name or p.character_name
@@ -251,7 +255,7 @@ def check(s: Session, cfg: Config, e: ChronicleEntry, rev: ChronicleRevision | N
     ev = s.get(Event, e.event_id)
     if e.author_id == ev.creator_id:
         if not rev.attempted.strip():
-            probs.append("Say what the group set out to do.")
+            probs.append("Say what you set out to do." if ev.kind == "solo" else "Say what the group set out to do.")
         if not rev.happened.strip():
             probs.append("Say what happened.")
         if rev.outcome == "unknown":

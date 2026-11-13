@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
-<div class="section-head"><span class="label">Chronicle · {{ "Host's story" if host_story else names.get(e.author_id, "") ~ "'s story" }} · {{ e.state.replace('_', ' ') }}</span><h1>{{ ev.title }}</h1></div>
-<p class="note">Each person who took part can tell their own story. They all appear on one chronicle page for this event, host first, then co-hosts, then everyone else. Every story is reviewed before it's public.</p>
+<div class="section-head"><span class="label">Chronicle · {% if solo %}Solo adventure{% else %}{{ "Host's story" if host_story else names.get(e.author_id, "") ~ "'s story" }}{% endif %} · {{ e.state.replace('_', ' ') }}</span><h1>{{ ev.title }}</h1></div>
+{% if solo %}<p class="note">A solo adventure: {{ solo_char }}{% if solo_kind %} · {{ solo_kind }}{% endif %} · {{ fmt_local(ev.start_at, ev.timezone).split(" · ")[0] }}. It's reviewed like any other story, listed as Solo, and group stories stay at the top of the Chronicle. Readers can ask to join you next time.</p>
+{% else %}<p class="note">Each person who took part can tell their own story. They all appear on one chronicle page for this event, host first, then co-hosts, then everyone else. Every story is reviewed before it's public.</p>{% endif %}
 {% if e.published_revision_id and e.working_revision_id != e.published_revision_id %}<p class="caveat">The published version stays public until this edit is approved.</p>{% endif %}
 {% if problems %}<div class="caveat"><strong>Before submitting:</strong><ul class="plain-list">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
 <div class="wq-grid">
 <form method="post" class="wq-form panel" action="{{ mp }}/chronicle/{{ e.id }}/save">{{ csrf_field() }}
   <label>Title <input name="title" value="{{ rev.title }}" maxlength="140" required></label>
   <p class="note">The answers below become the sections of your story, in this order: The plan, What happened, Best moments, then The story (if you write one).</p>
-  <label>The plan <span class="note">(what the group set out to do{% if not host_story %}; optional{% endif %})</span> <textarea name="attempted" rows="3">{{ rev.attempted }}</textarea></label>
+  <label>The plan <span class="note">({% if solo %}what you set out to do{% else %}what the group set out to do{% if not host_story %}; optional{% endif %}{% endif %})</span> <textarea name="attempted" rows="3">{{ rev.attempted }}</textarea></label>
   <label>What happened <span class="note">(the short version; this is also the summary on the chronicle card)</span> <textarea name="happened" rows="5">{{ rev.happened }}</textarea></label>
   <label>Outcome <span class="note">(you choose; QuestersBoard never guesses{% if not host_story %}. Optional: the host's outcome is shown on the card{% endif %})</span>
     <select name="outcome">{% for o in outcomes %}<option value="{{ o }}"{% if rev.outcome == o %} selected{% endif %}>{{ {"completed":"Completed","partial":"Partly completed","not_completed":"Not completed","social":"Social / no goal","unknown":"Not chosen yet"}[o] }}</option>{% endfor %}</select></label>
@@ -37,6 +38,39 @@
       <button class="btn ghost" type="submit">Upload</button>
       <p class="note">Images are re-encoded and location/camera data is removed. Check name plates, chat and overlays before clearing.</p></form>
   </div>
+  {% if solo %}
+  <div class="panel">
+    <h2 class="sub">Your character</h2>
+    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/named">{{ csrf_field() }}
+      <label><input type="checkbox" name="named" value="1"{% if solo_named %} checked{% endif %}> Name {{ solo_char or "my character" }} in this story</label>
+      <button class="btn ghost" type="submit">Save</button></form>
+    <p class="note">Unticked, the story says "an adventurer" instead of your character's name.</p>
+  </div>
+  {% if join_me_on and e.author_id == actor.member_id %}
+  <div class="panel">
+    <h2 class="sub">Join me next time</h2>
+    {% if interested %}<p>{{ interested|length }} {{ "person would" if interested|length == 1 else "people would" }} like to come along next time:</p>
+    <ul class="plain-list">{% for mid, n in interested %}<li>{{ n }}</li>{% endfor %}</ul>
+    {% elif e.published_revision_id %}<p class="note">Nobody has asked yet. Readers see a Join me next time button on your story.</p>
+    {% else %}<p class="note">Once your story is published, readers see a Join me next time button on it.</p>{% endif %}
+    <h3 class="sub">Plan a group event from this story</h3>
+    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/plan">{{ csrf_field() }}
+      <label>Date <input type="date" name="date" value="{{ plan_date }}" required></label>
+      <label>Start time <input type="time" name="start_time" value="19:00" required></label>
+      <label>Length <select name="minutes">{% for m, l in [(60, "1 hour"), (90, "1½ hours"), (120, "2 hours"), (180, "3 hours"), (240, "4 hours")] %}<option value="{{ m }}"{% if m == 120 %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+      <input type="hidden" name="timezone" value="{{ plan_tz }}">
+      <button class="btn" type="submit">Plan a group event</button></form>
+    <p class="note">Opens a draft event you can edit before publishing. Times are in {{ plan_tz }}. When you publish it, everyone who asked gets a DM with the link.</p>
+  </div>
+  {% endif %}
+  {% if not e.published_revision_id and e.author_id == actor.member_id %}
+  <div class="panel">
+    <h2 class="sub">Delete</h2>
+    <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/discard">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Delete this solo story and its screenshots? This can't be undone.">Delete this solo story</button></form>
+    <p class="note">Only stories that were never published can be deleted. A published story can be taken down by a reviewer.</p>
+  </div>
+  {% endif %}
+  {% else %}
   <div class="panel">
     <h2 class="sub">Co-authors</h2>
     {% if choices %}
@@ -49,6 +83,7 @@
     {% else %}<p class="note">Nobody else from this event to add yet.</p>{% endif %}
     <p class="note">Co-authors can edit this story with you. They aren't event co-hosts, and anyone who took part can also write their own story.</p>
   </div>
+  {% endif %}
   {% if can('chronicle_reviewer') %}
   <div class="panel">
     <h2 class="sub">Review</h2>
@@ -62,11 +97,13 @@
     {% endif %}
   </div>
   {% endif %}
+  {% if not solo %}
   <div class="panel">
     <h2 class="sub">Remove me</h2>
     <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/remove_me">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Stop naming you in this story? Screenshots will need re-clearing.">Stop naming me in this story</button></form>
   </div>
-  {% if others %}<div class="panel"><h2 class="sub">Other stories from this event</h2><ul class="plain-list">{% for x, n in others %}<li>{% if can('chronicle_reviewer') or can('chronicle_editor') %}<a href="{{ mp }}/chronicle/{{ x.id }}">{{ n }}</a>{% else %}{{ n }}{% endif %} · {{ x.state.replace('_', ' ') }}</li>{% endfor %}</ul></div>{% endif %}
+  {% endif %}
+  {% if others and not solo %}<div class="panel"><h2 class="sub">Other stories from this event</h2><ul class="plain-list">{% for x, n in others %}<li>{% if can('chronicle_reviewer') or can('chronicle_editor') %}<a href="{{ mp }}/chronicle/{{ x.id }}">{{ n }}</a>{% else %}{{ n }}{% endif %} · {{ x.state.replace('_', ' ') }}</li>{% endfor %}</ul></div>{% endif %}
   <details class="panel" open><summary>History ({{ hist|length }} version{{ "" if hist|length == 1 else "s" }})</summary><ul class="plain-list">{% for h in hist|reverse %}<li>v{{ h.number }} · {{ h.decision.replace('_', ' ') if h.decision else ("submitted" if h.submitted_at else "draft") }} · <time datetime="{{ h.updated_at.isoformat() }}" data-local>{{ h.updated_at.strftime("%Y-%m-%d %H:%M") }} UTC</time> · {{ names.get(h.created_by, "") }}{% if h.id == e.published_revision_id %} · <strong>public</strong>{% endif %}{% if h.ai_assisted %} · AI-assisted{% endif %}{% if h.decision_note %} · “{{ h.decision_note }}”{% endif %}</li>{% endfor %}</ul><p class="note">Every save that changes something is a new version.</p></details>
 </aside>
 </div>

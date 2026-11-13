@@ -4,11 +4,13 @@
 <article class="wq-story">
   {% if pc.banner %}<div class="wq-banner"><img src="{{ pc.banner.url }}" alt=""{% if pc.banner.width %} width="{{ pc.banner.width }}" height="{{ pc.banner.height }}"{% endif %}></div>{% endif %}
   <div class="section-head"><span class="label"><span class="num">{{ pc.activity_type|upper }}</span> // {{ pc.edition_name }} · {{ pc.event_date.strftime("%b %-d, %Y") }}</span><h1>{{ pc.title }}</h1></div>
-  <p><span class="status-chip">{{ outcome.get(pc.outcome) }}</span>{% if pc.details %} <strong class="wq-difficulty">{{ pc.details }}</strong>{% endif %}{% if pc.ai_assisted %} <span class="note">Wording assisted by AI, reviewed by people.</span>{% endif %}</p>
+  <p>{% if is_solo %}<span class="status-chip">Solo adventure</span> {% endif %}<span class="status-chip">{{ outcome.get(pc.outcome) }}</span>{% if pc.details %} <strong class="wq-difficulty">{{ pc.details }}</strong>{% endif %}{% if pc.ai_assisted %} <span class="note">Wording assisted by AI, reviewed by people.</span>{% endif %}</p>
   <div class="wq-body">{{ pc.body_html|safe }}</div>
   {% for im in pc.images if not pc.banner or im.url != pc.banner.url %}<figure class="shot banner-frame"><img src="{{ im.url }}" alt="{{ im.caption }}" width="{{ im.width }}" height="{{ im.height }}" loading="lazy">{% if im.caption %}<figcaption class="note">{{ im.caption }}</figcaption>{% endif %}</figure>{% endfor %}
-  {% if pc.participants %}<h2 class="sub">Who was there</h2>
+  {% if pc.participants %}<h2 class="sub">{{ "Adventurer" if is_solo else "Who was there" }}</h2>
   <ul class="chips">{% for p in pc.participants %}<li>{{ p.label }}</li>{% endfor %}</ul>{% endif %}
+  {% if join_me %}<div class="panel wq-join-me"><p>Sounds like fun? Let the author know you'd like to come along next time. If they plan a group event from this story, you'll get a DM with the link.</p>
+    <p class="btns"><a class="btn" href="{{ mp }}/stories/{{ pc.public_id }}/join">Join me next time</a></p></div>{% endif %}
   <p class="note wq-meta">Published {{ pc.published_at.strftime("%b %-d, %Y") }}{% if pc.updated_at.date() != pc.published_at.date() %} · updated {{ pc.updated_at.strftime("%b %-d, %Y") }}{% endif %}</p>
 </article>
 {% endblock %}

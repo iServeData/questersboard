@@ -7,20 +7,21 @@ import logging
 import re
 import secrets as pysecrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 
 from ..config import Config
-from ..domain import (calendar, catalog, chronicle, covers, eventtext, erasure, events, people, permissions, recommendations, recurrence, roster,
+from ..domain import (calendar, catalog, chronicle, covers, eventtext, erasure, events, people, permissions, recommendations, recurrence, roster, solo,
                       scheduling, signups)
 from ..domain.errors import EditionLocked, Invalid, NeedsLeave, NotFound, PermissionDenied
 from ..domain.events import ACTIVITY_TYPES
 from ..domain.timeutil import as_local, now, resolve_local
 from ..domain import audit, voice
-from ..models import (Attendance, Character, ChronicleEntry, ChronicleUpload, Event, EventCohost, Member, Signup)
+from ..models import (Attendance, Character, ChronicleEntry, ChronicleRevision, ChronicleUpload, Event, EventCohost, Member,
+                      PublicChronicle, Signup)
 from . import seo
 
 log = logging.getLogger("questersboard.web")
@@ -39,6 +40,7 @@ def render(request: Request, name: str, ctx: dict, status: int = 200, public: bo
     base = dict(request=request, cfg=cfg, b=cfg["branding"], mp=cfg["web"]["member_path"].rstrip("/"),
                 cp=cfg["chronicle"]["public_path"].rstrip("/"), actor=a, csrf=sess.csrf if sess else "",
                 can=(lambda cap: a is not None and permissions.has(cfg, a, cap)), public=public,
+                solo_on=a is not None and cfg.solo_allowed(a.role_ids),
                 probation=(permissions.probation_message(cfg) if a is not None and cfg["publishing"]["open_to_all"]
                            and permissions.on_probation(cfg, a) else ""))
     if a is not None and a.member_id and ("acct" not in ctx or "guild_links" not in ctx):
@@ -219,7 +221,7 @@ def router(cfg: Config) -> APIRouter:
         except ValueError:
             raise NotFound("Event not found.") from None
         ev = s.scalar(select(Event).where(Event.public_id == pid))
-        if ev is None:
+        if ev is None or ev.kind == "solo":            # a solo story's private record has no event page
             raise NotFound("Event not found.")
         return ev
 
@@ -1237,6 +1239,62 @@ def router(cfg: Config) -> APIRouter:
         resp.headers["cache-control"] = "no-store"
         return resp
 
+    # ------------------------------------------------------------- solo adventures
+    def _solo_ctx(s, w, a, form=None):
+        chars = [c for c in roster.list_characters(s, a.member_id) if c.archived_at is None]
+        m = s.get(Member, a.member_id)
+        tz = (m.timezone if m and m.timezone else None) or w.cfg["community"]["default_timezone"]
+        return {"title": "Solo adventure", "chars": chars, "kinds": solo.ACTIVITY_LABELS,
+                "allowed": solo.allowed(w.cfg, a), "enabled": w.cfg["solo_stories"]["enabled"],
+                "left": solo.left_this_week(s, w.cfg, a.member_id), "per_week": w.cfg["solo_stories"]["per_week"],
+                "today": as_local(now(), tz).date().isoformat(), "named_default": bool(m and m.recognition_default),
+                "mine": solo.mine(s, a.member_id), "form": form or {}}
+
+    @r.get(mp + "/chronicle/solo")
+    def solo_new(request: Request):
+        sess, a = session_or_login(request)
+        w = W(request)
+        with w.db.tx() as s:
+            a = roster.ensure_member(s, a)
+            return render(request, "solo.html", _solo_ctx(s, w, a))
+
+    @r.post(mp + "/chronicle/solo")
+    async def solo_create(request: Request):
+        form, a = await post_guard(request)
+        w = W(request)
+        try:
+            day = date.fromisoformat(str(form.get("day") or ""))
+        except ValueError:
+            raise Invalid("Pick the day it happened.") from None
+        with w.db.tx() as s:
+            e = solo.start(s, w.cfg, a, int(form.get("character_id") or 0), form.get("title", ""), day,
+                           form.get("activity_type") or "quest", named=_bool(form, "named"))
+            eid = e.id
+        return _redirect(f"{mp}/chronicle/{eid}")
+
+    @r.get(mp + "/stories/{public_id}/join")
+    def join_me_page(request: Request, public_id: str):
+        sess, a = session_or_login(request)
+        w = W(request)
+        with w.db.tx() as s:
+            a = roster.ensure_member(s, a)
+            e, ev = solo.published_solo(s, public_id)
+            rev = s.get(ChronicleRevision, e.published_revision_id)
+            pc = s.get(PublicChronicle, e.public_id)
+            return render(request, "join_me.html", {
+                "title": "Join me next time", "e": e, "story_title": rev.title if rev else ev.title,
+                "story_url": f"{w.cfg['chronicle']['public_path'].rstrip('/')}/{pc.slug}/" if pc else "",
+                "own": e.author_id == a.member_id, "on": solo.is_interested(s, e.id, a.member_id),
+                "enabled": w.cfg["solo_stories"]["join_me"]})
+
+    @r.post(mp + "/stories/{public_id}/join")
+    async def join_me_post(request: Request, public_id: str):
+        form, a = await post_guard(request)
+        w = W(request)
+        with w.db.tx() as s:
+            solo.join_me(s, w.cfg, a, public_id, want=form.get("want", "1") != "0")
+        return _redirect(f"{mp}/stories/{public_id}/join")
+
     # ------------------------------------------------------------- chronicle (authoring)
     @r.get(mp + "/chronicle/{entry_id}")
     def chronicle_edit(request: Request, entry_id: int):
@@ -1265,7 +1323,21 @@ def router(cfg: Config) -> APIRouter:
                 extra = {m.id: m.display_name or m.username or "a member" for m in s.scalars(
                     select(Member).where(Member.id.in_([x.author_id for x, _ in others])))}
                 others = [(x, extra.get(x.author_id, "a member")) for x, _ in others]
-            return render(request, "chronicle_edit.html", {"title": "Chronicle", "e": e, "ev": ev, "rev": rev,
+            solo_ctx = {}
+            if solo.is_solo(ev):
+                su = s.scalar(select(Signup).where(Signup.event_id == ev.id, Signup.member_id == e.author_id)
+                              .order_by(Signup.id.desc()).limit(1))
+                hc = s.get(Character, ev.host_character_id) if ev.host_character_id else None
+                pc = s.get(PublicChronicle, e.public_id)
+                me_m = s.get(Member, a.member_id) if a.member_id else None
+                tz = (me_m.timezone if me_m and me_m.timezone else None) or w.cfg["community"]["default_timezone"]
+                solo_ctx = {"solo": True, "solo_named": bool(su and su.recognition),
+                            "solo_char": hc.name if hc else "", "solo_kind": solo.ACTIVITY_LABELS.get(ev.activity_type, ""),
+                            "interested": solo.interested(s, e.id) if e.author_id == a.member_id else [],
+                            "story_url": f"{w.cfg['chronicle']['public_path'].rstrip('/')}/{pc.slug}/" if pc else "",
+                            "plan_date": (as_local(now(), tz).date() + timedelta(days=7)).isoformat(),
+                            "plan_tz": tz, "join_me_on": w.cfg["solo_stories"]["join_me"]}
+            return render(request, "chronicle_edit.html", {"title": "Chronicle", "e": e, "ev": ev, "rev": rev, **solo_ctx,
                                                        "ups": ups, "problems": problems, "rows": rows, "att": att,
                                                        "hist": hist, "outcomes": chronicle.OUTCOMES,
                                                        "names": names, "choices": choices, "current": current,
@@ -1311,6 +1383,17 @@ def router(cfg: Config) -> APIRouter:
             elif action == "remove_me":
                 e = chronicle.get(s, entry_id)
                 chronicle.remove_recognition(s, w.cfg, a, e.event_id)
+            elif action == "named":
+                solo.set_named(s, w.cfg, a, entry_id, _bool(form, "named"))
+            elif action == "discard":
+                solo.discard(s, w.cfg, a, entry_id)
+                return _redirect(f"{mp}/chronicle/solo")
+            elif action == "plan":
+                tz = form.get("timezone") or w.cfg["community"]["default_timezone"]
+                start = _local_dt(form.get("date", ""), form.get("start_time", ""), tz, form.get("fold"))
+                mins = max(15, min(int(form.get("minutes") or 120), 12 * 60))
+                ev = solo.plan_event(s, w.cfg, a, entry_id, start, start + timedelta(minutes=mins), tz)
+                return _redirect(f"{mp}/events/{ev.public_id}/edit")
             else:
                 raise NotFound("Unknown action.")
         return _redirect(f"{mp}/chronicle/{entry_id}" if action not in ("review",) else f"{mp}/review")

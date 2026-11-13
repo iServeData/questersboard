@@ -77,11 +77,28 @@ def router(cfg: Config) -> APIRouter:
         page = max(1, min(page, 500))
         n = 20
         with web(request).db.tx() as s:
-            items = list(s.scalars(select(PublicChronicle).order_by(PublicChronicle.event_date.desc())
+            # group stories are the Chronicle; solo adventures get their own shelf below (and /solo/)
+            items = list(s.scalars(select(PublicChronicle).where(PublicChronicle.kind != "solo")
+                                   .order_by(PublicChronicle.event_date.desc())
                                    .offset((page - 1) * n).limit(n + 1)))
+            solos = (list(s.scalars(select(PublicChronicle).where(PublicChronicle.kind == "solo")
+                                    .order_by(PublicChronicle.published_at.desc()).limit(4))) if page == 1 else [])
         return render(request, "chronicle_archive.html",
                       {"title": "Chronicle", "items": items[:n], "page": page, "more": len(items) > n,
-                       "outcome": OUTCOME, "path": cp,
+                       "outcome": OUTCOME, "path": cp, "solos": solos,
+                       "seo": seo.meta(request, query=f"?page={page}" if page > 1 else "")}, public=True)
+
+    @r.get(cp + "/solo/")
+    def solo_archive(request: Request, page: int = 1):
+        page = max(1, min(page, 500))
+        n = 20
+        with web(request).db.tx() as s:
+            items = list(s.scalars(select(PublicChronicle).where(PublicChronicle.kind == "solo")
+                                   .order_by(PublicChronicle.event_date.desc())
+                                   .offset((page - 1) * n).limit(n + 1)))
+        return render(request, "chronicle_archive.html",
+                      {"title": "Solo adventures", "solo_list": True, "items": items[:n], "page": page,
+                       "more": len(items) > n, "outcome": OUTCOME, "path": cp, "solos": [],
                        "seo": seo.meta(request, query=f"?page={page}" if page > 1 else "")}, public=True)
 
     @r.get(cp + "/{slug}/")
@@ -94,8 +111,12 @@ def router(cfg: Config) -> APIRouter:
             raise NotFound("That story isn't published (or was removed).")
         tags = seo.meta(request, description=pc.summary, image=seo.story_image(pc), kind="article",
                         published=pc.published_at, modified=pc.updated_at)
+        solo_cfg = web(request).cfg["solo_stories"]
         return render(request, "chronicle_story.html", {"title": pc.title, "pc": pc, "outcome": OUTCOME,
-                                                        "path": cp, "seo": tags}, public=True)
+                                                        "path": cp, "seo": tags,
+                                                        "is_solo": pc.kind == "solo",
+                                                        "join_me": pc.kind == "solo" and solo_cfg["join_me"]},
+                      public=True)
 
     @r.get(cp + "/sitemap.xml")
     def sitemap(request: Request):
@@ -145,8 +166,11 @@ def router(cfg: Config) -> APIRouter:
 
     def _stories(request, limit=None):
         w = web(request)
+        q = select(PublicChronicle)
+        if not w.cfg["solo_stories"]["in_feeds"]:   # feeds and the site widget: group stories only
+            q = q.where(PublicChronicle.kind != "solo")
         with w.db.tx() as s:
-            return list(s.scalars(select(PublicChronicle).order_by(PublicChronicle.published_at.desc())
+            return list(s.scalars(q.order_by(PublicChronicle.published_at.desc())
                                   .limit(limit or w.cfg["feeds"].get("items", 20))))
 
     @r.get(cp + "/feed.json")

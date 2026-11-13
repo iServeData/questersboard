@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
+{% block content %}
+<div class="section-head"><span class="label"><span class="num">//</span> Chronicle</span><h1>Write a solo adventure</h1></div>
+<p class="note">Out on your own? Tell the story. Solo adventures are reviewed like any other story, labelled Solo, and kept below the group stories. Readers can press Join me next time, and you can turn that into a group event in one step.</p>
+{% if not enabled %}
+<p class="caveat">Solo adventure stories are turned off in this community.</p>
+{% elif not allowed %}
+<p class="caveat">Solo adventure stories are open to some roles only, and yours isn't one of them yet. Ask a moderator if you think it should be.</p>
+{% elif not chars %}
+<p class="caveat">Add a character first, then come back to write about them.</p>
+<p class="btns"><a class="btn" href="{{ mp }}/characters">My characters</a></p>
+{% else %}
+{% if left is not none %}<p class="note">You can start {{ left }} more solo {{ "story" if left == 1 else "stories" }} in the next 7 days (up to {{ per_week }} a week).</p>{% endif %}
+<form method="post" class="wq-form panel" action="{{ mp }}/chronicle/solo">{{ csrf_field() }}
+  <label>Character <select name="character_id" required>{% for c in chars %}<option value="{{ c.id }}">{{ c.name }} · {{ c.realm_slug }}</option>{% endfor %}</select></label>
+  <label>Title <input name="title" maxlength="120" minlength="3" required placeholder="For example: The long walk to Booty Bay"></label>
+  <label>When <input type="date" name="day" value="{{ today }}" max="{{ today }}" required></label>
+  <label>What kind of adventure <select name="activity_type">{% for k, l in kinds.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></label>
+  <label><input type="checkbox" name="named" value="1"{% if named_default %} checked{% endif %}> Name my character in the story</label>
+  <p class="note">Unticked, the story says "an adventurer" instead. You can change this later.</p>
+  <div class="btns"><button class="btn" type="submit"{% if left == 0 %} disabled{% endif %}>Start writing</button></div>
+</form>
+{% endif %}
+{% if mine %}
+<h2 class="sub">My solo adventures</h2>
+<ul class="plain-list">{% for e, ev, rev, n in mine %}
+  <li><a href="{{ mp }}/chronicle/{{ e.id }}">{{ rev.title if rev else ev.title }}</a> <span class="note">· {{ fmt_local(ev.start_at, ev.timezone).split(" · ")[0] }} · {{ e.state.replace('_', ' ') }}{% if n %} · {{ n }} would like to join you{% endif %}</span></li>
+{% endfor %}</ul>
+{% endif %}
+{% endblock %}

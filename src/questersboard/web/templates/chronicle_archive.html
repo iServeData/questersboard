@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
+{% if solo_list %}
+<div class="section-head"><span class="label"><span class="num">//</span> <a href="{{ cp }}/">Chronicle</a></span><h1>Solo adventures</h1></div>
+<p class="note">Members writing up what they did on their own, checked before publishing like every story. Liked one? Ask to join them next time.</p>
+{% else %}
 <div class="section-head"><span class="label"><span class="num">//</span> Stories from our WoW events</span><h1>Chronicle</h1></div>
 <p class="note">Written by the people who were there and checked before publishing. Players who opted out are described without names. <a href="{{ cp }}/feed.atom">Atom</a> · <a href="{{ cp }}/feed.xml">RSS</a> · <a href="{{ cp }}/feed.json">JSON Feed</a></p>
+{% endif %}
 <ul class="wq-list">
 {% for pc in items %}
   <li class="panel wq-card">
@@ -10,7 +15,15 @@
     <h2 class="wq-h"><a href="{{ cp }}/{{ pc.slug }}/">{{ pc.title }}</a></h2>
     <p>{{ pc.summary }}</p>
   </li>
-{% else %}<li class="note">No stories yet. They appear here as soon as a reviewer approves one.</li>{% endfor %}
+{% else %}<li class="note">No {{ "solo adventures" if solo_list else "stories" }} yet. They appear here as soon as a reviewer approves one.</li>{% endfor %}
 </ul>
+{% if solos %}
+<h2 class="sub wq-solo-head">Solo adventures</h2>
+<ul class="wq-list">{% for pc in solos %}
+  <li class="panel wq-card"><span class="sched-kind">Solo</span><span class="note">{{ pc.event_date.strftime("%b %-d, %Y") }} · {{ pc.edition_name }}</span>
+    <h3 class="wq-h"><a href="{{ cp }}/{{ pc.slug }}/">{{ pc.title }}</a></h3><p>{{ pc.summary }}</p></li>
+{% endfor %}</ul>
+<p class="btns"><a class="btn ghost" href="{{ cp }}/solo/">All solo adventures</a></p>
+{% endif %}
 <p class="btns">{% if page > 1 %}<a class="btn ghost" href="?page={{ page - 1 }}">Newer</a>{% endif %}{% if more %}<a class="btn ghost" href="?page={{ page + 1 }}">Older</a>{% endif %}</p>
 {% endblock %}

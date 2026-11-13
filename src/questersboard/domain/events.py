@@ -525,6 +525,11 @@ def publish(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
     _changed(ev)
     audit.record(s, actor, "event.publish", "event", ev.id)
     _notify_post(s, cfg, ev)
+    from . import solo
+    src = solo.solo_source(s, ev)
+    if src is not None:
+        # planned from a solo story: tell everyone who pressed Join me next time
+        outbox.enqueue(s, "notify.join_me_event", f"joinme-event:{ev.id}", {"event_id": ev.id, "entry_id": src[0].id})
     if ev.creator_id != actor.member_id:
         # a moderator published someone's draft: tell the owner it's live
         outbox.enqueue(s, "notify.draft_published", f"published:{ev.id}",

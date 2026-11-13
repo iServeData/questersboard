@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
+{% block content %}
+<section class="panel wq-msg">
+  <div class="section-head"><span class="label">Solo adventure</span><h1>Join me next time</h1></div>
+  <p>{% if story_url %}<a href="{{ story_url }}">{{ story_title }}</a>{% else %}{{ story_title }}{% endif %}</p>
+  {% if own %}
+  <p>This is your own story. People who ask to join you are listed on <a href="{{ mp }}/chronicle/{{ e.id }}">your story's page</a>.</p>
+  {% elif not enabled %}
+  <p>Join me next time is turned off in this community.</p>
+  {% elif on %}
+  <p>You're on the list. The author knows you'd like to come along, and if they plan a group event from this story you'll get a DM with the link.</p>
+  <form method="post" action="{{ mp }}/stories/{{ e.public_id }}/join" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="want" value="0"><button class="btn ghost" type="submit">Never mind, take me off the list</button></form>
+  {% else %}
+  <p>The author will get a DM with your Discord name saying you'd like to come along next time. If they plan a group event from this story, you'll get a DM with the link. Nothing is posted publicly.</p>
+  <form method="post" action="{{ mp }}/stories/{{ e.public_id }}/join" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="want" value="1"><button class="btn" type="submit">I'd like to come along</button></form>
+  {% if story_url %}<p><a class="btn ghost" href="{{ story_url }}">Never mind</a></p>{% endif %}
+  {% endif %}
+</section>
+{% endblock %}

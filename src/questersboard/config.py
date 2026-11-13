@@ -40,7 +40,7 @@ EMOJI_NAME = re.compile(r"^[A-Za-z0-9_]{2,32}$")
 COVER_NAME = re.compile(r"^[A-Za-z0-9_-]{1,60}\.(webp|png|jpg|jpeg)$")
 
 LIVE_SECTIONS = ("roles", "publishing", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status",
-                 "event_posts")
+                 "event_posts", "solo_stories")
 API_STATUSES = ("verified", "unverified", "unsupported")
 API_CAPS = ("reference", "character", "quests", "locations", "ownership")
 
@@ -168,6 +168,13 @@ class Config:
         if not sa["enabled"]:
             return frozenset()
         return frozenset(sa["role_ids"]) or self.role_ids("admin")
+
+    def solo_allowed(self, role_ids) -> bool:
+        """Whether a member with these Discord roles may write Solo adventure stories."""
+        so = self.raw["solo_stories"]
+        if not so["enabled"]:
+            return False
+        return not so["role_ids"] or bool(set(so["role_ids"]) & set(role_ids or ()))
 
     @property
     def editions(self) -> dict[str, Edition]:
@@ -484,6 +491,18 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     unknown = set(sa) - {"enabled", "announce", "role_ids"}
     if unknown:
         raise ConfigError(f"[support_admin] unknown setting {sorted(unknown)[0]!r}")
+
+    so = r.setdefault("solo_stories", {})
+    for k, dflt in (("enabled", True), ("join_me", True), ("in_feeds", False)):
+        if not isinstance(so.setdefault(k, dflt), bool):
+            raise ConfigError(f"[solo_stories] {k} must be true or false")
+    so["role_ids"] = _snowflakes(so.setdefault("role_ids", []), "[solo_stories] role_ids")
+    pw = so.setdefault("per_week", 3)
+    if not isinstance(pw, int) or isinstance(pw, bool) or not 0 <= pw <= 50:
+        raise ConfigError("[solo_stories] per_week must be a whole number from 0 to 50 (0 = no limit)")
+    unknown = set(so) - {"enabled", "join_me", "in_feeds", "role_ids", "per_week"}
+    if unknown:
+        raise ConfigError(f"[solo_stories] unknown setting {sorted(unknown)[0]!r}")
 
     # Who may publish events. open_to_all: every member may, except during probation (newer to the server
     # than probation_days), when their drafts go to the moderators. The event_creator role always may.

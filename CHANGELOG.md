@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Solo adventure stories.** Members can write up something they did on their own (Chronicle → Write a
+  solo adventure): one of their characters, the day, the kind of adventure and whether to name the
+  character, then the usual story questions, screenshots, review and privacy check. Behind each one is a
+  private, already-completed event record (`events.kind = 'solo'`) with the author as its only participant,
+  so naming, "Stop naming me" and Remove me work unchanged; it is never listed, posted, put in calendars or
+  offered for signups, and its event page is 404. Public: labelled Solo, a shelf below the group stories on
+  the archive and `<public path>/solo/`; left out of the feeds and `latest.json` unless `in_feeds`.
+  **Join me next time** (`chronicle_interest`): readers ask to come along; the author gets a DM and can plan
+  a group event draft from the story; publishing it DMs everyone who asked. New live `[solo_stories]`
+  section (`enabled`, `role_ids`, `per_week`, `join_me`, `in_feeds`). **Database migration 0010** (new
+  column `events.kind`, `public_chronicle.kind`, table `chronicle_interest`).
+- **Fixed: archiving a character** that was in a finished event no longer fails with "This event is over".
+
 - **Support Admin.** New `[support_admin]` (on by default; `role_ids` empty = the `[roles] admin` roles).
   The event post's Organizer reply offers admins **Support Admin**: into the event chat (also invite-only)
   and voice without signing up, a character or a roster spot. The chat says "<name> joined as Support

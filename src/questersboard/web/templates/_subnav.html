@@ -12,6 +12,7 @@
     + ([(mp ~ "/players", "Players")] if bz_on else [])
     + ([(mp ~ "/players#craft", "Who can craft")] if bz_on else [])),
   ("chronicle", "Chronicle", [(cp ~ "/", "Stories")]
+    + ([(cp ~ "/solo/", "Solo adventures"), (mp ~ "/chronicle/solo", "Write a solo adventure")] if solo_on else [])
     + ([(mp ~ "/review", "Review queue")] if can("chronicle_reviewer") else [])),
   ("help", "Help", [
     (mp ~ "/help", "How it works"),
@@ -23,7 +24,7 @@
 {%- set guilds = [] -%}
 {%- for g in guild_links or [] -%}{%- set _ = guilds.append((mp ~ "/guilds/" ~ g.edition ~ "/" ~ g.region ~ "/" ~ g.guild_id, g.name)) -%}{%- endfor -%}
 {%- if path.startswith(mp ~ "/characters") or path.startswith(mp ~ "/players") or path.startswith(mp ~ "/guilds/") -%}{%- set cur = "characters" -%}
-{%- elif path.startswith(cp) or path.startswith(mp ~ "/chronicle/") or path == mp ~ "/review" -%}{%- set cur = "chronicle" -%}
+{%- elif path.startswith(cp) or path.startswith(mp ~ "/chronicle/") or path.startswith(mp ~ "/stories/") or path == mp ~ "/review" -%}{%- set cur = "chronicle" -%}
 {%- elif path in (mp ~ "/help", mp ~ "/privacy", mp ~ "/terms", mp ~ "/changelog") -%}{%- set cur = "help" -%}
 {%- elif path == mp ~ "/" or path.startswith(mp ~ "/events") -%}{%- set cur = "quests" -%}
 {%- else -%}{%- set cur = "" -%}{%- endif -%}

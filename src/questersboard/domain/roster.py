@@ -274,8 +274,11 @@ def archive_character(s: Session, cfg: Config, actor: Actor, character_id: int) 
     actor = ensure_member(s, actor)
     ch = _own(s, actor, character_id)
     from . import signups  # local import to avoid a cycle
-    for su in s.scalars(select(Signup).where(Signup.character_id == ch.id,
-                                             Signup.state.in_(("pending", "confirmed", "tentative", "waitlisted")))):
+    from ..models import Event
+    # only events that are still to come: finished events (and solo stories) keep who took part
+    for su in s.scalars(select(Signup).join(Event, Event.id == Signup.event_id).where(
+            Signup.character_id == ch.id, Signup.state.in_(("pending", "confirmed", "tentative", "waitlisted")),
+            Event.state.in_(("draft", "scheduled", "in_progress")))):
         signups.withdraw(s, cfg, actor, su.id, reason="character archived")
     ch.archived_at = now()
     from .profiles import drop_for_character
