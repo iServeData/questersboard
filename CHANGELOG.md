@@ -13,6 +13,8 @@
   a group event draft from the story; publishing it DMs everyone who asked. New live `[solo_stories]`
   section (`enabled`, `role_ids`, `per_week`, `join_me`, `in_feeds`). **Database migration 0010** (new
   column `events.kind`, `public_chronicle.kind`, table `chronicle_interest`).
+- **Privacy, Remove me and data model** describe solo stories and Join me next time (what's kept, who
+  sees it, how long, and that Remove me deletes the requests). Shown only when `[solo_stories]` is on.
 - **Fixed: archiving a character** that was in a finished event no longer fails with "This event is over".
 
 - **Support Admin.** New `[support_admin]` (on by default; `role_ids` empty = the `[roles] admin` roles).

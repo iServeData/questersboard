@@ -18,7 +18,7 @@
   <label>When <input type="date" name="day" value="{{ today }}" max="{{ today }}" required></label>
   <label>What kind of adventure <select name="activity_type">{% for k, l in kinds.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></label>
   <label><input type="checkbox" name="named" value="1"{% if named_default %} checked{% endif %}> Name my character in the story</label>
-  <p class="note">Unticked, the story says "an adventurer" instead. You can change this later.</p>
+  <p class="note">Unticked, the story describes your character neutrally (for example "an adventurer"). You can change this later.</p>
   <div class="btns"><button class="btn" type="submit"{% if left == 0 %} disabled{% endif %}>Start writing</button></div>
 </form>
 {% endif %}

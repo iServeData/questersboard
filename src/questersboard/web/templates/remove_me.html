@@ -16,6 +16,7 @@
     {% if p.drafts %}<li>Your {{ p.drafts }} draft event{{ "s" if p.drafts != 1 }} will be discarded.</li>{% endif %}
     <li>Your characters{% if p.characters %} ({{ p.characters }}){% endif %} will be deleted. Where a character has been in an event, only a blank "(removed)" placeholder is kept so that event's history still adds up.</li>
     <li>In Chronicle stories{% if p.stories %} ({{ p.stories }}){% endif %}, your character names are replaced with a neutral description such as "a healer", in every saved version. Screenshots from those events go back to a reviewer in case a name plate shows.</li>
+    {% if cfg["solo_stories"]["enabled"] %}<li>Any Join me next time requests you made are deleted. Your own solo stories stay published, with your character described neutrally, such as "an adventurer".</li>{% endif %}
     {% if p.calendar_links %}<li>Your private calendar link will stop working.</li>{% endif %}
     {% if p.battlenet %}<li>Your Battle.net link will be forgotten.</li>{% endif %}
     <li>Your Discord account is disconnected from QuestersBoard and you're logged out everywhere.</li>

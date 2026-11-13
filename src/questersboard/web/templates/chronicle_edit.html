@@ -44,7 +44,7 @@
     <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/named">{{ csrf_field() }}
       <label><input type="checkbox" name="named" value="1"{% if solo_named %} checked{% endif %}> Name {{ solo_char or "my character" }} in this story</label>
       <button class="btn ghost" type="submit">Save</button></form>
-    <p class="note">Unticked, the story says "an adventurer" instead of your character's name.</p>
+    <p class="note">Unticked, the story describes your character neutrally (for example "an adventurer").</p>
   </div>
   {% if join_me_on and e.author_id == actor.member_id %}
   <div class="panel">

@@ -23,6 +23,9 @@ for slash commands in an allowed channel.
 | Assign co-authors | author | | | | | ✓ | | | |
 | Approve / request changes / reject / unpublish | | | | | | | ✓ | | |
 | Publish own entry without review (still privacy-checked) | | | | | | | | ✓ | |
+| Start a solo adventure story (`[solo_stories] role_ids`, `per_week`) | ✓ | | | | | | | | |
+| Delete own never-published solo story; plan a group event draft from it | author | | | | | | | | |
+| Join me next time on someone else's published solo story | ✓ | | | | | | | | |
 | Withdraw own consent / remove own recognition | ✓ (immediate) | | | | | | | | |
 | See who signed up (names, characters) on any event | | ✓ | | ✓ | | | | | ✓ |
 
@@ -58,7 +61,7 @@ to run if one does).
 | Events | `events`, `event_series`, `event_cohosts`, `event_roles`, `signups`, `attendance` | UTC `[start,end)` + IANA zone; version counter for idempotent posts |
 | Scheduling | `schedule_policy`, `event_reservations`, `member_reservations` | capacity trigger with advisory lock; `btree_gist` no-overlap per member |
 | Reminders | `reminder_deliveries` | PK `(event, member, offset, start_at)` → once per offset, again after reschedule |
-| Chronicle | `chronicle_entries`, `chronicle_revisions`, `chronicle_coauthors`, `chronicle_uploads`, `recognition_removals` | every revision kept; published revision pointer separate from latest |
+| Chronicle | `chronicle_entries`, `chronicle_revisions`, `chronicle_coauthors`, `chronicle_uploads`, `recognition_removals`, `chronicle_interest` | every revision kept; published revision pointer separate from latest. A solo story's private record is an `events` row with `kind = 'solo'` (completed, unlisted, one participant); `chronicle_interest` = Join me next time (entry, member) |
 | Public projections | `public_events`, `public_chronicle` | the only tables public pages and feeds read; no Discord IDs, counts only, approved text only |
 | Delivery | `outbox` | kind, idempotency key, attempts, next attempt, dead-letter state |
 | Ops | `audit_log`, `config_changes`, `api_cache`, `api_probes`, `rate_buckets` | audit append-only for app/worker |
@@ -75,6 +78,7 @@ to run if one does).
 | Audit log | `audit_days` (400) | prune, admin role only; services can only append |
 | Battle.net snapshot | `battlenet_import_minutes` (60) after the login, or "Disconnect" (per region) | deleted. Blizzard checks (verified, API matched) are cleared after `data_ttl_days` (30) without a refresh, or at once by "Disconnect" (per region) |
 | Imported character details (`character_profiles`) | `data_ttl_days` (30) after the import or last refresh | worker housekeeping; at once by "Remove imported details", removing, archiving or renaming the character, or "Remove me" |
+| Join me next time (`chronicle_interest`) | until withdrawn, the story is deleted, or the member is erased | member (Never mind), cascade, "Remove me" |
 | Personal calendar token | until revoked | member or `questersboard-admin calendar-revoke` |
 | Chronicle text | indefinitely once published | unpublish; recognition removal and consent withdrawal apply immediately |
 | Backups | 30 days (`QUESTERSBOARD_BACKUP_KEEP_DAYS`) | rotated by `backup.sh` |

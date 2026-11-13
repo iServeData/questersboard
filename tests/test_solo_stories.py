@@ -294,3 +294,12 @@ def test_web_discard_and_plan(web_app, seeded, wcfg):
     with seeded.tx() as s:
         assert s.scalar(select(Event).where(Event.kind == "solo")) is None
         assert s.scalar(select(Event).where(Event.title == "Fixture plan", Event.kind == "event")) is not None
+
+
+def test_privacy_and_help_pages_follow_the_switch(seeded, tmp_path):
+    for on in (True, False):
+        cfg = make_cfg(tmp_path, web={"cookie_secure": False}, solo_stories={"enabled": on})
+        a = create_app(ConfigHolder(cfg), seeded, tw.FakeOAuth(), tw.FakeRest())
+        p = TestClient_public(a).get("/wow/quester/privacy").text
+        assert ("Join me next time." in p) is on and ("Solo adventures: you can write" in p) is on
+        assert "webhook" not in p.lower() and "outbox" not in p.lower()

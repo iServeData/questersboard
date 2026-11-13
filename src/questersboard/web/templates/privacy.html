@@ -25,7 +25,8 @@
     <li><strong>Your Discord identity.</strong> When you log in with Discord we ask only for the <code>identify</code> permission. That gives us your Discord user ID, username and display name (the username lets hosts add you as a co-host by name). We do not see your email, your servers or your messages{% if cfg["item_links"]["enabled"] %} through login (item cards are explained below){% endif %}. Your community roles are checked through the community bot when you use QuestersBoard; they aren't stored as a profile.</li>
     <li><strong>Your characters.</strong> What you type in: name, game edition, region, realm or ruleset, faction, race, class, level, spec, preferred role and any notes. You can remove a character at any time.</li>
     <li><strong>Events.</strong> Events you plan, co-host, sign up for or withdraw from, and attendance that an organiser records.</li>
-    <li><strong>Chronicle stories.</strong> Story drafts, their revisions and review decisions.</li>
+    <li><strong>Chronicle stories.</strong> Story drafts, their revisions and review decisions.{% if cfg["solo_stories"]["enabled"] %} For a solo adventure, also the character, day and kind of adventure you chose, kept as a private record that is never listed or posted.{% endif %}</li>
+    {% if cfg["solo_stories"]["enabled"] and cfg["solo_stories"]["join_me"] %}<li><strong>Join me next time.</strong> If you press it on someone's solo story, we keep that you asked. The author gets a DM with your Discord name and sees you on their list, and you get a DM if they plan an event from the story. Nobody else sees it, and you can take it back on the same page.</li>{% endif %}
     <li><strong>Screenshots.</strong> Images you upload to a story (PNG, JPEG or WebP, up to {{ "%g" % (up.max_bytes / 1000000) }} MB and {{ up.max_per_entry }} per story). We re-encode every image, which removes hidden metadata such as camera details and location.</li>
     <li><strong>A login cookie.</strong> One cookie keeps you logged in for up to {{ cfg["web"]["session_hours"] }} hours. It is only used for this site, it isn't readable by page scripts, and we store only a scrambled (hashed) copy of it.</li>
     <li><strong>Short-lived technical records.</strong> To stop abuse we count requests per minute, which can briefly involve your IP address. A security log records actions such as creating, approving or removing things, and who did them.</li>
@@ -55,6 +56,7 @@
     <li>Security log: {{ ret.audit_days }} days.</li>
     <li>Encrypted backups: {{ lg.backup_keep_days }} days.</li>
     <li>Published Chronicle stories stay up until they are unpublished.</li>
+    {% if cfg["solo_stories"]["enabled"] and cfg["solo_stories"]["join_me"] %}<li>Join me next time requests: until you take them back, the story is deleted, or you use <a href="#remove-me">Remove me</a>.</li>{% endif %}
     <li>Your Discord identity, characters and event history: for as long as you use QuestersBoard, or until you use <a href="#remove-me">Remove me</a>.</li>
   </ul>
 
@@ -72,6 +74,7 @@
     {% if cfg["blizzard"]["enabled"] %}<li><strong>November 2026.</strong> Hunter pet pictures and gear and talent icons are now shown from this site, the same way as portraits. Professions now include the recipes each character knows, shared with the same people as the rest of its Professions. After a QuestersBoard update, organisers may refresh everyone's imported character details so they keep displaying correctly, with each person's own groups and sharing choices unchanged. Nothing new is collected and nothing is shared more widely.</li>{% endif %}
     {% if cfg["blizzard"]["enabled"] and cfg["blizzard"].get("auto_refresh_hours", 4) %}<li><strong>November 2026.</strong> Characters are refreshed from Blizzard automatically every {{ cfg["blizzard"].get("auto_refresh_hours", 4) }} hour{{ "" if cfg["blizzard"].get("auto_refresh_hours", 4) == 1 else "s" }} with your existing choices, and a character Blizzard no longer has loses what came from Blizzard. Nothing new is collected and nothing is shared more widely.</li>{% endif %}
     {% if cfg["item_links"]["enabled"] %}<li><strong>November 2026.</strong> Item cards: writing an item name in [square brackets] in the chosen Discord channels shows that item's details. Only the item names and a link to the message are kept, never the message itself.</li>{% endif %}
+    {% if cfg["solo_stories"]["enabled"] %}<li><strong>November 2026.</strong> Solo adventures: you can write a Chronicle story about something you did on your own. It follows the same review and naming rules as event stories; your character is named only if you tick that box.{% if cfg["solo_stories"]["join_me"] %} Readers can press Join me next time, which tells the author their Discord name.{% endif %}</li>{% endif %}
     <li>Earlier changes that mattered were announced in the Discord.</li>
   </ul>
 
