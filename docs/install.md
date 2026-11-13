@@ -1,7 +1,6 @@
 # Installing QuestersBoard
 
-**Nothing in this file has been run on the production host.** Each numbered step changes the host
-and needs explicit approval. Steps are ordered so the community site and other services keep running
+Each numbered step changes the host and should be reviewed before you run it. Steps are ordered so the community site and other services keep running
 throughout; QuestersBoard starts in the prototype environment first and goes live only after review.
 
 Target: Ubuntu 24.04 with systemd ≥ 254 (for `ImportCredential=`), Python 3.12, PostgreSQL 16, the
@@ -18,20 +17,20 @@ sudo -u postgres psql -Atc "select rolname from pg_roles where rolname='root'" 2
 
 ## 1. Packages (approval: system packages)
 
-Preflight on 2026-10-31: Python 3.12.3, systemd 255, nginx 1.24.0 and `python3.12-venv` present;
-PostgreSQL not installed and nothing on port 5432, so the full `pg_hba.conf` can be installed (no merge).
+If the preflight shows PostgreSQL is not installed and nothing listens on port 5432, the full
+`pg_hba.conf` can be installed as is; otherwise merge the QuestersBoard lines (`db_hardening_checklist.md`).
 
 ```sh
-sudo apt install postgresql-16          # python3.12-venv and gnupg are already present
+sudo apt install postgresql-16 python3.12-venv gnupg
 ```
 
 ## 2. PostgreSQL hardening and roles (approval: database)
 
-Review `docs/db_hardening_checklist.md` first. On the host, from a checkout of the `prototype` branch:
+Review `docs/db_hardening_checklist.md` first. On the host, from a checkout of the `main` branch:
 
 ```sh
 ORG=your-github-org     # the GitHub organization that hosts this repository
-git clone -b prototype "https://github.com/$ORG/questersboard.git" ~/questersboard   # folder keeps the internal name
+git clone -b main "https://github.com/$ORG/questersboard.git" ~/questersboard
 cd ~/questersboard
 less deploy/postgres/apply_hardening.sh deploy/postgres/pg_hba.conf deploy/postgres/postgresql_questersboard.conf
 sudo deploy/postgres/apply_hardening.sh
@@ -66,9 +65,9 @@ sudo systemctl daemon-reload
 
 ## 4. Config and credentials (approval: secrets)
 
-The host has no usable TPM (`systemd-creds has-tpm2` → partial), so credentials are bound to the host key
-`/var/lib/systemd/credential.secret` (`--with-key=host`). They can't be decrypted on another machine, which is
-why the plain values must also be kept offline with the backup key.
+Credentials are encrypted with the host key `/var/lib/systemd/credential.secret` (`--with-key=host`), which
+works on any host. They can't be decrypted on another machine, which is why the plain values must also be
+kept offline with the backup key.
 
 Edit `/etc/questersboard/config.toml`: guild, application and channel IDs, role IDs, `public_base_url`,
 branding. Then install credentials (see `configuration.md` for the list):
@@ -101,9 +100,8 @@ sudo sh -c 'shred -u /root/questersboard_db/* && rmdir /root/questersboard_db'
 sudo -u questersboard questersboard-admin check-config
 ```
 
-`systemd-creds` warns that `/var/lib/systemd/credential.secret` "is not located on encrypted media". That is
-expected on this host (no TPM, no disk encryption): the credentials protect against copying files off the
-host, not against root on the host. `/etc/credstore.encrypted/` is shared with other services; the installer
+`systemd-creds` may warn that `/var/lib/systemd/credential.secret` "is not located on encrypted media". The
+credentials protect against copying files off the host, not against root on the host. `/etc/credstore.encrypted/` is shared with other services; the installer
 creates it only if it is missing and never changes its owner or mode.
 
 ## 5. Discord application (approval: Discord)

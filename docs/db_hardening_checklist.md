@@ -1,16 +1,14 @@
 # PostgreSQL hardening checklist
 
-"Current" is from the read-only preflight the operator ran on the production host on 2026-10-31
-(Python 3.12.3, systemd 255, nginx 1.24.0, `python3.12-venv` installed). No database, SSH or firewall
-change has been made there. Every "proposed" item was applied to
-a disposable local PostgreSQL cluster and tested (`tests/test_db_hardening.py`), not to production.
+"Default" is what a fresh Ubuntu 24.04 host with PostgreSQL 16 has before QuestersBoard is installed.
+Every "proposed" item is tested on a disposable local PostgreSQL cluster (`tests/test_db_hardening.py`).
 
-| # | Control | Current (production) | Proposed | Verified locally |
+| # | Control | Default | Proposed | Verified locally |
 | --- | --- | --- | --- | --- |
-| 1 | PostgreSQL installed | **not installed** (`postgresql-16` absent; nothing listening on 5432) | `apt install postgresql-16` (approval) | PG 18 test cluster |
-| 2 | No role named `root` | no cluster yet, so none | `roles.sql` refuses to run if one exists; `pg_hba` rejects `root` on socket and TCP | `test_no_role_named_root_and_no_extra_superusers` |
+| 1 | PostgreSQL installed | not installed | `apt install postgresql-16` (approval) | PG 18 test cluster |
+| 2 | No role named `root` | none | `roles.sql` refuses to run if one exists; `pg_hba` rejects `root` on socket and TCP | `test_no_role_named_root_and_no_extra_superusers` |
 | 3 | `postgres` superuser peer-only | Ubuntu default is `local all postgres peer` | keep; reject `postgres` over TCP | `test_superuser_and_root_password_login_rejected_over_tcp` |
-| 4 | Only one superuser | no cluster yet | no other role has `SUPERUSER`, `CREATEROLE`, `CREATEDB`, `REPLICATION`, `BYPASSRLS` | same test |
+| 4 | Only one superuser | n/a | no other role has `SUPERUSER`, `CREATEROLE`, `CREATEDB`, `REPLICATION`, `BYPASSRLS` | same test |
 | 5 | Schema owner is not a superuser | n/a | `questersboard_admin` owns DB and schema, runs migrations; not superuser | `test_admin_role_can_migrate_down_and_up` |
 | 6 | Separate service roles | n/a | `questersboard_app`, `questersboard_worker`, `questersboard_readonly`; `NOINHERIT`; statement timeouts | `test_service_roles_cannot_run_ddl`, `test_worker_cannot_read_sessions_or_tokens`, `test_readonly_sees_only_projections` |
 | 7 | Audit log append-only for services | n/a | app/worker INSERT only; prune via admin role | `test_app_cannot_rewrite_audit_log` |
