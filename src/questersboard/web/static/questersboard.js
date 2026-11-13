@@ -186,7 +186,7 @@
     if (!isNaN(d)) {
       t.title = t.textContent;
       t.textContent = d.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric",
-        hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
+        hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short" });
     }
   });
   // Default the time zone field to the browser's zone for new events.

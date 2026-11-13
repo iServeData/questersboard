@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **24-hour times everywhere.** Times converted to the viewer's own zone in the browser (event lists, My
+  signups, the site widget) now use the 24-hour clock like the server-rendered times, instead of the
+  browser's AM/PM default.
+
 - **Solo adventure stories.** Members can write up something they did on their own (Chronicle → Write a
   solo adventure): one of their characters, the day, the kind of adventure and whether to name the
   character, then the usual story questions, screenshots, review and privacy check. Behind each one is a

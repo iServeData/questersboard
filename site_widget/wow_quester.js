@@ -51,13 +51,13 @@
     if (isNaN(d)) return "";
     try {
       return d.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric",
-        hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
+        hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short" });
     } catch (e) { return d.toISOString().slice(0, 16).replace("T", " ") + " UTC"; }
   }
   function clock(iso) {
     var d = new Date(iso);
     if (isNaN(d)) return "";
-    try { return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }); }
+    try { return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }); }
     catch (e) { return d.toISOString().slice(11, 16) + " UTC"; }
   }
   function age(ms) {
