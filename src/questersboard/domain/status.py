@@ -58,6 +58,11 @@ def _service(hb: ServiceHeartbeat | None, at: datetime, stale: int) -> tuple[str
     return ("running" if fresh else "stale"), fresh
 
 
+def _cal_links(cfg, pe) -> dict:
+    from .calendar import public_links
+    return public_links(cfg, pe)
+
+
 def snapshot(s: Session, cfg: Config) -> dict:
     st = cfg["status"]
     at = now()
@@ -106,7 +111,8 @@ def snapshot(s: Session, cfg: Config) -> dict:
             capacity=sum(caps) if caps and all(isinstance(c, int) for c in caps) else None,
             voice=voice,
             url=f"{cfg['community']['public_base_url'].rstrip('/')}"
-                f"{cfg['web']['member_path'].rstrip('/')}/events/{pe.public_id}")
+                f"{cfg['web']['member_path'].rstrip('/')}/events/{pe.public_id}",
+            **_cal_links(cfg, pe))
     return {"schema_version": SCHEMA_VERSION, "generated_at": iso(at),
             "starting_soon_minutes": soon,
             "expiry": {"public_json_seconds": max(180, 3 * st["cache_seconds"]), "heartbeat_seconds": stale,

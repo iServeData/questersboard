@@ -54,7 +54,8 @@ def upcoming(s, cfg: Config, limit: int = 20) -> list[dict]:
                         state=pe.state, location=pe.location_label or None, meet_at=pe.muster_label or None,
                         roles=pe.roles, signup_policy=pe.signup_policy, exclusive=pe.exclusive,
                         url=f"{cfg['community']['public_base_url'].rstrip('/')}"
-                            f"{cfg['web']['member_path'].rstrip('/')}/events/{pe.public_id}"))
+                            f"{cfg['web']['member_path'].rstrip('/')}/events/{pe.public_id}",
+                        **calendar.public_links(cfg, pe)))
     return out
 
 

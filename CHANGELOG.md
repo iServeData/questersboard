@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Add one event to your calendar.** Event pages have an Add to calendar menu (scheduled and running
+  events): `<member path>/events/<id>/calendar.ics` (one event, same UID as the feeds so it doesn't
+  duplicate; same access as the event page), a Google Calendar link, the guild feed (if
+  `[calendar] public_enabled`) and, when signed in, a link to your private feed on Your account.
+  `upcoming.json` and `status.json` events gain `ics_url` and `google_calendar_url` so a site can link
+  the next event. No config or database change.
 - **Invite-only event chats.** `[event_threads] private = true` keeps each event's chat thread to the people
   signed up and the hosts (and moderators with Manage Threads); the event post stays visible to everyone.
   New `[event_threads] member_states` (default `confirmed`, `tentative`, `waitlisted`: Join, Tentative and

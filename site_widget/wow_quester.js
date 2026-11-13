@@ -7,6 +7,10 @@
  *   </div>
  *   Optional: data-keep-fallback="true" keeps the static facts and appends the events after them.
  *   Renders <ul class="facts wq-upcoming"><li><span>WHEN</span><a>TITLE</a> · detail</li></ul>.
+ *   Optional calendar links for the first event (hidden until filled; textContent only):
+ *     <a data-wq-cal="ics" hidden download><span data-wq-cal-name>Next event</span>: Apple / Outlook (.ics)</a>
+ *     <a data-wq-cal="google" hidden target="_blank" rel="noopener">…</a>
+ *   They use the event's ics_url and google_calendar_url; [data-wq-cal-name] gets its title.
  *
  * 2. Community status card (reads <member_path>/status.json, polled every 60 s):
  *   <div class="panel status-card" data-wq-status data-endpoint="/wow/quester/status.json">
@@ -109,6 +113,19 @@
     }
     box.appendChild(ul);
     box.setAttribute("data-wq-state", "live");
+    calLinks(items[0]);
+  }
+  function calLinks(it) {
+    var links = document.querySelectorAll("a[data-wq-cal]");
+    for (var i = 0; i < links.length; i++) {
+      var a = links[i], kind = a.getAttribute("data-wq-cal");
+      var u = safeUrl(kind === "google" ? it.google_calendar_url : it.ics_url);
+      if (!u || (kind === "google" && u.indexOf("https://calendar.google.com/") !== 0)) continue;
+      a.href = u;
+      var n = a.querySelector("[data-wq-cal-name]");
+      if (n && it.title) n.textContent = it.title;
+      a.hidden = false;
+    }
   }
   function loadUpcoming(box) {
     var ep = box.getAttribute("data-endpoint") || "/wow/quester/upcoming.json";

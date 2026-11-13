@@ -11,7 +11,7 @@
   <p class="note">New events you create start in this zone (you can change it per event). Without one, the form uses your device's zone. Event pages also show times in your device's zone, and Discord shows its own local times. The list is the IANA time zone database, kept current by the server's system updates.</p>
   <button class="btn" type="submit">Save</button>
 </form>
-<div class="panel">
+<div class="panel" id="calendar">
   <h2 class="sub">Personal calendar</h2>
   <p class="note">A private link for your calendar app showing the events you joined or host. Anyone with the link can see those events, so keep it private. Making a new link turns off the old one.</p>
   {% if new_token %}<label class="code-label" for="cal">Your calendar link (shown once)</label>

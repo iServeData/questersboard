@@ -19,8 +19,9 @@ All POSTs need a session, a CSRF token and a same-origin `Origin`/`Referer`; all
 | GET | `/wow/chronicle/feed.atom` | Atom |
 | GET | `/wow/chronicle/latest.json` | latest stories for site widgets |
 | GET | `/wow/quester/upcoming.json` | upcoming and launched events (counts only) for the WoW page; CORS for the site origin; cached 60 s |
-| GET | `/wow/quester/status.json` | Community status + Next event cards: bot/worker check-ins, Discord connection, the launched or next event (phase, role counts, needs, voice head count). No names or IDs; CORS for the site origin; cached `[status] cache_seconds` |
+| GET | `/wow/quester/status.json` | Community status + Next event cards: bot/worker check-ins, Discord connection, the launched or next event (phase, role counts, needs, voice head count, `ics_url`, `google_calendar_url`). No names or IDs; CORS for the site origin; cached `[status] cache_seconds` |
 | GET | `/wow/quester/calendar.ics` | public calendar of scheduled events (`[calendar] public_enabled`) |
+| GET | `/wow/quester/events/{id}/calendar.ics` | one event (Add to calendar on its page); same access as the event page, same UID as the feeds |
 | GET | `/wow/quester/privacy` | public privacy page, generated from `[community]`, `[retention]`, `[uploads]`, `[legal]` and which integrations are on |
 | GET | `/wow/quester/terms` | public terms of use; contact line from `[legal] contact` |
 | GET | `/wow/quester/calendar/{token}.ics` | private calendar (hashed, revocable token); `no-referrer` |

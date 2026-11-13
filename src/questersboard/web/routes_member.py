@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 
 from ..config import Config
@@ -504,6 +504,10 @@ def router(cfg: Config) -> APIRouter:
                    "cover_url": covers.url(w.cfg, ev),
                    "faction_color": w.cfg["event_posts"]["faction_colors"][ev.faction or "any"], "difficulty_line": eventtext.difficulty_line(ev),
                    "host_name": (s.get(Character, ev.host_character_id).name if ev.host_character_id else ""),
+                   "cal_ics": (f"{mp}/events/{ev.public_id}/calendar.ics"
+                               if ev.state in ("scheduled", "in_progress") else ""),
+                   "cal_google": (calendar.google_url(calendar.event_item(w.cfg, ev))
+                                  if ev.state in ("scheduled", "in_progress") else ""),
                    "thread_url": (f"https://discord.com/channels/{w.cfg.guild_id}/{ev.discord_thread_id}"
                                   if ev.discord_thread_id else ""),
                    "show_names": manager or (a is not None and roster.staff_can_view_roster(w.cfg, a)),
@@ -516,6 +520,25 @@ def router(cfg: Config) -> APIRouter:
                    "voice_reopen": (manager and w.cfg["voice"]["enabled"] and ev.state == "in_progress"
                                     and not ev.discord_voice_channel_id and ev.voice_closed_at is not None)}
             return render(request, "event.html", ctx)   # rendered inside the session (lazy loads)
+
+    @r.get(mp + "/events/{public_id}/calendar.ics")
+    def event_ics(request: Request, public_id: str):
+        """Add to calendar (Apple / Outlook): this one event, with the same access as its page."""
+        w = W(request)
+        sess = w.load_session(request)
+        a = w.actor(sess)
+        with w.db.tx() as s:
+            ev = ev_by_public(s, public_id)
+            manager = a is not None and permissions.is_event_manager(w.cfg, a, ev.creator_id,
+                                                                     scheduling.cohost_ids(s, ev.id))
+            if ev.state == "draft" and not manager:
+                raise NotFound("Event not found.")
+            if a is None and not ev.public_listing:
+                raise _Login()
+            body = calendar.ics(w.cfg, ev.title, [calendar.event_item(w.cfg, ev)])
+        return Response(body, media_type="text/calendar; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="event_{public_id[:8]}.ics"',
+                                 "Cache-Control": "private, max-age=60"})
 
     @r.get(mp + "/events/{public_id}/edit")
     def edit_event(request: Request, public_id: str):

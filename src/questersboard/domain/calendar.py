@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -132,3 +133,37 @@ def personal_items(s: Session, cfg: Config, member_id: int) -> list[dict]:
                         description=f"Your status: {status}", cancelled=ev.state == "cancelled",
                         sequence=ev.version, url=f"{base}/events/{ev.public_id}"))
     return out
+
+
+def event_url(cfg: Config, public_id) -> str:
+    return (cfg["community"]["public_base_url"].rstrip("/") + cfg["web"]["member_path"].rstrip("/")
+            + f"/events/{public_id}")
+
+
+def event_item(cfg: Config, ev: Event) -> dict:
+    """One event for its own .ics and Google Calendar link. Same UID as the feeds, so adding it and
+    subscribing don't make two entries. Only what the event page shows: no names."""
+    url = event_url(cfg, ev.public_id)
+    meet = (ev.muster_location or {}).get("label", "")
+    where = (ev.activity_location or {}).get("label", "")
+    desc = "\n".join(x for x in (f"Meet at: {meet}" if meet else "", url) if x)
+    return dict(uid=f"wq-{ev.public_id}", start=ev.start_at, end=ev.end_at, title=ev.title,
+                location=where or meet, description=desc, cancelled=ev.state == "cancelled",
+                sequence=ev.version, url=url)
+
+
+def google_url(it: dict) -> str:
+    """Google Calendar's "add event" link for one item (opens Google; nothing is sent from here)."""
+    q = {"action": "TEMPLATE", "text": it["title"], "dates": f"{_dt(it['start'])}/{_dt(it['end'])}",
+         "details": it.get("description", "")}
+    if it.get("location"):
+        q["location"] = it["location"]
+    return "https://calendar.google.com/calendar/render?" + urlencode(q)
+
+
+def public_links(cfg: Config, pe: PublicEvent) -> dict:
+    """ics_url and google_calendar_url for a public event (upcoming.json, status.json)."""
+    url = event_url(cfg, pe.public_id)
+    it = dict(title=pe.title, start=pe.start_at, end=pe.end_at, location=pe.location_label or pe.muster_label,
+              description="\n".join(x for x in (f"Meet at: {pe.muster_label}" if pe.muster_label else "", url) if x))
+    return {"ics_url": url + "/calendar.ics", "google_calendar_url": google_url(it)}

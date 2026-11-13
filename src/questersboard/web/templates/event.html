@@ -19,6 +19,13 @@
     {% if voice_url %}<li><span>Voice</span><a href="{{ voice_url }}" rel="noopener">Join the voice channel in Discord</a></li>
     {% elif voice_opening %}<li><span>Voice</span>Opening in Discord; reload this page in a moment for the link</li>{% endif %}
   </ul>
+  {% if cal_ics %}<details class="wq-cal"><summary class="btn ghost">Add to calendar</summary>
+    <div class="wq-cal-menu">
+      <a href="{{ cal_ics }}" download>Apple / Outlook (.ics)</a>
+      <a href="{{ cal_google }}" target="_blank" rel="noopener">Google Calendar<span class="sr-only"> (opens in new tab)</span></a>
+      {% if cfg["calendar"].get("public_enabled", True) %}<a href="{{ mp }}/calendar.ics">All guild events (subscribe, .ics)</a>{% endif %}
+      {% if actor %}<a href="{{ mp }}/me#calendar">Only my events (private link)</a>{% endif %}
+    </div></details>{% endif %}
   {% if ev.description %}<p class="wq-desc">{{ ev.description }}</p>{% endif %}
   {% if ev.objective %}<h2 class="sub">Objective</h2><p class="wq-desc">{{ ev.objective }}</p>{% endif %}
   {% if ev.state == "cancelled" and ev.cancelled_reason %}<p class="caveat">Cancelled: {{ ev.cancelled_reason }}</p>{% endif %}
