@@ -165,3 +165,17 @@ def test_a_blizzard_outage_changes_nothing(seeded, tmp_path, monkeypatch):
         profiles.auto_refresh_one(s, cfg, bz, cid)
     with seeded.tx() as s:
         assert s.execute(text("select verification from characters where id=:i"), {"i": cid}).scalar() == "api_matched"
+
+
+@needs_db
+def test_owner_note_says_details_refresh_automatically(seeded, tmp_path, monkeypatch):
+    from test_web import login
+    from test_item_tooltips import _handler as tip_handler
+    from questersboard.domain.actor import SYSTEM
+    a, cfg, _calls = _bz_app(seeded, tmp_path, monkeypatch, tip_handler)
+    with seeded.tx() as s:
+        ch = char(s, cfg, actor(164), "Zulmara Ashveil")
+        profiles.import_profile(s, cfg, a.state.web.bz, SYSTEM.with_member(ch.member_id), ch.id, {"gear"}, {})
+    page = login(a, 164).get(f"/wow/quester/characters/{ch.id}/view").text
+    assert "Refreshed automatically every 4 hours" in page and "unless you refresh it" not in page
+    assert "Last refreshed from Blizzard just now" in page

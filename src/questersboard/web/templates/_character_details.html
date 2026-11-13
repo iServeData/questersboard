@@ -2,7 +2,7 @@
    owner_view: show sharing labels. visible: groups this viewer may see (owner: all). open_groups: expanded. #}
 {% import "_item_tips.html" as tips with context %}{% set ed = editions[c.edition] if editions is defined and c.edition in editions else none %}
 <div class="wq-details">
-  <p class="note">Last refreshed from Blizzard {{ d.fetched_at.strftime("%Y-%m-%d") }}.{% if owner_view %} Kept up to {{ cfg["blizzard"].get("data_ttl_days", 30) }} days unless you refresh it.{% endif %}</p>
+  {% set every = cfg["blizzard"].get("auto_refresh_hours", 4) %}<p class="note">Last refreshed from Blizzard {{ ago(d.fetched_at) }} ({{ d.fetched_at.strftime("%Y-%m-%d") }}).{% if owner_view %}{% if every %} Refreshed automatically {{ "every hour" if every == 1 else "once a day" if every == 24 else "every " ~ every ~ " hours" }}; if Blizzard can't be reached for {{ cfg["blizzard"].get("data_ttl_days", 30) }} days, it's removed.{% else %} Kept up to {{ cfg["blizzard"].get("data_ttl_days", 30) }} days unless you refresh it.{% endif %}{% endif %}</p>
   {% set gd = d.groups %}{% set shown = [] %}
   {% for g in detail_groups if g.key in gd and (visible is not defined or visible is none or g.key in visible) %}{% set _ = shown.append(g.key) %}{% endfor %}
   {% if detail_tabs is defined %}{% set tabs = [] %}{% for t in detail_tabs if t[2]|select("in", shown)|list %}{% set _ = tabs.append(t) %}{% endfor %}
