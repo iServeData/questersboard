@@ -85,7 +85,11 @@
   {% if th.enabled %}
   <h2 class="sub" id="chat">Event chat</h2>
   <ul>
-    <li>Each published event gets its own chat thread in Discord for the people taking part. Joining adds you to it; leaving takes you out.</li>
+    {% if th.private %}
+    <li>Each published event gets its own private chat thread in Discord. Only the people signed up and the hosts are in it (plus server moderators): joining adds you; leaving takes you out.</li>
+    {% else %}
+    <li>Each published event gets its own chat thread in Discord. Joining adds you to it so you're notified; leaving takes you out. Anyone who can see the event channel can read and reply in it.</li>
+    {% endif %}
     <li>Use it to plan, share where to meet and talk about the run. It closes about a day after the event.</li>
   </ul>
   {% endif %}

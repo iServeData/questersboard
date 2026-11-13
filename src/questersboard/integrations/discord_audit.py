@@ -42,6 +42,7 @@ MOVE_MEMBERS = 1 << 24
 USE_VAD = 1 << 25
 MANAGE_ROLES = 1 << 28
 CREATE_INVITE = 1 << 0
+MANAGE_WEBHOOKS = 1 << 29
 
 NAMES = {MANAGE_THREADS: "Manage Threads", CREATE_PUBLIC_THREADS: "Create Public Threads",
          CREATE_PRIVATE_THREADS: "Create Private Threads", SEND_IN_THREADS: "Send Messages in Threads",
@@ -49,9 +50,11 @@ NAMES = {MANAGE_THREADS: "Manage Threads", CREATE_PUBLIC_THREADS: "Create Public
          USE_COMMANDS: "Use Application Commands", ATTACH: "Attach Files", MANAGE_MESSAGES: "Manage Messages",
          ADD_REACTIONS: "Add Reactions", MANAGE_CHANNELS: "Manage Channels", STREAM: "Video",
          CONNECT: "Connect", SPEAK: "Speak", MOVE_MEMBERS: "Move Members", USE_VAD: "Use Voice Activity",
-         MANAGE_ROLES: "Manage Permissions", CREATE_INVITE: "Create Invite"}
-SHOWN = (VIEW, SEND, HISTORY, EMBED, USE_COMMANDS)
-SHORT = {VIEW: "view", SEND: "send", HISTORY: "history", EMBED: "embed", USE_COMMANDS: "/cmds"}
+         MANAGE_ROLES: "Manage Permissions", CREATE_INVITE: "Create Invite",
+         MANAGE_WEBHOOKS: "Manage Webhooks"}
+SHOWN = (VIEW, SEND, HISTORY, EMBED, USE_COMMANDS, SEND_IN_THREADS, CREATE_PUBLIC_THREADS, MANAGE_THREADS)
+SHORT = {VIEW: "view", SEND: "send", HISTORY: "history", EMBED: "embed", USE_COMMANDS: "/cmds",
+         SEND_IN_THREADS: "thread", CREATE_PUBLIC_THREADS: "+thread", MANAGE_THREADS: "mod-threads"}
 TYPES = {0: "text", 2: "voice", 4: "category", 5: "announcement", 13: "stage", 15: "forum", 16: "media"}
 
 
@@ -253,6 +256,25 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
                + (", " + ", ".join(rname(r) for r in prot) if prot else "")
                + (", the staff and admin roles" if staff or cfg["roles"].get("admin") else ""))
 
+    # 1c. item link channels
+    il = cfg.raw.get("item_links") or {}
+    if il.get("enabled"):
+        rep.head("Item link channels ([item_links])")
+        for wid in [str(x) for x in il.get("watch_channels", [])]:
+            if wid not in chans:
+                rep.fix(f"[item_links] watch channel {wid} doesn't exist (or the bot can't see it).")
+                continue
+            miss = _missing(effective(guild_id, roles, chans[wid], bot), (VIEW, HISTORY, MANAGE_WEBHOOKS))
+            name = chans[wid].get("name")
+            rep.fix(f"Bot needs {', '.join(miss)} in #{name} to read [item names] and post item cards.") \
+                if miss else rep.ok(f"Bot can read [item names] and post item cards in #{name}.")
+        post = str(il.get("post_channel") or "")
+        if post:
+            miss = _missing(effective(guild_id, roles, chans.get(post), bot), (VIEW, MANAGE_WEBHOOKS)) \
+                if post in chans else ["View Channel"]
+            rep.fix(f"Bot needs {', '.join(miss)} in the [item_links] post_channel.") if miss else \
+                rep.ok("Bot can post item cards in the [item_links] post_channel.")
+
     # 2. pick the category
     cat = category_id or (str(chans.get(event_ch, {}).get("parent_id") or "") if event_ch else "")
     if not cat or cat not in chans:
@@ -282,11 +304,38 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
                 rep.ok("Bot can post and update event cards.")
             th = cfg.raw.get("event_threads") or {}
             if th.get("enabled"):
-                need = (CREATE_PRIVATE_THREADS if th.get("private") else CREATE_PUBLIC_THREADS, SEND_IN_THREADS,
+                private = bool(th.get("private"))
+                need = (CREATE_PRIVATE_THREADS if private else CREATE_PUBLIC_THREADS, SEND_IN_THREADS,
                         MANAGE_THREADS)
                 miss = _missing(p(bot), need)
                 rep.fix(f"Bot needs {', '.join(miss)} here for event chat threads.") if miss else \
                     rep.ok("Bot can open, fill and close event chat threads.")
+                for m in members:
+                    if not p(m) & SEND_IN_THREADS:
+                        rep.fix(f"{m.label} needs Send Messages in Threads here, or people who join can't "
+                                "write in the event chat.")
+                    if p(m) & CREATE_PUBLIC_THREADS:
+                        rep.note(f"{m.label} can start their own threads on event posts (Create Public "
+                                 "Threads), which anyone in the channel can write in. Deny it for "
+                                 f"{m.label} if event chat should stay with the people signed up.")
+                if private and int(ch.get("type", 0)) == 5:
+                    rep.fix("Discord doesn't allow private threads in an Announcement channel, so invite-only "
+                            "event chats can't open here. Edit Channel > Overview: turn off Announcement Channel "
+                            "(the event posts stay visible to everyone; nobody new can type), or set "
+                            "[event_threads] private = false.")
+                if private:
+                    rep.ok("Event chats are invite-only: only people signed up, the hosts and the bot "
+                           "are added.")
+                    mods = [s.label for s in subjects if s is not bot and p(s) & MANAGE_THREADS]
+                    rep.note("Can also see and write in every invite-only event chat (Manage Threads or "
+                             "Administrator): " + (", ".join(mods) if mods else "none of the roles checked")
+                             + ". Server members with Administrator always can.") if mods else \
+                        rep.ok("No checked role except the bot can see invite-only event chats it wasn't "
+                               "added to (members with Administrator always can).")
+                else:
+                    rep.note("Event chats are public threads: anyone who can see this channel can read "
+                             "and write in them, signed up or not. Set [event_threads] private = true to "
+                             "keep them to the people signed up.")
             for m in members:
                 miss = _missing(p(m), (VIEW, HISTORY))
                 rep.fix(f"{m.label} needs {', '.join(miss)} to see event cards.") if miss else \
@@ -326,7 +375,8 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
 
 
 LEGEND = ("Columns: view = View Channel, send = Send Messages, history = Read Message History, "
-          "embed = Embed Links, /cmds = Use Application Commands. '-' means not allowed.")
+          "embed = Embed Links, /cmds = Use Application Commands, thread = Send Messages in Threads, "
+          "+thread = Create Public Threads, mod-threads = Manage Threads. '-' means not allowed.")
 
 
 def fetch(rest, cfg: Config) -> tuple:

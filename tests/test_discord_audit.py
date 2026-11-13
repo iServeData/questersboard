@@ -101,3 +101,37 @@ def test_event_threads_need_thread_permissions_only_when_enabled():
     chans[1]["permission_overwrites"].append({"id": BOTROLE, "type": 0, "deny": "0", "allow": str(
         da.CREATE_PUBLIC_THREADS | da.SEND_IN_THREADS | da.MANAGE_THREADS)})
     assert "Bot can open, fill and close event chat threads." in da.build(on, G, roles, chans, bot, cmds, []).text()
+
+
+def _threads_cfg(private):
+    return make_cfg(discord={"application_id": fake_id(2), "event_channel_id": EVENTS, "review_channel_id": REVIEW,
+                             "allowed_command_channel_ids": [BOTCH]},
+                    event_threads={"enabled": True, "private": private})
+
+
+def test_private_event_threads_audit_members_moderators_and_channel_type():
+    roles, chans, bot = _guild()
+    cmds = [{"id": "1", "name": "quest"}]
+    chans[1]["permission_overwrites"].append({"id": BOTROLE, "type": 0, "deny": "0", "allow": str(
+        da.CREATE_PRIVATE_THREADS | da.SEND_IN_THREADS | da.MANAGE_THREADS)})
+    t = da.build(_threads_cfg(True), G, roles, chans, bot, cmds, []).text()
+    assert "Discord doesn't allow private threads in an Announcement channel" in t     # type 5
+    assert "Send Messages in Threads here, or people who join can't write" in t        # members lack it
+    assert "Bot can open, fill and close event chat threads." in t
+    chans[1]["type"] = 0                                                                # now a text channel
+    chans[1]["permission_overwrites"].append({"id": G, "type": 0, "deny": "0", "allow": str(
+        da.SEND_IN_THREADS | da.CREATE_PUBLIC_THREADS)})
+    chans[1]["permission_overwrites"].append({"id": ROLE["admin"], "type": 0, "deny": "0",
+                                              "allow": str(da.MANAGE_THREADS)})
+    t = da.build(_threads_cfg(True), G, roles, chans, bot, cmds, []).text()
+    assert "Announcement" not in t and "people who join can't write" not in t
+    assert "can start their own threads on event posts" in t
+    assert "Event chats are invite-only" in t
+    assert "Can also see and write in every invite-only event chat" in t and "@admin" in t
+
+
+def test_public_event_threads_say_anyone_can_write():
+    roles, chans, bot = _guild()
+    t = da.build(_threads_cfg(False), G, roles, chans, bot, [{"id": "1", "name": "quest"}], []).text()
+    assert "Event chats are public threads: anyone who can see this channel" in t
+    assert "Announcement" not in t

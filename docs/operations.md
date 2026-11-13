@@ -32,7 +32,7 @@ sudo -u questersboard questersboard-admin check-config    # after editing config
 | Give up on dead deliveries that no longer matter | `questersboard-admin outbox dismiss-dead` |
 | Health check | `sudo ./deploy/health.sh` fails on dead deliveries; `install.sh`/`rollback.sh` use `--deploy`, which only warns, so a Discord permission problem can't roll back a working release |
 | Revoke someone's private calendar link | `questersboard-admin calendar-revoke <discord id>` |
-| Check WoW channel permissions and slash-command registration (read-only) | `questersboard-admin discord-permissions` (needs the `discord-bot-token` credential; `--category <id>` to pick another category) |
+| Check WoW channel permissions, event chat threads and slash-command registration (read-only) | `sudo ./deploy/discord_permissions.sh` (runs `questersboard-admin discord-permissions` with the `discord-bot-token` credential; `--category <id>` to pick another category) |
 | Remove a member who can't log in (same as "Remove me") | `questersboard-admin erase-member <discord id>` shows the plan; add `--yes` to carry it out |
 | Prune old audit rows / signups / sessions | `questersboard-admin prune` (admin role; monthly is plenty) |
 | Upload the role icons as the bot's Discord emojis | `questersboard-admin role-emojis` lists what is uploaded (read-only, needs the `discord-bot-token` credential); after approval `QUESTERSBOARD_APPROVED_CHANGE=role-emojis questersboard-admin role-emojis --yes` uploads the missing ones (never replaces); `--art DIR` for your own `<role key>.png` |

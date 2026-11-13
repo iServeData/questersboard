@@ -212,12 +212,15 @@ class Worker:
                                                      th["private"])
             ev.discord_thread_members = []
             s.flush()
+            who = ("Private chat for the people signed up to **{t}** and its hosts. Joining the event adds "
+                   "you; leaving removes you." if th["private"] else
+                   "Chat for **{t}**. Joining the event adds you so you're notified; anyone who can see the "
+                   "event channel can read and reply here.").format(t=ev.title)
             rest.post(ev.discord_thread_id, {"content": (
-                f"Chat for people signed up to **{ev.title}**. Plan here so the main channels stay quiet. "
-                f"Joining the event adds you; leaving removes you. This thread closes "
+                f"{who} Plan here so the main channels stay quiet. This thread closes "
                 f"{th['archive_after_hours']} hours after the event.")})
         want = set(s.scalars(select(Signup.member_id).where(
-            Signup.event_id == ev.id, Signup.state.in_(("confirmed", "tentative", "waitlisted"))))) | \
+            Signup.event_id == ev.id, Signup.state.in_(th["member_states"])))) | \
             self._managers(s, ev)
         ids = dict(s.execute(select(Member.id, Member.discord_id).where(
             Member.id.in_(want | set(ev.discord_thread_members or [])), Member.erased_at.is_(None))).all())

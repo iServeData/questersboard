@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Invite-only event chats.** `[event_threads] private = true` keeps each event's chat thread to the people
+  signed up and the hosts (and moderators with Manage Threads); the event post stays visible to everyone.
+  New `[event_threads] member_states` (default `confirmed`, `tentative`, `waitlisted`: Join, Tentative and
+  the waitlist) decides who is added. The opening message and Help say who can see the chat (private or
+  public). `discord-permissions` now checks thread permissions for members (Send Messages in Threads,
+  Create Public Threads), lists who can see every private chat (Manage Threads), flags private threads in
+  an Announcement channel (Discord doesn't allow them), checks `[item_links]` channels, and shows three
+  thread columns. New `deploy/discord_permissions.sh` runs it. No database migration.
 - **Fix: Refresh from Blizzard reused the profile cache.** The character page's Refresh from Blizzard
   and Refresh all from Blizzard returned cached character pages (up to `cache_hours_profile`, 6 hours)
   while saying "just now". They now read character pages afresh for that request only; page views and

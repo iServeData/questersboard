@@ -116,7 +116,10 @@ role_icon_position = "heading"                # "heading": before "Tank (1/2)"; 
 
 [event_threads]                               # restart. One Discord chat thread per event (off until approved)
 enabled = false                               # needs Create Public Threads, Send Messages in Threads, Manage Threads
-private = false                               # true = invite-only threads (Create Private Threads instead)
+private = false                               # true = invite-only: only people added can see it (Create Private
+                                              # Threads instead; not possible in an Announcement channel)
+member_states = ["confirmed", "tentative", "waitlisted"]  # who is added: Join, Tentative and the waitlist
+                                              # (also: pending, for approval signups)
 archive_after_hours = 24                      # lock and archive this long after the event ends
 reminders_in_thread = true                    # also post the reminder (with open spots) in the thread
 name_suffix = " · chat"

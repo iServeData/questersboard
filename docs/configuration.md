@@ -76,7 +76,9 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   default) or at the start of its line of names (`"line"`). Upload the pictures with
   `questersboard-admin role-emojis`; until then roles are plain text.
 - **Event chat threads** (`[event_threads]`, restart): `enabled` (default false), `private` (invite-only
-  threads), `archive_after_hours` (24), `reminders_in_thread` (true), `name_suffix`. The bot needs Create
+  threads: only the people added, the hosts and moderators with Manage Threads see them; Discord doesn't
+  allow them in an Announcement channel), `member_states` (who is added: `confirmed`, `tentative` and
+  `waitlisted`, that is Join, Tentative and the waitlist; also `pending`), `archive_after_hours` (24), `reminders_in_thread` (true), `name_suffix`. The bot needs Create
   Public (or Private) Threads, Send Messages in Threads and Manage Threads in the event channel; run
   `questersboard-admin discord-permissions` to check.
 - **Event voice channels** (`[voice]`, restart): `enabled` (default false), `category_id`, `name_template`

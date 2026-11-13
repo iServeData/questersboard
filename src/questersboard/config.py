@@ -420,6 +420,11 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             raise ConfigError(f"[event_threads] {k} must be true or false")
     if not isinstance(th["name_suffix"], str) or len(th["name_suffix"]) > 20:
         raise ConfigError("[event_threads] name_suffix must be text of 20 characters or fewer")
+    th.setdefault("member_states", ["confirmed", "tentative", "waitlisted"])
+    if not isinstance(th["member_states"], list) or not th["member_states"] or \
+            set(th["member_states"]) - {"confirmed", "tentative", "waitlisted", "pending"}:
+        raise ConfigError("[event_threads] member_states must list signup states from: confirmed, tentative, "
+                          "waitlisted, pending")
 
     vc = r.setdefault("voice", {})
     for k, dflt in (("enabled", False), ("moderators_can_join", True), ("remove_on_leave", False),

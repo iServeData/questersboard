@@ -8,6 +8,10 @@
 date = "2026-11-13"
 title = "Characters stay current from Blizzard on their own"
 [[release.change]]
+area = "Events"
+kind = "improved"
+text = "Event chat threads in Discord can be private: everyone still sees the event, and the chat is for the people who join, go tentative or are on the waitlist, and the hosts."
+[[release.change]]
 area = "Characters"
 kind = "new"
 text = "Your characters are refreshed from Blizzard every few hours with the same details and sharing you chose, so gear, talents and professions stay current without pressing anything."
