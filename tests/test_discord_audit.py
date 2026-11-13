@@ -135,3 +135,41 @@ def test_public_event_threads_say_anyone_can_write():
     t = da.build(_threads_cfg(False), G, roles, chans, bot, [{"id": "1", "name": "quest"}], []).text()
     assert "Event chats are public threads: anyone who can see this channel" in t
     assert "Announcement" not in t
+
+
+def test_who_else_lists_administrator_and_roles_that_open_private_channels():
+    roles, chans, bot = _guild()
+    ADM, OFFICER = fake_id(610), fake_id(611)
+    roles += [{"id": ADM, "name": "Fixture Admins", "permissions": str(da.ADMINISTRATOR), "position": 9},
+              {"id": OFFICER, "name": "Fixture Officers", "permissions": "0"}]
+    chans[4]["permission_overwrites"].append({"id": OFFICER, "type": 0, "allow": str(V), "deny": "0"})
+    u = lambda n, name, rs, bot=False: {"user": {"id": fake_id(n), "username": name, "bot": bot},  # noqa: E731
+                                        "roles": rs}
+    people = {"owner_id": fake_id(700), "members": [
+        u(700, "Fixture Owner", []), u(701, "Fixture Admin One", [ADM]), u(702, "Fixture Officer", [OFFICER]),
+        u(703, "Fixture Member", []), u(704, "Fixture Bot", [ADM], bot=True)]}
+    t = da.build(_cfg(), G, roles, chans, bot, [{"id": "1", "name": "quest"}], [], people).text()
+    assert "@Fixture Admins has Administrator: 1 person (Fixture Admin One)" in t
+    assert "Server owner (always has every permission): Fixture Owner" in t
+    assert "In total 2 of 4 people get past every channel" in t
+    line = next(x for x in t.splitlines() if "#wow-chronicler-moderation is private" in x)
+    assert "@Fixture Officers" in line and "Fixture Officer)" in line and "Fixture Admins" not in line
+    assert "Fixture Member" not in line
+    # without the member list it still names the roles
+    t2 = da.build(_cfg(), G, roles, chans, bot, [{"id": "1", "name": "quest"}], [],
+                  {"owner_id": None, "members": None}).text()
+    assert "Couldn't list server members" in t2 and "@Fixture Admins has Administrator" in t2
+
+
+def test_who_else_names_manage_threads_roles_and_locked_voice():
+    roles, chans, bot = _guild()
+    MOD = fake_id(612)
+    roles.append({"id": MOD, "name": "Fixture Mods", "permissions": str(da.MANAGE_THREADS)})
+    cfg = make_cfg(discord={"application_id": fake_id(2), "event_channel_id": EVENTS, "review_channel_id": REVIEW,
+                            "allowed_command_channel_ids": [BOTCH]},
+                   event_threads={"enabled": True, "private": True},
+                   voice={"enabled": True, "category_id": CAT, "staff_role_ids": [MOD]})
+    t = da.build(cfg, G, roles, chans, bot, [{"id": "1", "name": "quest"}], [], {}).text()
+    assert "Manage Threads lets @Fixture Mods open every one" in t
+    assert "Event voice channels are locked: only the people signed up, the hosts, @Fixture Mods" in t
+    assert "and Administrator can join" in t

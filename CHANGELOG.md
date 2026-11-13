@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **`discord-permissions`: who else can get in.** A new last section checks every server role, not only the
+  ones in config: roles with Administrator (which Discord lets past every channel permission, invite-only
+  event chat and event voice) and, when the bot may list members (Server Members Intent), the people in them
+  and the server owner; for each private channel in the WoW category, which other roles and people (without
+  Administrator) can see or join it; which roles can open every invite-only event chat (Manage Threads); and
+  who can join event voice. Still GET only.
 - **Add one event to your calendar.** Event pages have an Add to calendar menu (scheduled and running
   events): `<member path>/events/<id>/calendar.ics` (one event, same UID as the feeds so it doesn't
   duplicate; same access as the event page), a Google Calendar link, the guild feed (if

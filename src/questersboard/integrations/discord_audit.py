@@ -145,7 +145,8 @@ def _synced(ch: dict, parent: dict | None) -> bool:
 
 
 def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dict], bot_member: dict,
-          commands: list[dict] | None, command_perms: list[dict] | None, category_id: str | None = None) -> Report:
+          commands: list[dict] | None, command_perms: list[dict] | None, people: dict | None = None,
+          category_id: str | None = None) -> Report:
     roles = {str(r["id"]): r for r in roles_list}
     rname = lambda rid: "@everyone" if rid == guild_id else "@" + roles.get(rid, {}).get("name", f"unknown role {rid}")  # noqa: E731
     chans = {str(c["id"]): c for c in channels}
@@ -371,7 +372,96 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
             rep.head(f"[discord] {label}")
             rep.note(f"#{chans.get(cid, {}).get('name', cid)} isn't in this category." if cid in chans else
                      f"Channel {cid} doesn't exist (or the bot can't see it).")
+    _who_else(rep, cfg, guild_id, roles, chans, [category, *inside], member_roles, bot, people)
     return rep
+
+
+def _names(people: list[str], cap: int = 25) -> str:
+    people = sorted(people, key=str.lower)
+    return ", ".join(people[:cap]) + (f" and {len(people) - cap} more" if len(people) > cap else "")
+
+
+def _who_else(rep: Report, cfg: Config, guild_id: str, roles: dict, chans: dict, where: list[dict],
+              member_roles: list[str], bot: Subject, people: dict | None) -> None:
+    """Every server role (not only the ones QuestersBoard knows), and every member when the bot may list
+    them: who can see the private channels, every invite-only event chat and every event voice."""
+    rname = lambda rid: "@" + roles.get(rid, {}).get("name", f"unknown role {rid}")  # noqa: E731
+    base = frozenset(member_roles)
+    plain = [rid for rid, r in roles.items() if rid != guild_id and not r.get("managed") and rid not in bot.role_ids]
+    admin_roles = [rid for rid in plain if int(roles[rid].get("permissions", 0)) & ADMINISTRATOR]
+    asked = people is not None
+    people = people or {}
+    members = people.get("members")
+    owner = str(people.get("owner_id") or "")
+    humans = [m for m in members or [] if not (m.get("user") or {}).get("bot")]
+
+    def who(m: dict) -> str:
+        u = m.get("user") or {}
+        return m.get("nick") or u.get("global_name") or u.get("username") or "someone"
+
+    def held(m: dict) -> set[str]:
+        return {str(r) for r in m.get("roles", [])}
+
+    rep.head("Who else can get in (every server role" + (" and member" if members is not None else "") + ")")
+    if asked and members is None:
+        rep.note("Couldn't list server members (Discord refused; the bot's Server Members Intent is off), so "
+                 "this shows roles only, not people.")
+    if admin_roles:
+        rep.note("Discord lets Administrator ignore every channel permission: anyone with it sees every WoW "
+                 "channel and every invite-only event chat, and can join every event voice. Neither QuestersBoard "
+                 "nor channel settings can stop it; only taking Administrator off the role can.")
+        for rid in sorted(admin_roles, key=lambda r: -int(roles[r].get("position", 0))):
+            if members is None:
+                rep.lines.append(f"        {rname(rid)} has Administrator")
+            else:
+                ppl = [who(m) for m in humans if rid in held(m)]
+                rep.lines.append(f"        {rname(rid)} has Administrator: {len(ppl)} "
+                                 f"{'person' if len(ppl) == 1 else 'people'}" + (f" ({_names(ppl)})" if ppl else ""))
+    else:
+        rep.ok("No server role has Administrator.")
+    if members is not None:
+        own = next((who(m) for m in humans if str((m.get("user") or {}).get("id")) == owner), None)
+        if own:
+            rep.lines.append(f"        Server owner (always has every permission): {own}")
+        admins = [m for m in humans if held(m) & set(admin_roles) or str((m.get("user") or {}).get("id")) == owner]
+        rep.lines.append(f"        In total {len(admins)} of {len(humans)} people get past every channel and event "
+                         "chat this way.")
+
+    ordinary = [Subject("member", base)] if base else [Subject("@everyone", frozenset())]
+    for ch in where:
+        kind = int(ch.get("type", 0))
+        need = VIEW | CONNECT if kind in (2, 13) else VIEW
+        if any(effective(guild_id, roles, ch, s) & need == need for s in ordinary):
+            continue                                    # open to members anyway
+        label = ("category " if kind == 4 else "#") + str(ch.get("name"))
+        verb = "join" if kind in (2, 13) else "see"
+        extra = [rid for rid in plain if rid not in admin_roles and rid not in base
+                 and effective(guild_id, roles, ch, Subject("", base | {rid})) & need == need]
+        line = f"{label} is private. Other roles that can {verb} it: " + (", ".join(rname(r) for r in extra) if extra else "no other role")
+        if members is not None:
+            ppl = [who(m) for m in humans
+                   if not (held(m) & set(admin_roles)) and str((m.get("user") or {}).get("id")) != owner
+                   and effective(guild_id, roles, ch, Subject("", frozenset(held(m)), str((m.get("user") or {}).get("id"))))
+                   & need == need]
+            line += f"; {len(ppl)} {'person' if len(ppl) == 1 else 'people'} without Administrator" + \
+                (f" ({_names(ppl)})" if ppl else "")
+        rep.lines.append(f"        {line}.")
+
+    ev = chans.get(str(cfg["discord"].get("event_channel_id") or ""))
+    th = cfg.raw.get("event_threads") or {}
+    if ev is not None and th.get("enabled") and th.get("private"):
+        mods = [rid for rid in plain if rid not in admin_roles
+                and effective(guild_id, roles, ev, Subject("", base | {rid})) & MANAGE_THREADS]
+        (rep.note if mods else rep.ok)(
+            "Invite-only event chats: besides the people signed up and the hosts, "
+            + ("Manage Threads lets " + ", ".join(rname(r) for r in mods) + " open every one"
+               if mods else "only Administrator can open them") + ".")
+    vc = cfg.raw.get("voice") or {}
+    if vc.get("enabled"):
+        staff = sorted(cfg.voice_staff_roles())
+        rep.ok("Event voice channels are locked: only the people signed up, the hosts"
+               + (", " + ", ".join(rname(r) for r in staff) if staff else "")
+               + " and Administrator can join (other roles and the category's permissions are removed).")
 
 
 LEGEND = ("Columns: view = View Channel, send = Send Messages, history = Read Message History, "
@@ -396,4 +486,18 @@ def fetch(rest, cfg: Config) -> tuple:
         command_perms = rest._call("GET", f"/applications/{app_id}/guilds/{g}/commands/permissions")
     except (Forbidden, Gone, DiscordError):
         command_perms = []
-    return roles_list, channels, bot_member, commands, command_perms
+    people: dict = {"owner_id": None, "members": None}
+    try:
+        people["owner_id"] = rest._call("GET", f"/guilds/{g}").get("owner_id")
+        found: list[dict] = []
+        after = "0"
+        for _ in range(20):                 # up to 20 000 members
+            page = rest._call("GET", f"/guilds/{g}/members?limit=1000&after={after}")
+            found += page
+            if len(page) < 1000:
+                break
+            after = str(page[-1]["user"]["id"])
+        people["members"] = found
+    except (Forbidden, Gone, DiscordError):
+        pass
+    return roles_list, channels, bot_member, commands, command_perms, people
