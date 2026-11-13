@@ -34,6 +34,8 @@ DEFAULT_PARTY_SIZE = {"quest": 5, "dungeon": 5, "arena": 5, "raid": 40, "battleg
 DEFAULT_FACTION_COLORS = {"horde": "#C41E3A", "alliance": "#1F6FD8", "any": "#C9A227"}
 # The bot's own Discord emojis shown next to role names on event posts (questersboard-admin role-emojis).
 DEFAULT_ROLE_ICONS = {"tank": "qb_tank", "healer": "qb_healer", "damage": "qb_damage"}
+# [blizzard] auto_refresh_hours: 0 = off; otherwise the hours must divide the day so runs line up with midnight.
+AUTO_REFRESH_HOURS = (0, 1, 2, 3, 4, 6, 8, 12, 24)
 EMOJI_NAME = re.compile(r"^[A-Za-z0-9_]{2,32}$")
 COVER_NAME = re.compile(r"^[A-Za-z0-9_-]{1,60}\.(webp|png|jpg|jpeg)$")
 
@@ -561,6 +563,10 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
         raise ConfigError("[blizzard] recipe_lookups must be 500 or less")
     if _positive(bz.get("refresh_all_max", 10), "[blizzard] refresh_all_max") > 50:
         raise ConfigError("[blizzard] refresh_all_max must be 50 or less")
+    arh = bz.get("auto_refresh_hours", 4)
+    if isinstance(arh, bool) or arh not in AUTO_REFRESH_HOURS:
+        raise ConfigError("[blizzard] auto_refresh_hours must be 0 (off) or one of 1, 2, 3, 4, 6, 8, 12, 24 "
+                          "(runs start at midnight server time, so the hours must divide the day)")
     if bz.get("picker_default_share", "guild") not in ("private", "guild", "members"):
         raise ConfigError('[blizzard] picker_default_share must be "private", "guild" or "members"')
     rl = bz.get("region_labels", {})

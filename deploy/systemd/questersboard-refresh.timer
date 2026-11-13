@@ -1,0 +1,14 @@
+# questersboard-refresh.timer: starts questersboard-refresh.service on the hour, every hour, in the
+# server's local time. The service itself decides from [blizzard] auto_refresh_hours whether a run is
+# due (0 = off), so the schedule lives in config.toml and changes without touching this file.
+# Not enabled by install.sh; turn on with: sudo systemctl enable --now questersboard-refresh.timer
+[Unit]
+Description=QuestersBoard timed refresh from Blizzard (hourly check)
+
+[Timer]
+OnCalendar=*-*-* *:00:00
+AccuracySec=1s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

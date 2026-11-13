@@ -1,6 +1,8 @@
 """Web routes via TestClient. Discord OAuth and guild lookups are FIXTURES (no live Discord)."""
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import io
 import re
 
@@ -539,7 +541,7 @@ def test_host_joins_own_event_and_wrong_characters_are_explained(app):
     tok = csrf(host)
     new = host.get("/wow/quester/events/new").text
     data = {**_form_defaults(new, "/wow/quester/events/new"), "title": "Own run", "location": "Test",
-            "edition": "forever", "faction": "horde", "date": "2026-11-12", "start_time": "19:00",
+            "edition": "forever", "faction": "horde", "date": (date.today() + timedelta(days=30)).isoformat(), "start_time": "19:00",
             "timezone": "America/Los_Angeles"}
     page = host.post("/wow/quester/events/new", data=data).headers["location"]
     assert host.post(page + "/publish", data={"csrf": tok}).status_code == 303

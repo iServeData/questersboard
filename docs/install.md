@@ -53,12 +53,12 @@ sudo ./deploy/install.sh              # builds /opt/questersboard/releases/<vers
 
 It creates the `questersboard` system user, `/etc/questersboard/` (installs the example config only if none
 exists), the release venv from `requirements.lock` with `--require-hashes`, `/usr/local/sbin/questersboard-admin`,
-and the four units. It does **not** enable or start them, migrate, touch Nginx, or register commands.
+and the units (the four services plus the timed-refresh service and timer). It does **not** enable or start them, migrate, touch Nginx, or register commands.
 
 Host-specific isolation drop-in (keeps QuestersBoard away from other services' files; kept outside the repo):
 
 ```sh
-for u in web bot worker; do
+for u in web bot worker refresh; do
   sudo install -D -m 0644 10-isolation.conf /etc/systemd/system/questersboard-$u.service.d/10-isolation.conf
 done
 sudo systemctl daemon-reload

@@ -5,6 +5,18 @@
 #   [[release.change]]  area = one of AREAS below, kind = "new" | "improved" | "fixed", text = one sentence
 
 [[release]]
+date = "2026-11-13"
+title = "Characters stay current from Blizzard on their own"
+[[release.change]]
+area = "Characters"
+kind = "new"
+text = "Your characters are refreshed from Blizzard every few hours with the same details and sharing you chose, so gear, talents and professions stay current without pressing anything."
+[[release.change]]
+area = "Characters"
+kind = "improved"
+text = "A character Blizzard no longer has (renamed, moved or deleted) is shown as you entered it until you sync with Battle.net again."
+
+[[release]]
 date = "2026-11-11"
 title = "One account menu, a simpler My characters, recipe and role icons and a new footer"
 [[release.change]]

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Timed refresh from Blizzard.** `[blizzard] auto_refresh_hours` (default 4; 0 = off; 1, 2, 3, 4, 6,
+  8, 12 or 24) refreshes everyone's Blizzard data on their behalf every that many hours from midnight
+  server time: imported details with each owner's groups and sharing, and Blizzard checks (with the
+  verified mark) kept current for characters without details. Character pages are read afresh, not from
+  the profile cache. A character Blizzard no longer has loses its Blizzard data and stays as entered,
+  self-reported (Blizzard's API terms). New `questersboard-refresh.service` and `.timer` (hourly; the
+  service checks the setting), installed by `install.sh` but not enabled:
+  `sudo ./deploy/enable_auto_refresh.sh`. `sudo ./deploy/refresh_details.sh` runs it now.
+  `questersboard-admin refresh-details` now covers Blizzard checks too, runs one at a time, and has
+  `--scheduled` and `--next`. Help, privacy (with a Recent changes entry) and What's new updated.
+  No database migration.
 - **Event page: voice while it opens.** Right after an event starts, people who can join voice see
   "Voice: Opening in Discord; reload this page in a moment for the link" until the channel exists; then
   the existing "Join the voice channel in Discord" link replaces it.

@@ -440,40 +440,76 @@ def cmd_refresh_item_cards(args):
 
 
 def cmd_refresh_details(args):
-    """Refresh every character's imported Blizzard details (after an upgrade changes how they're stored),
-    as if each owner pressed Refresh from Blizzard: same groups, same sharing. Characters without
-    imported details are left alone. Read-only toward Discord. Dry run unless --yes."""
+    """Refresh everyone's Blizzard data on their behalf, as if each owner pressed Refresh from Blizzard:
+    imported details come in again with the same groups and sharing, and characters with only a Blizzard
+    check keep it (and the verified mark) fresh. A character Blizzard no longer has loses its Blizzard data
+    (Blizzard's API terms). Self-reported characters are left alone; nothing is posted to Discord.
+    Dry run unless --yes. --scheduled (the questersboard-refresh timer, every hour) only runs when
+    [blizzard] auto_refresh_hours says it's due: from midnight server time, every that many hours."""
     import time
+    from datetime import datetime
+    from sqlalchemy import text as sql
     from .domain import profiles
     from .domain.errors import Invalid, NotFound
+    from .domain.timeutil import now
     from .integrations.blizzard import ApiError, Blizzard, Unsupported
     cfg = _cfg(args)
+    if args.next:
+        every = int(cfg["blizzard"].get("auto_refresh_hours", 4) or 0)
+        if not every or not cfg["blizzard"]["enabled"]:
+            print("automatic refresh is off")
+        else:
+            at = profiles.auto_refresh_next(cfg, datetime.now().astimezone())
+            print(f"every {every} hour(s) from midnight server time; next run {at:%Y-%m-%d %H:%M %Z}")
+        return 0
+    if args.scheduled:
+        every = int(cfg["blizzard"].get("auto_refresh_hours", 4) or 0)
+        hour = datetime.now().astimezone().hour          # server local time
+        if not cfg["blizzard"]["enabled"] or not profiles.auto_refresh_due(cfg, hour):
+            print("automatic refresh is off" if not every or not cfg["blizzard"]["enabled"]
+                  else f"not due: runs every {every} hour(s) from midnight server time", flush=True)
+            return 0
     db = _db(cfg, "app")
     with db.tx() as s:
-        rows = profiles.operator_refresh_list(s, cfg)
-    owners = len({m for _c, _n, m in rows})
-    if not args.yes:
-        for cid, name, _m in rows:
-            print(f"  #{cid} {name}")
-        print(f"dry run: {len(rows)} character(s) of {owners} member(s) would be refreshed from Blizzard. "
-              "Re-run with --yes to refresh them.")
+        rows = profiles.auto_refresh_list(s, cfg)
+    owners = len({m for _c, _n, m, _p in rows})
+    details = sum(1 for r in rows if r[3])
+    if not (args.yes or args.scheduled):
+        for cid, name, _m, has in rows:
+            print(f"  #{cid} {name}" + ("" if has else " (Blizzard check only)"))
+        print(f"dry run: {len(rows)} character(s) of {owners} member(s) would be refreshed from Blizzard "
+              f"({details} with imported details). Re-run with --yes to refresh them.")
         return 0
-    bz = Blizzard(cfg)
-    pause = float(cfg["blizzard"].get("operator_refresh_pause_seconds", 1))
-    done, failed = 0, []
-    for i, (cid, name, _m) in enumerate(rows):
-        if i and pause:
-            time.sleep(pause)
+    with db.engine.connect() as lock:       # one run at a time (timer and a manual run can't overlap)
+        if not lock.execute(sql("SELECT pg_try_advisory_lock(:k)"), {"k": REFRESH_LOCK}).scalar():
+            print("another refresh is already running; nothing done", flush=True)
+            return 0
         try:
-            with db.tx() as s:
-                profiles.operator_refresh(s, cfg, bz, cid)
-            done += 1
-            print(f"  ok      #{cid} {name}", flush=True)
-        except (Invalid, NotFound, ApiError, Unsupported) as exc:
-            failed.append(name)
-            print(f"  failed  #{cid} {name}: {exc}", flush=True)
-    print(f"refreshed {done} of {len(rows)} character(s)" + (f"; {len(failed)} failed (kept as they were)" if failed else ""))
-    return 1 if failed and not done else 0
+            bz = Blizzard(cfg)
+            bz.fresh_profiles_after = now()   # read character pages afresh, not from the cache
+            pause = float(cfg["blizzard"].get("operator_refresh_pause_seconds", 1))
+            counts = {"refreshed": 0, "checked": 0, "removed": 0}
+            failed = []
+            for i, (cid, name, _m, _has) in enumerate(rows):
+                if i and pause:
+                    time.sleep(pause)
+                try:
+                    with db.tx() as s:
+                        got = profiles.auto_refresh_one(s, cfg, bz, cid)
+                    counts[got] += 1
+                    print(f"  {got:<9} #{cid} {name}", flush=True)
+                except (Invalid, NotFound, ApiError, Unsupported) as exc:
+                    failed.append(name)
+                    print(f"  failed    #{cid} {name}: {exc}", flush=True)
+            print(f"refreshed {counts['refreshed']}, checked {counts['checked']}, removed {counts['removed']} "
+                  f"of {len(rows)} character(s)" + (f"; {len(failed)} failed (kept as they were)" if failed else ""),
+                  flush=True)
+        finally:
+            lock.execute(sql("SELECT pg_advisory_unlock(:k)"), {"k": REFRESH_LOCK})
+    return 1 if failed and len(failed) == len(rows) else 0
+
+
+REFRESH_LOCK = 7_321_004      # pg advisory lock key for refresh-details
 
 
 def cmd_cover(args):
@@ -555,8 +591,11 @@ def main(argv=None) -> int:
     ri.add_argument("--hours", type=float, default=24, help="cards posted in the last this many hours (default 24)")
     ri.add_argument("--yes", action="store_true")
     ri.set_defaults(fn=cmd_refresh_item_cards)
-    rd = sub.add_parser("refresh-details", help="refresh everyone's imported Blizzard details (dry run unless --yes)")
+    rd = sub.add_parser("refresh-details", help="refresh everyone's Blizzard details and checks (dry run unless --yes)")
     rd.add_argument("--yes", action="store_true")
+    rd.add_argument("--scheduled", action="store_true",
+                    help="timer mode: refresh only when [blizzard] auto_refresh_hours says it's due")
+    rd.add_argument("--next", action="store_true", help="show the schedule and the next timed run, then exit")
     rd.set_defaults(fn=cmd_refresh_details)
     cv = sub.add_parser("default-cover", help="install the default event cover art from an image file")
     cv.add_argument("file")

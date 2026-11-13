@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import io
 import tomllib
-from datetime import timedelta
+from datetime import date, timedelta
 
 import httpx
 import pytest
@@ -152,7 +152,7 @@ def test_web_form_saves_cover_and_details(app, seeded, wcfg):
     new = host.get("/wow/quester/events/new").text
     assert 'enctype="multipart/form-data"' in new and 'name="objective"' in new and 'name="difficulty"' in new
     data = {**_form_defaults(new, "/wow/quester/events/new"), "title": "Mine run", "location": "Mine",
-            "edition": "forever", "faction": "horde", "date": "2026-12-10", "start_time": "19:00",
+            "edition": "forever", "faction": "horde", "date": (date.today() + timedelta(days=30)).isoformat(), "start_time": "19:00",
             "timezone": "America/Los_Angeles", "objective": "Reach the ship.", "difficulty": "Normal",
             "level_min": "17", "level_max": "22"}
     r = host.post("/wow/quester/events/new", data=data, files={"cover": ("art.png", _img(), "image/png")})

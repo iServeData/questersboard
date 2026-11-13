@@ -12,7 +12,8 @@ APP=questersboard
 USER_NAME=questersboard
 BASE=/opt/questersboard
 ETC=/etc/questersboard
-UNITS=(questersboard-web.socket questersboard-web.service questersboard-bot.service questersboard-worker.service)
+UNITS=(questersboard-web.socket questersboard-web.service questersboard-bot.service questersboard-worker.service
+       questersboard-refresh.service questersboard-refresh.timer)
 SERVICES=(questersboard-web questersboard-bot questersboard-worker)
 ADMIN_WRAPPER=/usr/local/sbin/questersboard-admin
 PY=python3.12

@@ -23,7 +23,7 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 
 import httpx
@@ -211,6 +211,9 @@ class Blizzard:
         self.limiter = _Limiter(self.bz.get("requests_per_second", 20))
         self._icons: OrderedDict[str, tuple[float, tuple[bytes, str]]] = OrderedDict()
         self._icon_lock = threading.Lock()
+        # Set by the scheduled refresh: cached character pages (profile namespaces) fetched before this
+        # time are ignored, so each run reads Blizzard afresh. Static data stays cached as usual.
+        self.fresh_profiles_after: datetime | None = None
 
     # ------------------------------------------------------------------ plumbing
     def require(self, ed: Edition, cap: str, ns_kind: str, region: str) -> str:
@@ -265,7 +268,9 @@ class Blizzard:
         key = key[:300]
         if s is not None:
             hit = s.get(ApiCache, key)
-            if hit and hit.expires_at > now():
+            if hit and hit.expires_at > now() and not (
+                    self.fresh_profiles_after and namespace.startswith("profile-")
+                    and hit.fetched_at < self.fresh_profiles_after):
                 return hit.status, hit.body
         url = self.cfg["blizzard"]["api_host_template"].replace("{region}", region) + path
         r = self._send("GET", url, params={**(params or {}), "namespace": namespace, "locale": locale},

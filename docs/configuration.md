@@ -120,6 +120,17 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   queued, never the message text or author. Needs the Message Content intent (Developer Portal), View
   Channel, Read Message History and Manage Webhooks in the channel, and `[blizzard] enabled`. Restart
   section.
+- **Timed refresh from Blizzard** (`[blizzard] auto_refresh_hours`, default 4): every that many hours,
+  starting at midnight server time (so 0 = off, or 1, 2, 3, 4, 6, 8, 12 or 24), everyone's Blizzard data
+  is refreshed on their behalf: imported details with each owner's own groups and sharing, and characters
+  with only a Blizzard check keep it (and the verified mark) current. Character pages are read afresh each
+  run, not from the `cache_hours_profile` cache. A character Blizzard no longer has (renamed, moved or
+  deleted) loses its Blizzard data and stays on the roster as entered, marked self-reported, as Blizzard's
+  API terms require. Self-reported characters are never looked up. `questersboard-refresh.timer` starts
+  `questersboard-refresh.service` on the hour; the service reads this setting, so a change takes effect
+  at the next hour without a restart. The timer is installed but not enabled by `install.sh`:
+  `sudo ./deploy/enable_auto_refresh.sh` turns it on (`--off` turns it off). Paced by
+  `operator_refresh_pause_seconds` and `requests_per_second`, well inside Blizzard's 36,000 calls an hour.
 
 ## Credentials
 
@@ -128,10 +139,10 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
 | `discord-bot-token` | web, bot, worker | gateway (bot), REST posts/DMs (worker), guild-member checks (web) |
 | `discord-client-secret` | web | Discord login (OAuth `identify` scope) |
 | `field-key` | web, bot, worker | Fernet key for encrypted fields |
-| `db-app-password` | web, bot | `questersboard_app` |
+| `db-app-password` | web, bot, refresh timer | `questersboard_app` |
 | `db-worker-password` | worker | `questersboard_worker` |
 | `db-admin-password` | admin CLI, backup | `questersboard_admin` (migrations; never loaded by a service) |
-| `blizzard-client-id`, `blizzard-client-secret` | web, worker | Blizzard API (optional) |
+| `blizzard-client-id`, `blizzard-client-secret` | web, worker, refresh timer | Blizzard API (optional) |
 | `ai-api-key` | worker | AI wording (optional) |
 
 Install each one without it touching the command line or shell history:

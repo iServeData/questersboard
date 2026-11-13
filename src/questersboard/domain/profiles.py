@@ -952,6 +952,67 @@ def operator_refresh(s: Session, cfg: Config, bz, character_id: int) -> Characte
                           {g: share_choice(prof, g) for g in GROUP_KEYS})
 
 
+def auto_refresh_list(s: Session, cfg: Config) -> list[tuple[int, str, int, bool]]:
+    """(character id, name, member id, has imported details) for every character the timed refresh
+    covers: not archived, on an edition whose character pages Blizzard serves, and either with imported
+    details or with a Blizzard check (api_matched / ownership_verified). Self-reported characters with
+    nothing from Blizzard are left alone. Oldest refresh first."""
+    rows = s.execute(select(Character, CharacterProfile.character_id)
+                     .outerjoin(CharacterProfile, CharacterProfile.character_id == Character.id)
+                     .where(Character.archived_at.is_(None))
+                     .where((CharacterProfile.character_id.is_not(None)) | (Character.verification != "self_reported"))
+                     .order_by(CharacterProfile.fetched_at.nulls_first(), Character.api_refreshed_at.nulls_first(),
+                               Character.id)).all()
+    return [(ch.id, ch.name, ch.member_id, pid is not None) for ch, pid in rows
+            if cfg.edition(ch.edition).capability("character") != "unsupported"]
+
+
+def auto_refresh_one(s: Session, cfg: Config, bz, character_id: int) -> str:
+    """The timed refresh for one character, on its owner's behalf (system actor scoped to the owner):
+    - "refreshed": imported details brought in again with the same groups and sharing;
+    - "checked": no imported details, but the Blizzard check (and the verified mark) is kept fresh;
+    - "removed": Blizzard no longer has the character (renamed, moved or deleted). Blizzard's API terms
+      say its data must then be deleted and not shown, so the imported details go and the character
+      stays on the roster as entered, marked self-reported, until its owner syncs or checks again.
+    Raises Invalid/NotFound/ApiError/Unsupported when Blizzard can't answer; nothing is changed then."""
+    from .actor import SYSTEM
+    ch = s.get(Character, character_id)
+    if ch is None or ch.archived_at is not None:
+        raise NotFound("No such character.")
+    m = bz.apply_lookup(s, ch)
+    if not m.found:
+        s.execute(delete(CharacterProfile).where(CharacterProfile.character_id == ch.id))
+        ch.verification, ch.api_external_id, ch.api_namespace, ch.api_refreshed_at = "self_reported", None, None, None
+        ch.updated_at = now()
+        audit.record(s, SYSTEM.with_member(ch.member_id), "character.blizzard_gone", "character", ch.id)
+        return "removed"
+    prof = s.get(CharacterProfile, ch.id)
+    if prof is None:
+        return "checked"
+    import_profile(s, cfg, bz, SYSTEM.with_member(prof.member_id), ch.id, _bulk_groups(prof),
+                   {g: share_choice(prof, g) for g in GROUP_KEYS})
+    return "refreshed"
+
+
+def auto_refresh_due(cfg: Config, local_hour: int) -> bool:
+    """Whether a timed run is due this hour: runs start at midnight server time and repeat every
+    [blizzard] auto_refresh_hours (0 = off)."""
+    every = int(cfg["blizzard"].get("auto_refresh_hours", 4) or 0)
+    return every > 0 and local_hour % every == 0
+
+
+def auto_refresh_next(cfg: Config, local_now):
+    """The next timed run after local_now (a timezone-aware server-local time), or None when off."""
+    every = int(cfg["blizzard"].get("auto_refresh_hours", 4) or 0)
+    if not every:
+        return None
+    at = local_now.replace(minute=0, second=0, microsecond=0)
+    while True:
+        at += timedelta(hours=1)
+        if at.hour % every == 0:
+            return at
+
+
 def share_all(s: Session, cfg: Config, actor: Actor, level: str) -> int:
     """One sharing choice for every imported group of every one of the member's characters (no
     Blizzard calls). Beyond private still only applies while a character is verified as theirs."""

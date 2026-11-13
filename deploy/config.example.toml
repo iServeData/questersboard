@@ -272,6 +272,9 @@ render_image_hosts = ["render.worldofwarcraft.com"]   # portraits and icons are 
 detail_icons = true                           # gear and talent icons with "Import details" (icon links come from Blizzard's media answers)
 icon_lookups = 120                            # max icon lookups per import: gear, talent trees, pets (cached like other static data)
 refresh_all_max = 10                          # My characters "Refresh all": at most this many characters per press (1-50)
+auto_refresh_hours = 4                        # refresh everyone's Blizzard data on their behalf every this many hours,
+                                              # starting at midnight server time (0 = off; 1, 2, 3, 4, 6, 8, 12 or 24).
+                                              # Needs questersboard-refresh.timer (sudo ./deploy/enable_auto_refresh.sh)
 known_recipes_max = 500                       # known recipes kept per profession (0-2000; 0 = skill levels only)
 recipe_lookups = 80                           # new known recipes looked up per import for icon and tooltip (0-500); later refreshes fill in the rest
 picker_default_share = "guild"                # Battle.net panel: who can see newly added characters until changed ("private", "guild", "members")

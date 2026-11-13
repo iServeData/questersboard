@@ -1,0 +1,63 @@
+# questersboard-refresh: refresh everyone's Blizzard character data on their behalf.
+# Started every hour by questersboard-refresh.timer; it only does anything when
+# [blizzard] auto_refresh_hours says a run is due (from midnight server time, every that many hours).
+# Same groups and sharing as each owner's own Refresh from Blizzard; nothing is posted to Discord.
+[Unit]
+Description=QuestersBoard timed refresh from Blizzard
+Documentation=file:/opt/questersboard/current/README.md
+Wants=network-online.target
+After=network-online.target time-sync.target postgresql.service
+
+[Service]
+Type=oneshot
+User=questersboard
+Group=questersboard
+Environment=PYTHONUNBUFFERED=1 QUESTERSBOARD_CONFIG=/etc/questersboard/config.toml
+# Host-key encrypted credentials from /etc/credstore.encrypted/questersboard.<name>; least privilege.
+ImportCredential=questersboard.db-app-password
+ImportCredential=questersboard.blizzard-client-id
+ImportCredential=questersboard.blizzard-client-secret
+ExecStart=/opt/questersboard/current/venv/bin/questersboard-admin refresh-details --scheduled
+WorkingDirectory=/var/lib/questersboard
+StateDirectory=questersboard
+StateDirectoryMode=0750
+TimeoutStartSec=3h
+Nice=10
+
+ReadOnlyPaths=/etc/questersboard
+# Other services on the host: hide their config/state with a drop-in (docs/install.md, "Isolation drop-in").
+InaccessiblePaths=-/etc/credstore.encrypted -/srv -/root
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateIPC=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+ProcSubset=pid
+RemoveIPC=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+UMask=0077
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @mount @debug @cpu-emulation @obsolete @raw-io @reboot @swap
+SystemCallErrorNumber=EPERM
+DevicePolicy=closed
+LimitNOFILE=1024
+MemoryMax=384M
+TasksMax=64
+CPUQuota=50%
+MemoryDenyWriteExecute=yes
