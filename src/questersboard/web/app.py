@@ -28,7 +28,9 @@ from urllib.parse import urlencode, urlparse, urlsplit
 
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import delete, select, text
@@ -240,7 +242,7 @@ def client_ip(request: Request) -> str:
 
 def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = None, rest=None,
                blizzard=None) -> FastAPI:
-    from . import routes_member, routes_public
+    from . import error_pages, routes_member, routes_public
 
     cfg = holder.cfg
     app = FastAPI(title="QuestersBoard", docs_url=None, redoc_url=None, openapi_url=None)
@@ -275,6 +277,58 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
     asset_re = re.compile("^(?:" + re.escape(member) + r"/(?:static/|uploads/|characters/\d+/(?:icon|portrait)/)"
                           "|" + re.escape(chron) + r"/media/)")
 
+    def secure(resp):
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("Referrer-Policy", "same-origin")
+        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("Content-Security-Policy",
+                                "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
+                                f"form-action {form_action(holder.cfg)}; frame-ancestors 'none'; base-uri 'none'")
+        return resp
+
+    def error_response(request: Request, code: int, detail: str = "", headers: dict | None = None,
+                       with_session: bool = True):
+        """The themed error page (web/error_pages.py), or JSON for API callers. with_session=False never
+        touches the database (rate limit, server errors), so it still works when the database doesn't."""
+        err = error_pages.page(code)
+        if request.headers.get("accept", "").startswith("application/json"):
+            resp = JSONResponse({"error": err["short"].lower().replace(" ", "_"), "message": detail or err["heading"]},
+                                status_code=code)
+        else:
+            ctx = {"title": f"{code} {err['short']}", "err": err, "detail": detail, "noindex": True}
+            resp = None
+            if with_session:
+                try:
+                    resp = routes_member.render(request, "error.html", ctx, status=code, public=True)
+                except Exception:  # noqa: BLE001 - fall back to the page without the account menu
+                    log.warning("error page %s: rendering with the session failed; showing it without", code)
+            if resp is None:
+                c = holder.cfg
+                base = dict(cfg=c, b=c["branding"], mp=c["web"]["member_path"].rstrip("/"),
+                            cp=c["chronicle"]["public_path"].rstrip("/"), actor=None, csrf="",
+                            can=lambda cap: False, public=True, solo_on=False, probation="", indexable=False,
+                            preview=False, seo=None, guild_links=[])
+                resp = tpl.TemplateResponse(request, "error.html", {**base, **ctx}, status_code=code)
+            resp.headers["Cache-Control"] = "no-store"
+        for k, v in (headers or {}).items():
+            resp.headers[k] = v
+        return resp
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error(request: Request, exc: StarletteHTTPException):
+        # Unknown addresses (404), wrong method (405, keeps its Allow header) and the like.
+        return error_response(request, exc.status_code, headers=getattr(exc, "headers", None))
+
+    @app.exception_handler(RequestValidationError)
+    async def bad_input(request: Request, exc: RequestValidationError):
+        # A malformed address (/events/abc) is just a page that doesn't exist; a malformed form is a 422.
+        return error_response(request, 404 if request.method in ("GET", "HEAD") else 422)
+
+    @app.exception_handler(Exception)
+    async def server_error(request: Request, exc: Exception):
+        log.exception("unhandled error on %s %s", request.method, request.url.path)
+        return secure(error_response(request, 500, with_session=False))
+
     @app.middleware("http")
     async def guard(request: Request, call_next):
         rl = holder.cfg["rate_limits"]
@@ -284,21 +338,17 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
         else:
             bucket, per_min = "ip:", rl.get("web_requests_per_minute", 120)
         if path != "/healthz" and not web.rate_ok(bucket + client_ip(request), per_min):
-            return PlainTextResponse("Too many requests. Please slow down.", status_code=429,
-                                     headers={"Retry-After": "60"})
-        resp = await call_next(request)
-        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
-        resp.headers.setdefault("Referrer-Policy", "same-origin")
-        resp.headers.setdefault("X-Frame-Options", "DENY")
-        resp.headers.setdefault("Content-Security-Policy",
-                                "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
-                                f"form-action {form_action(holder.cfg)}; frame-ancestors 'none'; base-uri 'none'")
-        return resp
+            return secure(error_response(request, 429, headers={"Retry-After": "60"}, with_session=False))
+        return secure(await call_next(request))
 
     @app.exception_handler(DomainError)
     async def domain_error(request: Request, exc: DomainError):
         if request.headers.get("accept", "").startswith("application/json"):
             return JSONResponse({"error": exc.code, "message": exc.message}, status_code=exc.status)
+        if request.method in ("GET", "HEAD") and exc.status in (403, 404, 410, 429):
+            # Opening a page that's missing, off limits or rate limited: the themed page, saying what.
+            return error_response(request, exc.status, detail=exc.message,
+                                  headers={"Retry-After": "60"} if exc.status == 429 else None)
         ctx = {"title": "Can't do that", "message": exc.message}
         if request.method == "POST":
             # Offer a real link back to the form page (same site only); the page script restores

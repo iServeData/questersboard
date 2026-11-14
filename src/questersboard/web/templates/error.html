@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{#- Themed error page (web/error_pages.py has the wording). Works without a database: no account menu. -#}
+{% block main %}
+<main id="content" class="wq-err-main">
+<section class="hero pin-hero home-hero err-hero qb-err-hero{% if not b.error_image %} qb-err-plain{% endif %}">
+  {% if b.error_image %}<picture>{% if b.error_image_mobile %}<source media="(max-width:700px)" srcset="{{ b.error_image_mobile }}">{% endif %}
+  <img src="{{ b.error_image }}" alt=""></picture>{% endif %}
+  <span class="hud br" aria-hidden="true">QuestersBoard · Error {{ err.code }} · {{ err.short }}</span>
+  <div class="wrap qb-err-wrap">
+    <div class="qb-err-copy">
+      <div class="label"><span class="num">{{ err.code }}</span>// {{ err.notice }}</div>
+      <h1>{{ err.heading }}</h1>
+      <p class="lead">{{ err.text }}</p>
+      {% if detail %}<p class="qb-err-detail">{{ detail }}</p>{% endif %}
+      <div class="btns">
+        {% if err.code == 401 %}<a class="btn" href="{{ mp }}/login">Log in with Discord</a> {% endif %}
+        <a class="btn{% if err.code == 401 %} ghost{% endif %}" href="{{ mp }}/">Back to the board</a>
+        {% if b.discord_invite_url %}<a class="btn ghost" href="{{ b.discord_invite_url }}"{% if b.discord_invite_url.startswith("https://") %} target="_blank" rel="noopener"{% endif %}>Ask in Discord{% if b.discord_invite_url.startswith("https://") %}<span class="sr-only"> (opens in new tab)</span>{% endif %}</a>{% endif %}
+      </div>
+      <p class="qb-err-links">Or try: <a href="{{ mp }}/">Events</a> · <a href="{{ mp }}/events/new">Plan an event</a> · <a href="{{ cp }}/">Chronicle</a> · <a href="{{ mp }}/characters">My characters</a> · <a href="{{ mp }}/help">How it works</a></p>
+    </div>
+    <div class="qb-notice" aria-hidden="true">
+      <div class="qb-n-kicker">Notice № {{ err.code }}</div>
+      <div class="qb-n-code">{{ err.code }}</div>
+      <div class="qb-n-title">{{ err.notice }}</div>
+      <div class="qb-n-line">{{ err.line }}</div>
+      <div class="qb-n-sign">— QuestersBoard</div>
+    </div>
+  </div>
+</section>
+</main>
+{% endblock %}

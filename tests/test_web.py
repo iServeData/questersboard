@@ -1030,3 +1030,51 @@ def test_icons_have_their_own_limit_so_pages_keep_loading(app, seeded, wcfg):
     assert 429 not in [c.get("/wow/quester/static/questersboard.css").status_code for _ in range(10)]
     rl["icon_requests_per_minute"] = 3
     assert 429 in [c.get(f"/wow/quester/characters/1/icon/gear/{n}").status_code for n in range(6)]
+
+
+def test_error_pages_are_themed(app, seeded, wcfg, monkeypatch):
+    """Errors QuestersBoard answers itself get the themed page with the right status, never bare text or JSON."""
+    pub = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
+    r = pub.get("/wow/quester/456.html")
+    assert r.status_code == 404 and "Quest not found" in r.text and "No notice on the board" in r.text
+    assert "noindex" in r.text and "Content-Security-Policy" in r.headers and 'style="' not in r.text
+    r = pub.get("/wow/chronicle/no-such-story/")
+    assert r.status_code == 404 and "Quest not found" in r.text
+    r = pub.post("/wow/chronicle/")
+    assert r.status_code == 405 and "Wrong way in" in r.text and "allow" in {k.lower() for k in r.headers}
+    # API callers still get JSON.
+    j = pub.get("/wow/quester/456.html", headers={"accept": "application/json"})
+    assert j.status_code == 404 and j.json()["error"] == "not_found"
+    # Signed in: a missing record says what's missing, under the same page.
+    c = login(app, 50)
+    r = c.get("/wow/quester/events/00000000-0000-0000-0000-000000000000")
+    assert r.status_code == 404 and "Quest not found" in r.text
+    r = c.get("/wow/quester/characters/abc")
+    assert r.status_code == 404 and "Quest not found" in r.text
+    # Rate limit: themed 429 that keeps Retry-After.
+    app.state.web.holder.cfg.raw["rate_limits"]["web_requests_per_minute"] = 2
+    codes = [pub.get("/wow/chronicle/") for _ in range(4)]
+    r = codes[-1]
+    assert r.status_code == 429 and "Slow your mount" in r.text and r.headers["retry-after"] == "60"
+    app.state.web.holder.cfg.raw["rate_limits"]["web_requests_per_minute"] = 120
+
+
+def test_server_error_page_works_without_the_database(app, seeded, monkeypatch):
+    def boom():
+        raise RuntimeError("FIXTURE: something broke")
+    app.add_api_route("/wow/quester/fixture-boom", boom)
+    c = TestClient(app, base_url="https://community.example.org", raise_server_exceptions=False)
+    r = c.get("/wow/quester/fixture-boom")
+    assert r.status_code == 500 and "The board fell over" in r.text and "FIXTURE" not in r.text
+    assert "Content-Security-Policy" in r.headers and r.headers["cache-control"] == "no-store"
+
+
+def test_every_error_code_has_wording():
+    from questersboard.web import error_pages
+    for code in (400, 401, 403, 404, 405, 408, 409, 410, 413, 414, 415, 422, 429, 431, 500, 501, 502, 503, 504):
+        p = error_pages.page(code)
+        assert p["heading"] and p["notice"] and p["line"] and code in error_pages.PAGES
+    assert error_pages.page(418)["notice"] == "Notice torn down"
+    assert error_pages.page(599)["notice"] == "The board fell over"
+    for p in error_pages.PAGES.values():
+        assert not any(w in " ".join(p).lower() for w in ("webhook", "outbox"))

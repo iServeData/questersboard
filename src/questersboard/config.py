@@ -561,6 +561,11 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     for k in ("home_url", "game_page_url", "stylesheet", "discord_invite_url"):
         if b[k] and not re.match(r"^(/|https://)", str(b[k])):
             raise ConfigError(f"[branding] {k} must start with / or https://")
+    # Error pages: a banner behind the message, from this site (the page rules only allow pictures from it).
+    for k in ("error_image", "error_image_mobile"):
+        b.setdefault(k, "")
+        if b[k] and not re.match(r"^/[A-Za-z0-9_./-]+$", str(b[k])):
+            raise ConfigError(f"[branding] {k} must be a path on this site starting with /, or empty")
     if not re.match(r"^[a-z0-9_ -]{0,64}$", str(b["body_class"])):
         raise ConfigError("[branding] body_class may only contain lowercase letters, digits, - and _")
     # Footer: wordmark (bold middle part), disclaimer lines, credit lines and footer links. Plain text only.

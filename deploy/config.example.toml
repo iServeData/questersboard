@@ -228,6 +228,10 @@ wordmark = ["Example ", "Community", ""]
 footer_notes = ["Independent community site; not affiliated with or endorsed by Blizzard Entertainment."]
 footer_credits = [ { text = "Site by ", link = "Example Hosting", url = "https://community.example.org/about/", after = "." } ]
 footer_nav = [ { label = "Discord", url = "https://community.example.org/discord" }, { label = "WoW", url = "/wow/" } ]
+# Error pages (404, 429, 500 and so on): optional banner behind the message, a path on this site.
+# Empty = no picture. error_image_mobile is used on phones; empty = error_image.
+error_image = ""                              # e.g. "/assets/images/wow/banner.jpg"
+error_image_mobile = ""
 
 [status]                                      # [live] optional; these are the defaults. Feeds status.json for the site's cards
 starting_soon_minutes = 15                    # "Starting soon" this long before the start; "Live" only after an organiser launches

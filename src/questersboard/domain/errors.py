@@ -24,6 +24,10 @@ class Conflict(DomainError):
     code, status = "conflict", 409
 
 
+class RateLimited(DomainError):
+    code, status = "rate_limited", 429
+
+
 class InvalidTransition(DomainError):
     code, status = "invalid_transition", 409
 

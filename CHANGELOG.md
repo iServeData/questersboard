@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Themed error pages.** Every error QuestersBoard answers itself (400, 401, 403, 404, 405, 408, 409, 410,
+  413, 414, 415, 422, 429, 431, 500, 501, 502, 503, 504, and a general page for any other code) now shows the
+  community site's error layout with the code on a notice pinned to the quest board, instead of bare text or
+  JSON. The status code is kept, pages aren't indexed, and API callers still get JSON. The rate-limit and
+  server-error pages never touch the database. Optional banner: `[branding] error_image` and
+  `error_image_mobile` (paths on the site). Wording is in `web/error_pages.py`.
 - **Looking at characters no longer trips the "Too many requests" page.** Gear and talent icons,
   portraits, screenshots and page files counted against the per-address page limit (120 a minute), and a
   character's talent trees alone can be over 100 icons, so after a character or two the icons showed "?"

@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from ..config import Config
 from ..domain import (calendar, catalog, chronicle, covers, eventtext, erasure, events, people, permissions, recommendations, recurrence, roster, solo,
                       scheduling, signups)
-from ..domain.errors import EditionLocked, Invalid, NeedsLeave, NotFound, PermissionDenied
+from ..domain.errors import EditionLocked, Invalid, NeedsLeave, NotFound, PermissionDenied, RateLimited
 from ..domain.events import ACTIVITY_TYPES
 from ..domain.timeutil import as_local, now, resolve_local
 from ..domain import audit, voice
@@ -197,7 +197,7 @@ def router(cfg: Config) -> APIRouter:
         per_min = (w.cfg["rate_limits"].get("icon_requests_per_minute", 600) if bucket == "i"
                    else w.cfg["rate_limits"].get("web_requests_per_minute", 120))
         if not w.rate_ok(f"{bucket}:{a.discord_id}", per_min):
-            raise PermissionDenied("Too many requests. Please wait a minute.")
+            raise RateLimited("Too many requests. Please wait a minute.")
         return sess, a
 
     async def post_guard(request: Request, fresh: bool = True):

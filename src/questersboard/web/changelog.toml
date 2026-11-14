@@ -6,7 +6,11 @@
 
 [[release]]
 date = "2026-11-14"
-title = "Chronicle editor fixes, and character pages that keep loading"
+title = "Chronicle editor fixes, character pages that keep loading, and new error pages"
+[[release.change]]
+area = "Site"
+kind = "improved"
+text = "Missing pages, \"Too many requests\" and other errors now show a proper QuestersBoard page with a way back to the board."
 [[release.change]]
 area = "Characters"
 kind = "fixed"

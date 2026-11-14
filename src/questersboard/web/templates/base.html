@@ -48,10 +48,10 @@
   </div>
   {% include "_subnav.html" %}
 </header>
-<main id="content" class="wrap wq-main">
+{% block main %}<main id="content" class="wrap wq-main">
   <nav class="crumb" aria-label="Breadcrumb"><a href="{{ b.game_page_url }}">WoW</a> / {% block crumb %}<span aria-current="page">{{ title }}</span>{% endblock %}</nav>
   {% block content %}{% endblock %}
-</main>
+</main>{% endblock %}
 {% macro foot_line(l) %}{{ l.text }}{% if l.link %}<a href="{{ l.url }}"{% if l.url.startswith("https://") %} target="_blank" rel="noopener"{% endif %}>{{ l.link }}{% if l.url.startswith("https://") %}<span class="sr-only"> (opens in new tab)</span>{% endif %}</a>{% endif %}{{ l.after }}{% endmacro %}
 <footer class="wq-foot">
   <div class="wrap row wq-foot-row">
