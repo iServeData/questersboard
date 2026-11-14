@@ -317,6 +317,7 @@ auto_refresh_hours = 4                        # refresh everyone's Blizzard data
                                               # starting at midnight server time (0 = off; 1, 2, 3, 4, 6, 8, 12 or 24).
                                               # Needs questersboard-refresh.timer (sudo ./deploy/enable_auto_refresh.sh)
 known_recipes_max = 500                       # known recipes kept per profession (0-2000; 0 = skill levels only)
+craft_cards_max = 6                           # Who can craft: item cards above the table, one per matching item (0-24; 0 = none)
 recipe_lookups = 80                           # new known recipes looked up per import for icon and tooltip (0-500); later refreshes fill in the rest
 picker_default_share = "guild"                # Battle.net panel: who can see newly added characters until changed ("private", "guild", "members")
 # region_labels = { us = "Americas & Oceania", eu = "Europe" }   # names shown for Battle.net regions (these are the defaults)
@@ -361,9 +362,10 @@ ruleset_api_ids = { pvp = 1, normal = 2, rp = 3, rp_pvp = 15 }
 # "Import details". US: the profile and all 15 detail pages answered (probe-character, 2026-11-10).
 # EU character pages were reported as 404 after launch, so this stays "unverified" (it's per edition).
 api_status = { reference = "unsupported", character = "unverified", quests = "unsupported", locations = "unsupported", ownership = "unverified" }
-# Optional plain links from item and talent tooltips (no third-party script). Empty = no link.
-item_link_template = "https://www.wowhead.com/forever/item={id}"
-spell_link_template = "https://www.wowhead.com/forever/spell={id}"
+# Optional plain links from item and talent tooltips to another site (no third-party script), e.g.
+# "https://www.example.org/item={id}". Empty = no link: tooltips use Blizzard data only.
+item_link_template = ""
+spell_link_template = ""
 # The weapon row under the gear columns; listed slots always show, empty or not.
 gear_bottom_slots = ["MAIN_HAND", "OFF_HAND", "RANGED", "AMMO"]
 talent_tree_columns = 4            # draw each specialization as a talent tree (0 = plain talent list)
@@ -386,8 +388,8 @@ dynamic_namespace = "dynamic-{region}"
 profile_namespace = "profile-{region}"
 ruleset_realm_slugs = {}
 api_status = { reference = "unverified", character = "unverified", quests = "unverified", locations = "unverified", ownership = "unverified" }
-item_link_template = "https://www.wowhead.com/item={id}"
-spell_link_template = "https://www.wowhead.com/spell={id}"
+item_link_template = ""
+spell_link_template = ""
 gear_bottom_slots = ["MAIN_HAND", "OFF_HAND"]
 
 # Classic editions use realms. Namespaces from Blizzard's API forums / community docs (unverified here):

@@ -424,6 +424,20 @@ def cmd_refresh_posts(args):
     return 0
 
 
+def cmd_offline_pages(args):
+    """Write the pages Nginx shows while QuestersBoard isn't running. No database or credentials needed;
+    deploy/install.sh runs this for every release. Run it again after changing [branding]."""
+    from .config import ConfigHolder
+    from .web.app import create_app, offline_path, write_offline_pages
+    cfg = _cfg(args)
+    out = Path(args.out)
+    names = write_offline_pages(create_app(ConfigHolder(cfg), None), out)
+    for n in names:
+        os.chmod(out / n, 0o644)
+    print(f"wrote {len(names)} files to {out} (served at {offline_path(cfg)}/)")
+    return 0
+
+
 def cmd_refresh_chronicle(args):
     """Re-render every published Chronicle page (after an upgrade changes how stories are shown).
     Only the public pages are rebuilt; nobody's story text changes and nothing is posted. Dry run unless --yes."""
@@ -618,6 +632,9 @@ def main(argv=None) -> int:
     rp = sub.add_parser("refresh-posts", help="re-render upcoming events' Discord posts (dry run unless --yes)")
     rp.add_argument("--yes", action="store_true")
     rp.set_defaults(fn=cmd_refresh_posts)
+    op = sub.add_parser("offline-pages", help="write the pages shown while QuestersBoard is down (for Nginx)")
+    op.add_argument("--out", default="/opt/questersboard/offline", help="folder (default /opt/questersboard/offline)")
+    op.set_defaults(fn=cmd_offline_pages)
     rc = sub.add_parser("refresh-chronicle", help="rebuild the published Chronicle pages (dry run unless --yes)")
     rc.add_argument("--yes", action="store_true")
     rc.set_defaults(fn=cmd_refresh_chronicle)

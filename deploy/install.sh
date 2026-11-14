@@ -73,6 +73,18 @@ run rm -rf "$REL/src/questersboard.egg-info" "$REL/build"
 run chown -R root:root "$REL"
 run chmod -R go-w "$REL"
 run "$REL/venv/bin/questersboard-admin" --config "$ETC/config.toml" check-config --quiet
+# Pages Nginx shows while QuestersBoard is down (deploy/nginx/questersboard_locations.conf). Made from
+# this release and the current [branding]; swapped in whole. A failure here only warns.
+if [[ $DRY == 1 ]]; then echo "+ write $BASE/offline (offline pages)"
+elif rm -rf "$BASE/offline.new" && "$REL/venv/bin/questersboard-admin" --config "$ETC/config.toml" offline-pages \
+       --out "$BASE/offline.new" >/dev/null; then
+  chmod 0755 "$BASE/offline.new"
+  rm -rf "$BASE/offline.old"; [[ -d "$BASE/offline" ]] && mv "$BASE/offline" "$BASE/offline.old"
+  mv "$BASE/offline.new" "$BASE/offline"; rm -rf "$BASE/offline.old"
+  echo "offline pages: $BASE/offline"
+else
+  echo "warning: offline pages not written; the previous ones (if any) stay" >&2
+fi
 
 trap - ERR
 

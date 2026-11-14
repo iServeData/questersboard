@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Who can craft shows the item.** A search shows a card per matching item above the table (icon, quality
+  colour, the item's tooltip, profession and how many of the listed characters can craft it), most crafters
+  first, up to `[blizzard] craft_cards_max` (default 6, 0-24; 0 = no cards; "Showing N of M" when cut). The
+  Can craft column lists each match with its icon and tooltip. Everything comes from the recipe details
+  already stored at import (no new Blizzard calls); each card borrows one crafter's icon through the usual
+  per-character icon route, so Professions sharing still applies. Recipes Blizzard didn't link to an item
+  show a blank icon and the plain name, as on character pages.
+- **No outside links by default.** `item_link_template` and `spell_link_template` are now empty in
+  `deploy/config.example.toml`, so tooltips use Blizzard data only. Existing configs keep whatever they set;
+  set both to `""` to remove the links.
+- **"Board's closed" pages while QuestersBoard is down.** When the web service isn't running (an update,
+  a restart, a crash) Nginx used to show the site's plain 502. It now shows QuestersBoard-styled offline
+  pages for 502, 503 and 504 ("Try again", the WoW page and Discord; no sign-in or menus), keeping the
+  status code. `install.sh` writes them to `/opt/questersboard/offline` with their CSS/JS
+  (`questersboard-admin offline-pages`, no database needed); the Nginx snippet serves them at
+  `/wow/quester-offline/` through `error_page`. Errors QuestersBoard sends itself are unchanged
+  (`proxy_intercept_errors` stays off). Existing hosts: `sudo ./deploy/enable_offline_pages.sh`.
 - **Themed error pages.** Every error QuestersBoard answers itself (400, 401, 403, 404, 405, 408, 409, 410,
   413, 414, 415, 422, 429, 431, 500, 501, 502, 503, 504, and a general page for any other code) now shows the
   community site's error layout with the code on a notice pinned to the quest board, instead of bare text or

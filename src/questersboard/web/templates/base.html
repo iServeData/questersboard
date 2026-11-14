@@ -24,10 +24,10 @@
 {% endif %}<meta name="twitter:title" content="{{ title }} — {{ b.site_name }}">
 <meta name="twitter:description" content="{{ seo.description }}">
 {% endif %}{% if b.stylesheet %}<link rel="stylesheet" href="{{ b.stylesheet }}">{% endif %}
-<link rel="stylesheet" href="{{ mp }}/static/questersboard.css?v={{ static_v }}">
-{% if public %}<link rel="alternate" type="application/atom+xml" title="{{ b.site_name }} WoW Chronicle" href="{{ cp }}/feed.atom">
+{% set sb = asset_base if asset_base is defined and asset_base else mp ~ "/static" %}<link rel="stylesheet" href="{{ sb }}/questersboard.css?v={{ static_v }}">
+{% if public and not offline %}<link rel="alternate" type="application/atom+xml" title="{{ b.site_name }} WoW Chronicle" href="{{ cp }}/feed.atom">
 <link rel="alternate" type="application/feed+json" title="{{ b.site_name }} WoW Chronicle" href="{{ cp }}/feed.json">{% endif %}
-<script src="{{ mp }}/static/questersboard.js?v={{ static_v }}" defer></script>
+<script src="{{ sb }}/questersboard.js?v={{ static_v }}" defer></script>
 </head>
 <body class="{{ b.body_class }} wq{% if not b.stylesheet %} wq-fallback{% endif %}">
 <a class="skip" href="#content">Skip to content</a>
@@ -46,7 +46,7 @@
       {% endif %}
     </ul>
   </div>
-  {% include "_subnav.html" %}
+  {% if not offline %}{% include "_subnav.html" %}{% endif %}
 </header>
 {% block main %}<main id="content" class="wrap wq-main">
   <nav class="crumb" aria-label="Breadcrumb"><a href="{{ b.game_page_url }}">WoW</a> / {% block crumb %}<span aria-current="page">{{ title }}</span>{% endblock %}</nav>
@@ -58,10 +58,11 @@
     <div class="wq-foot-main">
       <a class="wordmark" href="{{ b.home_url }}">{{ b.wordmark[0] }}<b>{{ b.wordmark[1] }}</b>{{ b.wordmark[2] }}</a>
       {% if b.footer_notes %}<p class="wq-foot-notes">{% for l in b.footer_notes %}{{ foot_line(l) }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>{% endif %}
-      <div class="wq-foot-links">
+      {% if not offline %}<div class="wq-foot-links">
         {% if actor %}<form method="post" action="{{ mp }}/logout" class="wq-inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="linkish" type="submit">Log out</button></form> · {% endif %}<a href="{{ mp }}/calendar.ics">Public calendar (.ics)</a> · <a href="{{ cp }}/feed.atom">Chronicle feed</a> · <a href="{{ mp }}/help">How it works</a> · <a href="{{ mp }}/privacy">Privacy</a> · <a href="{{ mp }}/terms">Terms</a> · <a href="{{ mp }}/changelog">Changelog</a>
       </div>
-      <p class="credit">{% for l in b.footer_credits %}<span class="credit-line">{{ foot_line(l) }}</span>{% endfor %}<span class="build">Commit {{ build.commit }}{% if build.date %} · {{ build.date.strftime("%b %-d, %Y") }}{% endif %} · <a href="{{ mp }}/changelog">Changelog</a></span></p>
+      {% endif %}
+      <p class="credit">{% for l in b.footer_credits %}<span class="credit-line">{{ foot_line(l) }}</span>{% endfor %}<span class="build">Commit {{ build.commit }}{% if build.date %} · {{ build.date.strftime("%b %-d, %Y") }}{% endif %}{% if not offline %} · <a href="{{ mp }}/changelog">Changelog</a>{% endif %}</span></p>
     </div>
     {% if b.footer_nav %}<nav aria-label="Footer">{% for n in b.footer_nav %}<a href="{{ n.url }}"{% if n.url.startswith("https://") %} target="_blank" rel="noopener"{% endif %}>{{ n.label }}{% if n.url.startswith("https://") %}<span class="sr-only"> (opens in new tab)</span>{% endif %}</a>{% endfor %}</nav>{% endif %}
   </div>

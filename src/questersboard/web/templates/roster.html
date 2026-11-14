@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_item_tips.html" as tips with context %}
 {% block content %}
 <div class="section-head"><h1>{{ title }}</h1></div>
 {% if scope == "guild" %}
@@ -25,6 +26,11 @@
 </details>
 <p class="note wq-table-count">{{ rows|length }} of {{ total }} character{{ "s" if total != 1 }}.</p>
 </div>
+{% if rows and craft_cards %}
+<p class="wq-craft-label">Matching item{{ "s" if craft_card_total != 1 }} for “{{ f.craft }}”</p>
+<div class="wq-craft-items">{% for k in craft_cards %}{% set ced = editions[k.prof_row.edition] if k.prof_row.edition in editions else none %}<div class="wq-craft-card">{{ tips.recipe(k.ref, k.r, k.prof, ced, k.cid, k.prof_row.fetched_at.strftime("%Y%m%d%H%M%S"), k.prof ~ " · " ~ k.count ~ (" character can" if k.count == 1 else " characters can") ~ " craft this", "wq-craft-card-item", 44) }}</div>{% endfor %}</div>
+{% if craft_card_total > craft_cards|length %}<p class="note">Showing {{ craft_cards|length }} of {{ craft_card_total }} matching items. Type more of the name to narrow it down.</p>{% endif %}
+{% endif %}
 {% if rows %}
 <table class="wq-roster-table" data-sortable>
   {% macro th(key, num=false) %}<th scope="col" data-sort-key="{{ key }}"{% if num %} data-sort-num{% endif %} aria-sort="{{ ('descending' if desc else 'ascending') if sort == key else 'none' }}"><a href="{{ sort_links[key] }}" data-sort-link>{{ sort_columns[key] }}<span class="wq-sort-ind" aria-hidden="true"></span></a></th>{% endmacro %}
@@ -39,7 +45,7 @@
     <td data-label="Item level" data-v="{{ r.item_level or '' }}">{{ r.item_level or "—" }}</td>
     <td data-label="Roles" data-v="{{ r.ch.eligible_roles|join(', ') }}">{{ r.ch.eligible_roles|join(", ") or "—" }}</td>
     <td data-label="Professions" data-v="{{ r.professions|join(', ') }}">{{ r.professions|join(", ") or "—" }}</td>
-    {% if f.craft %}<td data-label="Can craft">{% for name, prof in r.crafts %}{{ name }} <span class="note">{{ prof }}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}</td>{% endif %}
+    {% if f.craft %}{% set red = editions[r.prof.edition] if r.prof.edition in editions else none %}<td data-label="Can craft" class="wq-craft-cell"><ul class="wq-craft-list">{% for x in r.crafts %}<li>{{ tips.recipe(x.ref, x.r, x.prof, red, r.ch.id, r.prof.fetched_at.strftime("%Y%m%d%H%M%S")) }} <span class="note">{{ x.prof }}</span></li>{% endfor %}</ul></td>{% endif %}
   </tr>
   {% endfor %}
   </tbody>

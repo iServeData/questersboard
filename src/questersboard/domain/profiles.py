@@ -1223,16 +1223,21 @@ class RosterRow:
     item_level: int | None
     spec: str
     professions: list[str]
-    recipes: list[tuple[str, str]] = field(default_factory=list)    # (recipe, profession), when shared
-    crafts: list[tuple[str, str]] = field(default_factory=list)     # the ones matching "Who can craft"
+    # Known recipes, when Professions is shared: {"name", "prof", "ref" ("profIndex-recipeIndex", for the
+    # icon route), "r" (the stored recipe: icon, quality, tip, item_id, makes)}.
+    recipes: list[dict] = field(default_factory=list)
+    crafts: list[dict] = field(default_factory=list)                # the ones matching "Who can craft"
 
 
 def _row(ch: Character, prof: CharacterProfile, vis: list[str]) -> RosterRow:
     g = prof.groups or {}
     ilvl = (g.get("overview") or {}).get("equipped_item_level") if "overview" in vis else None
     spec = (_best_spec(g.get("talents")) if "talents" in vis else "") or (ch.spec or "")
-    shown = [p for p in g.get("professions") or [] if p.get("name")] if "professions" in vis else []
-    recipes = [(r["name"], p["name"]) for p in shown for r in p.get("recipes") or [] if r.get("name")]
+    profs = g.get("professions") if "professions" in vis and isinstance(g.get("professions"), list) else []
+    shown = [p for p in profs if isinstance(p, dict) and p.get("name")]
+    recipes = [{"name": r["name"], "prof": p["name"], "ref": f"{pi}-{ri}", "r": r}
+               for pi, p in enumerate(profs) if p in shown
+               for ri, r in enumerate(p.get("recipes") or []) if isinstance(r, dict) and r.get("name")]
     return RosterRow(ch, prof, vis, ilvl, spec, [p["name"] for p in shown], recipes)
 
 
@@ -1328,7 +1333,7 @@ def filter_rows(rows: list[RosterRow], f: dict) -> list[RosterRow]:
             continue
         q = craft_query(f.get("craft")).casefold()
         if q:
-            hits = [x for x in r.recipes if q in x[0].casefold()]
+            hits = [x for x in r.recipes if q in x["name"].casefold()]
             if not hits:
                 continue
             r = replace(r, crafts=hits)
@@ -1336,12 +1341,35 @@ def filter_rows(rows: list[RosterRow], f: dict) -> list[RosterRow]:
     return out
 
 
+def craft_items(rows: list[RosterRow], limit: int) -> tuple[list[dict], int]:
+    """The different items matching a "Who can craft" search, for the cards above the table: one per
+    recipe (by the item it makes, else by name), with how many of the shown characters can craft it.
+    Each card borrows one crafter's stored icon and tooltip (preferring one that has an icon), so it
+    follows that crafter's Professions sharing like the rows do. Returns (cards, how many in all)."""
+    seen: dict = {}
+    for row in rows:
+        for x in row.crafts:
+            r = x["r"]
+            key = ("item", r["item_id"]) if isinstance(r.get("item_id"), int) else ("name", x["name"].casefold())
+            card = seen.get(key)
+            if card is None:
+                card = seen[key] = {"name": x["name"], "prof": x["prof"], "ref": x["ref"], "r": r,
+                                    "cid": row.ch.id, "prof_row": row.prof, "who": set()}
+            elif r.get("icon") and not card["r"].get("icon"):
+                card.update(ref=x["ref"], r=r, cid=row.ch.id, prof_row=row.prof)
+            card["who"].add(row.ch.id)
+    cards = sorted(seen.values(), key=lambda c: (-len(c["who"]), c["name"].casefold()))
+    for c in cards:
+        c["count"] = len(c.pop("who"))
+    return cards[:max(limit, 0)], len(cards)
+
+
 def filter_options(rows: list[RosterRow]) -> dict[str, list[str]]:
     return {"class": sorted({r.ch.class_key for r in rows}),
             "role": sorted({x for r in rows for x in (r.ch.eligible_roles or [])}),
             "spec": sorted({r.spec for r in rows if r.spec}),
             "profession": sorted({p for r in rows for p in r.professions}),
-            "craft": sorted({x[0] for r in rows for x in r.recipes}, key=str.casefold),
+            "craft": sorted({x["name"] for r in rows for x in r.recipes}, key=str.casefold),
             "edition": sorted({r.ch.edition for r in rows})}
 
 

@@ -11,7 +11,7 @@ from helpers import char
 from sqlalchemy import text
 from test_web import _bz_app, csrf, login
 
-from questersboard.config import ConfigError, validate
+from questersboard.config import Config, ConfigError, validate
 from questersboard.domain import profiles
 
 BASE = "/profile/wow/character/zulmara-ashveil"
@@ -123,10 +123,13 @@ def test_link_templates_and_icon_settings_are_validated():
     from pathlib import Path
     import tomllib
     raw = tomllib.loads((Path(__file__).resolve().parents[1] / "deploy" / "config.example.toml").read_text())
-    ok = make_cfg()
-    ed = ok.edition("forever")
-    assert ed.item_link(9101) == "https://www.wowhead.com/forever/item=9101"
-    assert ed.spell_link(19426) == "https://www.wowhead.com/forever/spell=19426" and ed.item_link(None) == ""
+    assert make_cfg().edition("forever").item_link(9101) == ""           # off by default: Blizzard data only
+    r = copy.deepcopy(raw)
+    r["editions"][0].update(item_link_template="https://www.example.org/item={id}",
+                            spell_link_template="https://www.example.org/spell={id}")
+    ed = Config(raw=validate(r), path="test", section_hashes={}).edition("forever")
+    assert ed.item_link(9101) == "https://www.example.org/item=9101"
+    assert ed.spell_link(19426) == "https://www.example.org/spell=19426" and ed.item_link(None) == ""
     for bad in ("http://www.wowhead.com/item={id}", "https://www.wowhead.com/item=", "javascript:alert({id})"):
         r = copy.deepcopy(raw)
         r["editions"][0]["item_link_template"] = bad
@@ -167,7 +170,7 @@ def test_import_shows_icons_and_tooltips_served_by_questersboard(seeded, tmp_pat
     assert "18 Armor" in page and "+3 Agility" in page and "Requires Level 17" in page and "Item Level 22" in page
     assert "Fixture Skyseer Cloak" in page and "14 - 27 Damage" in page and "Equip: Fixture effect." in page
     assert "Increases your fixture chance by 5%." in page and "Rank 5" in page
-    assert 'href="https://www.wowhead.com/forever/item=9101"' in page and "wowhead.com/forever/spell=19426" in page
+    assert "wq-tip-link" not in page and "wowhead" not in page.casefold()   # no outside links by default
     assert "<script src=\"https://" not in page                              # links only, no third-party script
     assert page.index("Fixture Cap") < page.index("Fixture Cloak") < page.index("Fixture Bow")   # sheet order
 

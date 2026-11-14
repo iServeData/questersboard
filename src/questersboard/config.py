@@ -73,7 +73,7 @@ class Edition:
     # (Battle.net sync reads a character's ruleset as an ID or a name).
     ruleset_api_ids: dict[str, int] = field(default_factory=dict)
     # Optional plain links from item and talent tooltips to a database site, e.g.
-    # "https://www.wowhead.com/forever/item={id}". Empty = no link. Links only: no third-party script.
+    # "https://www.example.org/item={id}". Empty = no link. Links only: no third-party script.
     item_link_template: str = ""
     spell_link_template: str = ""
     # The weapon row under the gear columns, left to right; every listed slot is always shown (empty
@@ -652,6 +652,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
                                            for k, v in rl.items()):
         raise ConfigError("[blizzard] region_labels must map region keys to names, e.g. { us = \"Americas\" }")
     _positive(bz.get("icon_cache_entries", 2000), "[blizzard] icon_cache_entries", 0)
+    if _positive(bz.setdefault("craft_cards_max", 6), "[blizzard] craft_cards_max", 0) > 24:
+        raise ConfigError("[blizzard] craft_cards_max must be 24 or less")
     if _positive(bz.get("known_recipes_max", 500), "[blizzard] known_recipes_max", 0) > 2000:
         raise ConfigError("[blizzard] known_recipes_max must be 2000 or less")
     pause = bz.get("operator_refresh_pause_seconds", 1)

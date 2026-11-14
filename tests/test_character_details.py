@@ -543,13 +543,74 @@ def test_who_can_craft_searches_shared_recipes_only(seeded, tmp_path, monkeypatc
     assert 'name="craft"' in page and '<option value="Fixture Leather Belt">' in page   # suggestions
     belt = c.get(url + "?craft=%20leather%20%20BELT%20").text                      # any case, spaces tidied
     assert "Belt Maker" in belt and "Boot Maker" not in belt and "Quiet Maker" not in belt
-    assert "<th scope=\"col\">Can craft</th>" in belt and "Fixture Leather Belt <span class=\"note\">Leatherworking" in belt
+    assert "<th scope=\"col\">Can craft</th>" in belt and "<span>Fixture Leather Belt</span>" in belt
+    assert '<span class="note">Leatherworking</span>' in belt and "1 character can craft this" in belt
     assert 'value="leather BELT"' in belt
     boots = c.get(url + "?craft=boots").text
     assert "Belt Maker" in boots and "Boot Maker" in boots and "Quiet Maker" not in boots
     none = c.get(url + "?craft=fixture%20sword").text
     assert "Nobody here has shared a recipe matching" in none and none.count("/view") == 0
     assert c.get(url + "?craft=" + "x" * 300).status_code == 200                  # long input is cut, not an error
+
+
+def _icon_groups(n, recipes):
+    """Crafter groups whose recipes carry what an import stores: icon, quality, tooltip, item id."""
+    g = _crafter_groups(n, [r for r, _ in recipes])
+    for row, (_, extra) in zip(g["professions"][0]["recipes"], recipes):
+        row.update(extra)
+    g["professions"].insert(0, {"name": "Skinning", "kind": "primary", "skill": 10, "max": 75})
+    return g
+
+
+@needs_db
+def test_who_can_craft_shows_item_cards_and_icons(seeded, tmp_path, monkeypatch):
+    def h(req):
+        if req.url.host == "render.worldofwarcraft.com":
+            return httpx.Response(200, content=b"\x89PNG-fixture", headers={"content-type": "image/png"})
+        return _handler(req)
+    a, cfg, _ = _bz_app(seeded, tmp_path, monkeypatch, h)
+    bag = {"item_id": 4241, "quality": "uncommon", "icon": "https://render.worldofwarcraft.com/us/icons/56/fixture_bag.jpg",
+           "tip": {"type": "Container", "description": "Fixture tooltip line"}}
+    guild_all = {g: "guild" for g in profiles.GROUP_KEYS}
+    one = _shared(seeded, cfg, 70, "Bag Maker", shares=guild_all,
+                  groups=_icon_groups(70, [("Fixture Reagent Bag", bag), ("Fixture Linen Bag", {})]))
+    _shared(seeded, cfg, 71, "Second Maker", shares=guild_all,
+            groups=_icon_groups(71, [("Fixture Reagent Bag", {"item_id": 4241, "quality": "uncommon"})]))
+    url = "/wow/quester/guilds/forever/us/9001"
+    c = login(a, 71)                                                     # a guild member (Second Maker's owner)
+    page = c.get(url + "?craft=reagent").text
+    assert page.count('class="wq-craft-card"') == 1 and "2 characters can craft this" in page
+    assert "Matching item for" in page and "Fixture tooltip line" in page and "wq-q-uncommon" in page
+    src = f"/wow/quester/characters/{one}/icon/recipes/1-0?v="          # profession 1 (after Skinning), recipe 0
+    assert page.count(src) == 2                                          # the card and Bag Maker's row
+    assert c.get(src.split("?")[0]).status_code == 200                  # served from Blizzard's icon
+    assert "wowhead" not in page.casefold()                             # no outside links unless configured
+    many = c.get(url + "?craft=bag").text
+    assert many.count('class="wq-craft-card"') == 2 and "Matching items for" in many
+    cards = many[many.index('class="wq-craft-items"'):]
+    assert cards.index("Fixture Reagent Bag") < cards.index("Fixture Linen Bag")  # most crafters first
+    assert "<span>Fixture Linen Bag</span>" in many                     # no icon or tooltip: plain name
+    assert 'class="wq-craft-card"' not in c.get(url).text                # no search, no cards
+    cfg["blizzard"]["craft_cards_max"] = 1
+    capped = c.get(url + "?craft=bag").text
+    assert capped.count('class="wq-craft-card"') == 1 and "Showing 1 of 2 matching items" in capped
+    cfg["blizzard"]["craft_cards_max"] = 0
+    assert 'class="wq-craft-card"' not in c.get(url + "?craft=bag").text
+
+
+def test_craft_cards_max_is_checked():
+    from conftest import make_cfg
+    from questersboard.config import ConfigError
+    assert make_cfg()["blizzard"]["craft_cards_max"] == 6
+    for bad in (-1, 25, "6", True):
+        with pytest.raises(ConfigError, match="craft_cards_max"):
+            make_cfg(blizzard={"craft_cards_max": bad})
+
+
+def test_example_config_links_to_no_other_sites():
+    from pathlib import Path
+    ex = (Path(__file__).resolve().parents[1] / "deploy" / "config.example.toml").read_text()
+    assert "wowhead" not in ex.casefold()
 
 
 def test_craft_query_and_filter_rows_without_a_database():

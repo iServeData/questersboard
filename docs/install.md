@@ -168,6 +168,12 @@ Check: without a gate cookie, `https://PROTOTYPE_HOST/wow/quester/upcoming.json`
 after signing in it returns JSON, and `/wow/chronicle/` shows the archive. The live host is unchanged
 (its `/wow/quester/` is still the static site's 404). Rollback: remove the include line, `nginx -t`, reload.
 
+Offline pages: the snippet also shows QuestersBoard's own "Board's closed" pages (502, 503, 504) while the
+web service isn't running, from `/opt/questersboard/offline` (written by `install.sh` on every install, or by
+`questersboard-admin offline-pages`). Pages QuestersBoard sends itself pass through unchanged. On a host
+that already has the snippet, `sudo ./deploy/enable_offline_pages.sh` installs the new one with a backup,
+checks it with `nginx -t` and reloads (or puts the backup back).
+
 ## 8b. Upgrades with a new migration
 
 `install.sh` installs a new release but never migrates. When a release adds a migration (0002 adds

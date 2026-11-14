@@ -953,7 +953,10 @@ def router(cfg: Config) -> APIRouter:
         keep = {k: v for k, v in f.items() if v}
         sort_links = {k: "?" + urlencode({**keep, "sort": k, **({"dir": "desc"} if k == sort and not desc else {})})
                       for k in profiles.SORT_COLUMNS}
+        cards, card_total = (profiles.craft_items(shown, w.cfg["blizzard"].get("craft_cards_max", 6))
+                             if f["craft"] else ([], 0))
         return render(request, "roster.html", {"title": title, "rows": shown, "total": len(rows), "f": f,
+                                               "craft_cards": cards, "craft_card_total": card_total,
                                                "opts": profiles.filter_options(rows), "scope": scope,
                                                "guild": guild, "editions": w.cfg.editions,
                                                "presets": {p.key: p.label for p in w.cfg.role_presets},

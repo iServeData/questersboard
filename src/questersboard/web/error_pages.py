@@ -75,6 +75,25 @@ GENERIC = {
 }
 
 
-def page(code: int) -> dict:
-    short, title, heading, text, line = PAGES.get(code) or GENERIC[5 if code >= 500 else 4]
-    return {"code": code, "short": short, "notice": title, "heading": heading, "text": text, "line": line}
+# When QuestersBoard itself isn't running, Nginx shows these instead (written as static files by
+# `questersboard-admin offline-pages`; deploy/nginx/questersboard_locations.conf points to them).
+OFFLINE: dict[int, tuple[str, str, str, str, str]] = {
+    502: ("Board closed", "Board's closed", "QuestersBoard isn't answering right now.",
+          "It's usually back within a few minutes, for example after an update. Your signups, characters and "
+          "stories are safe. Try again shortly; if it's still down, let an officer know in Discord.",
+          "Back: shortly"),
+    503: ("Closed for maintenance", "Closed for maintenance", "The board is being repainted.",
+          "QuestersBoard is closed for a moment, usually for an update. Your signups, characters and stories "
+          "are safe. Try again in a few minutes.", "Back: shortly"),
+    504: ("Board not answering", "Courier's late", "QuestersBoard took too long to answer.",
+          "It may be busy or restarting. Your signups, characters and stories are safe. Try again in a few "
+          "minutes; if it keeps happening, let an officer know in Discord.", "Try: in a few minutes"),
+}
+OFFLINE_CODES = tuple(OFFLINE)
+
+
+def page(code: int, offline: bool = False) -> dict:
+    short, title, heading, text, line = ((offline and OFFLINE.get(code)) or PAGES.get(code)
+                                         or GENERIC[5 if code >= 500 else 4])
+    return {"code": code, "short": short, "notice": title, "heading": heading, "text": text, "line": line,
+            "offline": offline}

@@ -279,6 +279,24 @@ th[aria-sort="descending"] .wq-sort-ind::after{content:"\25BC";opacity:1;color:v
 .wq-recipe .wq-item-name{font-size:.95em;font-weight:500}
 .wq-recipe-plain{display:inline-flex;align-items:center;gap:8px;padding:2px 4px}
 .wq-recipe-plain .wq-icon{opacity:.35}
+/* Who can craft: an item card per matching item above the table, and icons in the Can craft column. */
+.wq-craft-label{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;opacity:.75;margin:10px 0 6px}
+.wq-craft-items{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px}
+.wq-craft-card{display:flex;align-items:center;padding:10px 14px;background:rgba(11,13,26,.72);border:1px solid rgba(225,228,232,.18);border-radius:6px;min-width:260px}
+.wq-craft-card .wq-item{position:relative}
+.wq-craft-card .wq-item-btn{background:none;border-color:transparent;padding:0;gap:12px}
+.wq-craft-card .wq-icon{width:44px;height:44px;flex:0 0 44px}
+.wq-craft-card .wq-item-name{font-size:1.05rem;font-weight:600}
+.wq-craft-card .wq-item-txt .note{display:block;font-size:.85rem;margin-top:2px}
+.wq-craft-card .wq-recipe-plain{gap:12px;padding:0}
+.wq-craft-card .wq-recipe-plain .wq-icon{width:44px;height:44px;flex:0 0 44px}
+.wq-craft-card .wq-recipe-plain .wq-item-txt{display:flex;flex-direction:column}
+.wq-craft-list{list-style:none;margin:0;padding:0;display:inline-flex;flex-direction:column;gap:4px;vertical-align:top}
+.wq-craft-list>li{display:flex;align-items:center;gap:6px;margin:0}
+.wq-craft-cell .wq-recipe{position:relative;display:inline-block}
+.wq-craft-cell .wq-item-btn{display:inline-flex;align-items:center}
+.wq-craft-cell .wq-tip{left:auto;right:0;top:calc(100% + 6px)}
+@media (max-width:700px){.wq-craft-list{display:flex;margin-top:4px}.wq-craft-card{min-width:0;width:100%}}
 .wq-gear-center .note{padding:0 10px;text-align:center}
 /* No picture yet: an outline of the character's race on the stand, with a short note over it. */
 .wq-placeholder .wq-silhouette{max-height:380px;opacity:.9}

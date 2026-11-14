@@ -240,6 +240,28 @@ def client_ip(request: Request) -> str:
     return request.headers.get("x-real-ip") or (request.client.host if request.client else "unknown")
 
 
+def offline_path(cfg: Config) -> str:
+    """Where Nginx serves the offline pages and their CSS/JS: the member path plus "-offline"
+    (/wow/quester -> /wow/quester-offline). deploy/nginx/questersboard_locations.conf uses the same."""
+    return cfg["web"]["member_path"].rstrip("/") + "-offline"
+
+
+def write_offline_pages(app: FastAPI, out: Path) -> list[str]:
+    """Write the offline pages (502.html, 503.html, 504.html) and the files they load into `out`."""
+    import shutil
+    from .error_pages import OFFLINE_CODES
+    out.mkdir(parents=True, exist_ok=True)
+    names = []
+    for code in OFFLINE_CODES:
+        (out / f"{code}.html").write_text(app.state.offline_page(code), encoding="utf-8")
+        names.append(f"{code}.html")
+    for f in sorted((HERE / "static").iterdir()):          # questersboard.css/.js and what the CSS points to
+        if f.is_file():
+            shutil.copyfile(f, out / f.name)
+            names.append(f.name)
+    return names
+
+
 def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = None, rest=None,
                blizzard=None) -> FastAPI:
     from . import error_pages, routes_member, routes_public
@@ -286,6 +308,26 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
                                 f"form-action {form_action(holder.cfg)}; frame-ancestors 'none'; base-uri 'none'")
         return resp
 
+    def error_base(c) -> dict:
+        """What error.html needs from base.html without a session or database (signed-out view)."""
+        return dict(cfg=c, b=c["branding"], mp=c["web"]["member_path"].rstrip("/"),
+                    cp=c["chronicle"]["public_path"].rstrip("/"), actor=None, csrf="",
+                    can=lambda cap: False, public=True, solo_on=False, probation="", indexable=False,
+                    preview=False, seo=None, guild_links=[])
+
+    def offline_page(code: int) -> str:
+        """The page Nginx shows when QuestersBoard isn't running (502, 503, 504), as static HTML. Its CSS
+        and JS load from offline_path(cfg), next to the page, because /static/ is down too."""
+        c = holder.cfg
+        err = error_pages.page(code, offline=True)
+        req = Request({"type": "http", "method": "GET", "path": c["web"]["member_path"].rstrip("/") + "/",
+                       "raw_path": b"/", "headers": [], "query_string": b"", "scheme": "https",
+                       "server": ("localhost", 443), "client": None, "root_path": ""})
+        return tpl.env.get_template("error.html").render(
+            {**error_base(c), "request": req, "title": f"{code} {err['short']}", "err": err, "detail": "",
+             "noindex": True, "offline": True, "asset_base": offline_path(c)})
+    app.state.offline_page = offline_page
+
     def error_response(request: Request, code: int, detail: str = "", headers: dict | None = None,
                        with_session: bool = True):
         """The themed error page (web/error_pages.py), or JSON for API callers. with_session=False never
@@ -303,12 +345,8 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
                 except Exception:  # noqa: BLE001 - fall back to the page without the account menu
                     log.warning("error page %s: rendering with the session failed; showing it without", code)
             if resp is None:
-                c = holder.cfg
-                base = dict(cfg=c, b=c["branding"], mp=c["web"]["member_path"].rstrip("/"),
-                            cp=c["chronicle"]["public_path"].rstrip("/"), actor=None, csrf="",
-                            can=lambda cap: False, public=True, solo_on=False, probation="", indexable=False,
-                            preview=False, seo=None, guild_links=[])
-                resp = tpl.TemplateResponse(request, "error.html", {**base, **ctx}, status_code=code)
+                resp = tpl.TemplateResponse(request, "error.html", {**error_base(holder.cfg), **ctx},
+                                            status_code=code)
             resp.headers["Cache-Control"] = "no-store"
         for k, v in (headers or {}).items():
             resp.headers[k] = v
