@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from .config import ConfigError, load
 from .envvars import getenv
@@ -424,6 +424,29 @@ def cmd_refresh_posts(args):
     return 0
 
 
+def cmd_refresh_chronicle(args):
+    """Re-render every published Chronicle page (after an upgrade changes how stories are shown).
+    Only the public pages are rebuilt; nobody's story text changes and nothing is posted. Dry run unless --yes."""
+    from .domain import projections
+    from .models import ChronicleEntry
+    cfg = _cfg(args)
+    db = _db(cfg, "app")
+    with db.tx() as s:
+        rows = list(s.scalars(select(ChronicleEntry).where(ChronicleEntry.published_revision_id.is_not(None))
+                              .order_by(ChronicleEntry.event_id, ChronicleEntry.id)))
+        events = {}
+        for e in rows:
+            events.setdefault(e.event_id, e)
+        print(f"{len(events)} published Chronicle page(s) ({len(rows)} stor{'y' if len(rows) == 1 else 'ies'}).")
+        if not args.yes:
+            print("dry run: re-run with --yes to rebuild them.")
+            return 0
+        for e in events.values():
+            projections.refresh_chronicle(s, cfg, e)
+    print(f"rebuilt {len(events)} Chronicle page(s).")
+    return 0
+
+
 def cmd_refresh_item_cards(args):
     """Look up the names in recent item cards again and edit those cards in place (after an upgrade, or
     once Blizzard adds an item that wasn't found). Nothing new is posted. Dry run unless --yes."""
@@ -595,6 +618,9 @@ def main(argv=None) -> int:
     rp = sub.add_parser("refresh-posts", help="re-render upcoming events' Discord posts (dry run unless --yes)")
     rp.add_argument("--yes", action="store_true")
     rp.set_defaults(fn=cmd_refresh_posts)
+    rc = sub.add_parser("refresh-chronicle", help="rebuild the published Chronicle pages (dry run unless --yes)")
+    rc.add_argument("--yes", action="store_true")
+    rc.set_defaults(fn=cmd_refresh_chronicle)
     ri = sub.add_parser("refresh-item-cards", help="look up recent item cards again and edit them in place "
                         "(dry run unless --yes)")
     ri.add_argument("--hours", type=float, default=24, help="cards posted in the last this many hours (default 24)")

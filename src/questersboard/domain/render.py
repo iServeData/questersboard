@@ -10,7 +10,10 @@ from markdown_it import MarkdownIt
 from ..config import Config
 from . import privacy
 
-_md = MarkdownIt("commonmark", {"html": False, "linkify": False, "typographer": False}).disable(["image"])
+# breaks: a single line break in what a member typed stays a line break, as it looked in the editor.
+_md = MarkdownIt("commonmark", {"html": False, "linkify": False, "typographer": False,
+                                "breaks": True}).disable(["image"])
+_BULLET = re.compile(r"^([ \t]*)[•·▪‣◦–—][ \t]*", re.M)
 TAGS = ["p", "em", "strong", "ul", "ol", "li", "blockquote", "h3", "h4", "br", "code", "a", "hr"]
 ATTRS = {"a": ["href", "title", "rel"]}
 OUTCOMES = {"completed": "Completed", "partial": "Partly completed", "not_completed": "Not completed",
@@ -25,8 +28,17 @@ def _link_attrs(attrs, new=False):
     return attrs
 
 
+def _bullets(text: str) -> str:
+    """Lines typed (or pasted) starting with •, ·, – and similar become a Markdown list, and a list
+    straight after a line of text still starts a list."""
+    t = _BULLET.sub(r"\1- ", (text or "").replace("\r\n", "\n"))
+    t = re.sub(r"(?m)^(?![ \t]*[-*+] )(.+)\n(?=[ \t]*[-*+] )", r"\1\n\n", t)
+    # ...and an unindented line straight after the list ends it, rather than joining the last item.
+    return re.sub(r"(?m)^([ \t]*[-*+] .*)\n(?=[^ \t\n\-*+])", r"\1\n\n", t)
+
+
 def markdown(text: str) -> str:
-    html = _md.render(text or "")
+    html = _md.render(_bullets(text))
     html = re.sub(r"<h[12]>", "<h3>", html)
     html = re.sub(r"</h[12]>", "</h3>", html)
     html = re.sub(r"<(/?)h[56]>", r"<\1h4>", html)

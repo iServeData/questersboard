@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Chronicle editor keeps what you've typed.** Upload, Publish (or Submit for review), Suggest wording and
+  the screenshot, co-author and naming buttons now carry the story text with them and save it first, so a
+  reload no longer clears unsaved text. The text is checked the same way Save checks it.
+- **Uncleared screenshots are explained.** Each screenshot says whether it's shown publicly, and a note by
+  Publish counts the ones that aren't cleared yet and says how to clear them. Clearing after publishing
+  updates the public page straight away.
+- **Stories show line breaks and typed bullets.** A single line break stays a line break, and lines starting
+  with •, · or – become a list. `questersboard-admin refresh-chronicle --yes` rebuilds published pages.
 - **Host briefing by DM.** When an event starts, the host and each co-host get one short DM from the bot
   with what they need to run it: the planned end (Pacific 24-hour with UTC), voice, event chat, event page
   and their guest voice link, ending the event, reopening voice, and `/voice kick`, `ban` and `unban` with

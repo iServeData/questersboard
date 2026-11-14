@@ -5,6 +5,22 @@
 #   [[release.change]]  area = one of AREAS below, kind = "new" | "improved" | "fixed", text = one sentence
 
 [[release]]
+date = "2026-11-14"
+title = "Chronicle editor fixes"
+[[release.change]]
+area = "Chronicle"
+kind = "fixed"
+text = "Uploading a screenshot or using the other buttons beside your story no longer clears the text you've typed."
+[[release.change]]
+area = "Chronicle"
+kind = "improved"
+text = "Each screenshot now says whether it's on the public page yet, and the editor explains how to clear it."
+[[release.change]]
+area = "Chronicle"
+kind = "fixed"
+text = "Line breaks and bullet points in stories show on the public page the way you typed them."
+
+[[release]]
 date = "2026-11-13"
 title = "Solo adventures, and characters that stay current from Blizzard"
 [[release.change]]

@@ -1339,11 +1339,22 @@ def router(cfg: Config) -> APIRouter:
                             "plan_tz": tz, "join_me_on": w.cfg["solo_stories"]["join_me"]}
             return render(request, "chronicle_edit.html", {"title": "Chronicle", "e": e, "ev": ev, "rev": rev, **solo_ctx,
                                                        "ups": ups, "problems": problems, "rows": rows, "att": att,
+                                                       "max_chars": w.cfg["chronicle"].get("max_body_chars", 8000),
                                                        "hist": hist, "outcomes": chronicle.OUTCOMES,
                                                        "names": names, "choices": choices, "current": current,
                                                        "host_story": e.author_id == ev.creator_id,
                                                        "others": others,
                                                        "ai": w.cfg["ai"].get("enabled", False)})
+
+    STORY_FIELDS = ("title", "attempted", "happened", "outcome", "moments", "body")
+    KEEP_STORY = {"submit", "suggest", "clear", "banner", "remove_upload", "named", "plan", "coauthors"}
+
+    def _keep_story(s, cfg, a, entry_id: int, form) -> None:
+        """The editor's other buttons send the story text too (draft_*): save it first, so a reload
+        after an upload or another button never loses what was typed. Unchanged text saves nothing."""
+        fields = {k: form.get("draft_" + k) for k in STORY_FIELDS if form.get("draft_" + k) is not None}
+        if fields:
+            chronicle.save(s, cfg, a, entry_id, fields)
 
     @r.post(mp + "/chronicle/{entry_id}/{action}")
     async def chronicle_action(request: Request, entry_id: int, action: str):
@@ -1355,10 +1366,13 @@ def router(cfg: Config) -> APIRouter:
                 raise Invalid("Choose an image to upload.")
             data = await f.read(w.cfg["uploads"].get("max_bytes", 5_000_000) + 1)
             with w.db.tx() as s:
+                _keep_story(s, w.cfg, a, entry_id, form)
                 chronicle.add_upload(s, w.cfg, a, entry_id, data, form.get("caption", ""))
             return _redirect(f"{mp}/chronicle/{entry_id}")
         form, a = await post_guard(request)
         with w.db.tx() as s:
+            if action in KEEP_STORY:
+                _keep_story(s, w.cfg, a, entry_id, form)
             if action == "save":
                 chronicle.save(s, w.cfg, a, entry_id, {k: form.get(k) for k in
                                                        ("title", "attempted", "happened", "outcome", "moments", "body")

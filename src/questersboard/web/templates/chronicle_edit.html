@@ -7,32 +7,34 @@
 {% if e.published_revision_id and e.working_revision_id != e.published_revision_id %}<p class="caveat">The published version stays public until this edit is approved.</p>{% endif %}
 {% if problems %}<div class="caveat"><strong>Before submitting:</strong><ul class="plain-list">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
 <div class="wq-grid">
-<form method="post" class="wq-form panel" action="{{ mp }}/chronicle/{{ e.id }}/save">{{ csrf_field() }}
-  <label>Title <input name="title" value="{{ rev.title }}" maxlength="140" required></label>
+<form method="post" class="wq-form panel" id="wq-story" action="{{ mp }}/chronicle/{{ e.id }}/save">{{ csrf_field() }}
+  <label>Title <input name="title" value="{{ rev.title }}" minlength="3" maxlength="140" required></label>
   <p class="note">The answers below become the sections of your story, in this order: The plan, What happened, Best moments, then The story (if you write one).</p>
-  <label>The plan <span class="note">({% if solo %}what you set out to do{% else %}what the group set out to do{% if not host_story %}; optional{% endif %}{% endif %})</span> <textarea name="attempted" rows="3">{{ rev.attempted }}</textarea></label>
-  <label>What happened <span class="note">(the short version; this is also the summary on the chronicle card)</span> <textarea name="happened" rows="5">{{ rev.happened }}</textarea></label>
+  <label>The plan <span class="note">({% if solo %}what you set out to do{% else %}what the group set out to do{% if not host_story %}; optional{% endif %}{% endif %})</span> <textarea name="attempted" maxlength="{{ max_chars }}" rows="3">{{ rev.attempted }}</textarea></label>
+  <label>What happened <span class="note">(the short version; this is also the summary on the chronicle card)</span> <textarea name="happened" maxlength="{{ max_chars }}" rows="5">{{ rev.happened }}</textarea></label>
   <label>Outcome <span class="note">(you choose; QuestersBoard never guesses{% if not host_story %}. Optional: the host's outcome is shown on the card{% endif %})</span>
     <select name="outcome">{% for o in outcomes %}<option value="{{ o }}"{% if rev.outcome == o %} selected{% endif %}>{{ {"completed":"Completed","partial":"Partly completed","not_completed":"Not completed","social":"Social / no goal","unknown":"Not chosen yet"}[o] }}</option>{% endfor %}</select></label>
-  <label>Best moments <textarea name="moments" rows="3">{{ rev.moments }}</textarea></label>
-  <label>The story <span class="note">(optional, longer, in your own words; Markdown works. Shown after the sections above.)</span><textarea name="body" rows="8">{{ rev.body }}</textarea></label>
+  <label>Best moments <textarea name="moments" maxlength="{{ max_chars }}" rows="3">{{ rev.moments }}</textarea></label>
+  <label>The story <span class="note">(optional, longer, in your own words; Markdown works. Shown after the sections above.)</span><textarea name="body" maxlength="{{ max_chars }}" rows="8">{{ rev.body }}</textarea></label>
   <p class="note">Only name characters whose players opted in. Opted-out players are described neutrally automatically.</p>
   <div class="btns"><button class="btn ghost" type="submit">Save</button></div>
 </form>
 <aside class="side">
   <div class="panel">
-    <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/submit">{{ csrf_field() }}<button class="btn" type="submit"{% if problems %} disabled{% endif %}>{{ "Publish" if can('trusted_author') else "Submit for review" }}</button></form>
-    {% if ai %}<form method="post" action="{{ mp }}/chronicle/{{ e.id }}/suggest">{{ csrf_field() }}<button class="btn ghost" type="submit">Suggest wording</button><p class="note">Sends only your answers (opted-out names removed) to the configured AI service. The suggestion is saved as a draft for you to edit; nothing is published automatically.</p></form>{% endif %}
+    <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/submit" data-keep-story>{{ csrf_field() }}<button class="btn" type="submit"{% if problems %} disabled{% endif %}>{{ "Publish" if can('trusted_author') else "Submit for review" }}</button></form>
+    {% set waiting = ups|rejectattr("cleared_at")|list|length %}{% if waiting %}<p class="note wq-warn">{{ waiting }} screenshot{{ "s aren't" if waiting != 1 else " isn't" }} cleared yet, so {{ "they're" if waiting != 1 else "it's" }} not on the public page. {% if can('chronicle_reviewer') or can('trusted_author') %}Check for names of players who haven't opted in, then use "Shows no opted-out player: clear" under the screenshot.{% else %}A reviewer checks and clears screenshots.{% endif %}</p>{% endif %}
+    <p class="note">Publishing, uploading, and the screenshot and co-author buttons save what you've typed first.</p>
+    {% if ai %}<form method="post" action="{{ mp }}/chronicle/{{ e.id }}/suggest" data-keep-story>{{ csrf_field() }}<button class="btn ghost" type="submit">Suggest wording</button><p class="note">Sends only your answers (opted-out names removed) to the configured AI service. The suggestion is saved as a draft for you to edit; nothing is published automatically.</p></form>{% endif %}
   </div>
   <div class="panel">
     <h2 class="sub">Screenshots</h2>
-    {% for u in ups %}<figure class="shot"><img src="{{ mp }}/uploads/{{ u.public_id }}.webp" alt="{{ u.caption }}" width="{{ u.width }}" height="{{ u.height }}" loading="lazy"><figcaption class="note">{{ u.caption }} · {{ "cleared" if u.cleared_at else "not cleared" }}</figcaption>
-      {% if can('chronicle_reviewer') or can('trusted_author') %}<form method="post" action="{{ mp }}/chronicle/{{ e.id }}/clear" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ u.id }}"><input type="hidden" name="cleared" value="{{ 0 if u.cleared_at else 1 }}"><button class="linkish" type="submit">{{ "Un-clear" if u.cleared_at else "Shows no opted-out player: clear" }}</button></form>{% endif %}
-      <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/banner" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ '' if e.banner_upload_id == u.id else u.id }}"><button class="linkish" type="submit">{{ "Stop using as banner" if e.banner_upload_id == u.id else "Use as banner" }}</button></form>
-      <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/remove_upload" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ u.id }}"><button class="linkish" type="submit">Remove</button></form></figure>
+    {% for u in ups %}<figure class="shot"><img src="{{ mp }}/uploads/{{ u.public_id }}.webp" alt="{{ u.caption }}" width="{{ u.width }}" height="{{ u.height }}" loading="lazy"><figcaption class="note">{% if u.caption %}{{ u.caption }} · {% endif %}{{ "cleared: shown publicly" if u.cleared_at else "not cleared: not shown publicly yet" }}</figcaption>
+      {% if can('chronicle_reviewer') or can('trusted_author') %}<form method="post" action="{{ mp }}/chronicle/{{ e.id }}/clear" data-keep-story class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ u.id }}"><input type="hidden" name="cleared" value="{{ 0 if u.cleared_at else 1 }}"><button class="linkish" type="submit">{{ "Un-clear" if u.cleared_at else "Shows no opted-out player: clear" }}</button></form>{% endif %}
+      <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/banner" data-keep-story class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ '' if e.banner_upload_id == u.id else u.id }}"><button class="linkish" type="submit">{{ "Stop using as banner" if e.banner_upload_id == u.id else "Use as banner" }}</button></form>
+      <form method="post" action="{{ mp }}/chronicle/{{ e.id }}/remove_upload" data-keep-story class="wq-inline">{{ csrf_field() }}<input type="hidden" name="upload_id" value="{{ u.id }}"><button class="linkish" type="submit">Remove</button></form></figure>
     {% endfor %}
     <p class="note">Banner: {{ "your chosen screenshot (shown once it's cleared)" if e.banner_upload_id else "the event's cover art" }}.</p>
-    <form method="post" enctype="multipart/form-data" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/upload">{{ csrf_field() }}
+    <form method="post" enctype="multipart/form-data" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/upload" data-keep-story>{{ csrf_field() }}
       <label>Image (PNG, JPEG or WebP) <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required></label>
       <label>Caption <input name="caption" maxlength="200"></label>
       <button class="btn ghost" type="submit">Upload</button>
@@ -41,7 +43,7 @@
   {% if solo %}
   <div class="panel">
     <h2 class="sub">Your character</h2>
-    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/named">{{ csrf_field() }}
+    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/named" data-keep-story>{{ csrf_field() }}
       <label><input type="checkbox" name="named" value="1"{% if solo_named %} checked{% endif %}> Name {{ solo_char or "my character" }} in this story</label>
       <button class="btn ghost" type="submit">Save</button></form>
     <p class="note">Unticked, the story describes your character neutrally (for example "an adventurer").</p>
@@ -54,7 +56,7 @@
     {% elif e.published_revision_id %}<p class="note">Nobody has asked yet. Readers see a Join me next time button on your story.</p>
     {% else %}<p class="note">Once your story is published, readers see a Join me next time button on it.</p>{% endif %}
     <h3 class="sub">Plan a group event from this story</h3>
-    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/plan">{{ csrf_field() }}
+    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/plan" data-keep-story>{{ csrf_field() }}
       <label>Date <input type="date" name="date" value="{{ plan_date }}" required></label>
       <label>Start time <input type="time" name="start_time" value="19:00" required></label>
       <label>Length <select name="minutes">{% for m, l in [(60, "1 hour"), (90, "1½ hours"), (120, "2 hours"), (180, "3 hours"), (240, "4 hours")] %}<option value="{{ m }}"{% if m == 120 %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
@@ -74,7 +76,7 @@
   <div class="panel">
     <h2 class="sub">Co-authors</h2>
     {% if choices %}
-    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/coauthors">{{ csrf_field() }}
+    <form method="post" class="wq-form" action="{{ mp }}/chronicle/{{ e.id }}/coauthors" data-keep-story>{{ csrf_field() }}
       <p class="note">Tick people to let them edit this story; untick to remove them.</p>
       <fieldset class="wq-checks">
       {% for mid, label in choices %}<label><input type="checkbox" name="coauthor" value="{{ mid }}"{% if mid in current %} checked{% endif %}> {{ label }}</label>{% endfor %}

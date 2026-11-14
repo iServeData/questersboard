@@ -957,3 +957,62 @@ def test_event_page_voice_link_and_reopen(seeded, tmp_path):
     with seeded.tx() as s:
         assert s.scalar(text("SELECT voice_closed_at FROM events WHERE public_id = :p"), {"p": pid}) is None
         assert s.scalar(text("SELECT count(*) FROM outbox WHERE kind = 'discord.sync_voice'")) >= 1
+
+
+def test_upload_and_side_buttons_keep_the_text_being_typed(app, seeded, wcfg, monkeypatch):
+    """The editor's Upload and screenshot buttons send the story text too (draft_*); it is saved
+    first, so nothing typed is lost when the page reloads."""
+    org = actor(43, "event_creator")
+    with seeded.tx() as s:
+        ev = event(s, wcfg, org, 0, 2, title="Fixture expedition")
+        monkeypatch.setattr(events, "now", lambda: at(0))
+        events.start(s, wcfg, org, ev.id)
+        events.end(s, wcfg, org, ev.id)
+        eid = s.query(ChronicleEntry).filter_by(event_id=ev.id).one().id
+    c = login(app, 43, "event_creator", "trusted_author")
+    page = c.get(f"/wow/quester/chronicle/{eid}").text
+    assert page.count("data-keep-story") >= 2 and 'id="wq-story"' in page
+    tok = csrf(c, f"/wow/quester/chronicle/{eid}")
+    draft = {"draft_title": "Fixture bag run", "draft_attempted": "Make sleeping bags",
+             "draft_happened": "We did", "draft_outcome": "completed",
+             "draft_moments": "• Stop in the mill\r\n• Cozy bags", "draft_body": ""}
+    r = c.post(f"/wow/quester/chronicle/{eid}/upload", data={"csrf": tok, "caption": "the mill", **draft},
+               files={"file": ("shot.png", _png(), "image/png")})
+    assert r.status_code == 303, r.text
+    with seeded.tx() as s:
+        rev = chronicle.working(s, s.get(ChronicleEntry, eid))
+        assert (rev.title, rev.attempted, rev.outcome) == ("Fixture bag run", "Make sleeping bags", "completed")
+        assert "Cozy bags" in rev.moments
+        up = s.execute(text("SELECT id FROM chronicle_uploads WHERE entry_id=:e"), {"e": eid}).scalar()
+    page = c.get(f"/wow/quester/chronicle/{eid}").text
+    assert "Fixture bag run" in page and "not shown publicly yet" in page and "cleared yet, so it" in page
+    r = c.post(f"/wow/quester/chronicle/{eid}/banner",
+               data={"csrf": tok, "upload_id": up, **draft, "draft_happened": "We did, twice"})
+    assert r.status_code == 303
+    with seeded.tx() as s:
+        assert chronicle.working(s, s.get(ChronicleEntry, eid)).happened == "We did, twice"
+    # A bad title in the carried text is refused like Save refuses it, and nothing else happens.
+    r = c.post(f"/wow/quester/chronicle/{eid}/clear",
+               data={"csrf": tok, "upload_id": up, "cleared": "1", **draft, "draft_title": "x"})
+    assert r.status_code >= 400
+    with seeded.tx() as s:
+        assert s.execute(text("SELECT cleared_at FROM chronicle_uploads WHERE id=:u"), {"u": up}).scalar() is None
+    # Publish, then clear the screenshot afterwards: it shows on the public page without publishing again.
+    assert c.post(f"/wow/quester/chronicle/{eid}/submit", data={"csrf": tok, **draft}).status_code == 303
+    with seeded.tx() as s:
+        e = s.get(ChronicleEntry, eid)
+        slug, upid = e.slug, s.execute(text("SELECT public_id FROM chronicle_uploads WHERE id=:u"), {"u": up}).scalar()
+    pub = TestClient(app, base_url="https://community.example.org")
+    story = pub.get(f"/wow/chronicle/{slug}/").text
+    assert f"{upid}.webp" not in story and "<li>Cozy bags</li>" in story
+    assert c.post(f"/wow/quester/chronicle/{eid}/clear",
+                  data={"csrf": tok, "upload_id": up, "cleared": "1", **draft}).status_code == 303
+    assert f"{upid}.webp" in pub.get(f"/wow/chronicle/{slug}/").text
+
+
+def test_typed_bullets_and_line_breaks_render_as_written():
+    from questersboard.domain import render
+    html = render.markdown("Highlights:\n• Stop in the mill\n• Cozy bags\nAfter that\nwe rested")
+    assert "<li>Stop in the mill</li>" in html and "<li>Cozy bags</li>" in html
+    assert "<p>Highlights:</p>" in html and "After that<br" in html
+    assert "<p>3 - 2 = 1</p>" in render.markdown("3 - 2 = 1")

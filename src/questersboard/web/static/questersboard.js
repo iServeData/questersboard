@@ -261,6 +261,26 @@
     });
   });
 
+  // Chronicle editor: the other buttons on the page (Upload, Publish, screenshot and co-author buttons)
+  // carry the story text along, and the server saves it before doing the action, so nothing typed is
+  // lost when the page reloads. The story is checked first, the same way Save checks it.
+  var story = document.getElementById("wq-story");
+  if (story) {
+    var STORY_FIELDS = ["title", "attempted", "happened", "outcome", "moments", "body"];
+    document.querySelectorAll("form[data-keep-story]").forEach(function (f) {
+      f.addEventListener("submit", function (ev) {
+        if (!story.checkValidity()) { ev.preventDefault(); story.reportValidity(); return; }
+        STORY_FIELDS.forEach(function (n) {
+          var src = story.elements[n];
+          if (!src) return;
+          var h = f.querySelector("input[type=hidden][name='draft_" + n + "']");
+          if (!h) { h = document.createElement("input"); h.type = "hidden"; h.name = "draft_" + n; f.appendChild(h); }
+          h.value = src.value;
+        });
+      });
+    });
+  }
+
   // Keep what a player typed when the server refuses a form. On submit the fields are copied
   // into this tab's sessionStorage; the error page marks which form to restore; the form page
   // puts the values back and shows the message above the form. A page reached any other way
