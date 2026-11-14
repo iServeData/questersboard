@@ -1016,3 +1016,17 @@ def test_typed_bullets_and_line_breaks_render_as_written():
     assert "<li>Stop in the mill</li>" in html and "<li>Cozy bags</li>" in html
     assert "<p>Highlights:</p>" in html and "After that<br" in html
     assert "<p>3 - 2 = 1</p>" in render.markdown("3 - 2 = 1")
+
+
+def test_icons_have_their_own_limit_so_pages_keep_loading(app, seeded, wcfg):
+    """A character's talent trees can be 100+ icons; they count against icon_requests_per_minute, not the
+    page limit, so looking at a few characters doesn't lock the visitor out of pages."""
+    rl = app.state.web.holder.cfg.raw["rate_limits"]
+    rl["web_requests_per_minute"], rl["icon_requests_per_minute"] = 5, 50
+    c = TestClient(app, base_url="https://community.example.org", follow_redirects=False)
+    icons = [c.get(f"/wow/quester/characters/1/icon/talents/{n}").status_code for n in range(20)]
+    assert 429 not in icons
+    assert c.get("/wow/chronicle/").status_code == 200
+    assert 429 not in [c.get("/wow/quester/static/questersboard.css").status_code for _ in range(10)]
+    rl["icon_requests_per_minute"] = 3
+    assert 429 in [c.get(f"/wow/quester/characters/1/icon/gear/{n}").status_code for n in range(6)]

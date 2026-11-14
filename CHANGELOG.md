@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Looking at characters no longer trips the "Too many requests" page.** Gear and talent icons,
+  portraits, screenshots and page files counted against the per-address page limit (120 a minute), and a
+  character's talent trees alone can be over 100 icons, so after a character or two the icons showed "?"
+  and the next page was refused. They now count against `[rate_limits] icon_requests_per_minute` instead.
 - **Chronicle editor keeps what you've typed.** Upload, Publish (or Submit for review), Suggest wording and
   the screenshot, co-author and naming buttons now carry the story text with them and save it first, so a
   reload no longer clears unsaved text. The text is checked the same way Save checks it.

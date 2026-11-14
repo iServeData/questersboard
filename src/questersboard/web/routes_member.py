@@ -186,7 +186,7 @@ def router(cfg: Config) -> APIRouter:
         return request.app.state.web
 
     def session_or_login(request: Request, fresh: bool = False, bucket: str = "m"):
-        """bucket: "m" for pages; "i" for icons, which come many to a page and have their own limit
+        """bucket: "m" for pages; "i" for icons, portraits and screenshots, which come many to a page and have their own limit
         ([rate_limits] icon_requests_per_minute)."""
         w = W(request)
         sess = w.load_session(request)
@@ -901,7 +901,7 @@ def router(cfg: Config) -> APIRouter:
         from fastapi.responses import Response
 
         from ..domain import profiles
-        sess, a = session_or_login(request)
+        sess, a = session_or_login(request, bucket="i")
         w = W(request)
         with w.db.tx() as s:
             ch, prof, vis = profiles.view_character(s, w.cfg, a, character_id)
@@ -1418,7 +1418,7 @@ def router(cfg: Config) -> APIRouter:
         from pathlib import Path
 
         from fastapi.responses import FileResponse
-        sess, a = session_or_login(request)
+        sess, a = session_or_login(request, bucket="i")
         w = W(request)
         with w.db.tx() as s:
             try:

@@ -251,7 +251,7 @@ backup_keep_days = 30                         # keep in step with QUESTERSBOARD_
 
 [rate_limits]                                 # [live]
 web_requests_per_minute = 120
-icon_requests_per_minute = 600                # gear and talent icons (a character page can show 30 or more)
+icon_requests_per_minute = 600                # pictures and page files per person and per address: gear and talent icons (talent trees can be 100+), portraits, screenshots
 actions_per_minute = 30
 
 [item_links]                                  # restart. Item cards for names in [brackets] (off until approved)

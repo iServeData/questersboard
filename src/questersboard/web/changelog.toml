@@ -6,7 +6,11 @@
 
 [[release]]
 date = "2026-11-14"
-title = "Chronicle editor fixes"
+title = "Chronicle editor fixes, and character pages that keep loading"
+[[release.change]]
+area = "Characters"
+kind = "fixed"
+text = "Looking at several characters in a row no longer shows question marks for talent icons or a \"Too many requests\" page."
 [[release.change]]
 area = "Chronicle"
 kind = "fixed"

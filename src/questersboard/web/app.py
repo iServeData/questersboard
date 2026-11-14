@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+import re
 import secrets as pysecrets
 import time
 from datetime import datetime, timedelta
@@ -266,11 +267,23 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
     member = cfg["web"]["member_path"].rstrip("/")
     app.mount(member + "/static", StaticFiles(directory=str(HERE / "static")), name="static")
 
+    # Pictures and page files (gear and talent icons, portraits, screenshots, CSS/JS) come many to a page:
+    # a character's talent trees alone can be over 100 icons. They count against their own per-address
+    # limit ([rate_limits] icon_requests_per_minute), so looking at a few characters never runs into the
+    # page limit (web_requests_per_minute).
+    chron = cfg["chronicle"]["public_path"].rstrip("/")
+    asset_re = re.compile("^(?:" + re.escape(member) + r"/(?:static/|uploads/|characters/\d+/(?:icon|portrait)/)"
+                          "|" + re.escape(chron) + r"/media/)")
+
     @app.middleware("http")
     async def guard(request: Request, call_next):
         rl = holder.cfg["rate_limits"]
-        if request.url.path != "/healthz" and not web.rate_ok("ip:" + client_ip(request),
-                                                              rl.get("web_requests_per_minute", 120)):
+        path = request.url.path
+        if asset_re.match(path):
+            bucket, per_min = "ipa:", rl.get("icon_requests_per_minute", 600)
+        else:
+            bucket, per_min = "ip:", rl.get("web_requests_per_minute", 120)
+        if path != "/healthz" and not web.rate_ok(bucket + client_ip(request), per_min):
             return PlainTextResponse("Too many requests. Please slow down.", status_code=429,
                                      headers={"Retry-After": "60"})
         resp = await call_next(request)
