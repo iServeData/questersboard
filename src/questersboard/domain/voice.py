@@ -195,6 +195,8 @@ def invite_dms(s: Session, cfg: Config, ev: Event) -> int:
     if not vc["enabled"] or not vc["guest_invites"] or vc["invite_dm"] == "off":
         return 0
     people = managers(s, ev) if vc["invite_dm"] == "hosts" else wanted_members(s, cfg, ev)
+    if cfg["host_briefing"]["enabled"]:
+        people -= managers(s, ev)        # hosts get their guest link in the host briefing instead
     n = 0
     for mid in sorted(people):
         code = _code_for(s, ev, mid)
@@ -432,6 +434,10 @@ def support_join(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
         audit.record(s, actor, "event.support_admin_join", "event", ev.id)
         name = _md_plain(actor.display_name or actor.username or "An admin")
         _support_note(s, cfg, ev, f"**{name}** joined as Support Admin (not signed up).")
+        from . import briefing
+        from .permissions import has
+        actor = ensure_member(s, actor)
+        briefing.on_support_join(s, cfg, ev, actor.member_id, has(cfg, actor, "event_moderator"))
         outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})   # chat and voice
     return ev
 

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_legal_toc.html" import legal_toc %}
 {% block content %}
-{% set vc = cfg["voice"] %}{% set th = cfg["event_threads"] %}{% set community = cfg["community"]["name"] %}
+{% set vc = cfg["voice"] %}{% set hb = cfg["host_briefing"] %}{% set th = cfg["event_threads"] %}{% set community = cfg["community"]["name"] %}
 {% set vsubs = [("voice-leave", "Leaving an event")] %}
 {% if vc.guest_invites %}{% set vsubs = vsubs + [("guests", "Guest voice links")] %}{% endif %}
 {% set vsubs = vsubs + [("voice-hosts", "Hosts and the channel")] %}
@@ -111,7 +111,7 @@
   <h3 class="sub" id="guests">Guest voice links</h3>
   <p>Met someone in the game you'd like to talk to? You don't have to get them to make a character and join the event first.</p>
   <ul>
-    <li>Anyone who can use the event's voice can get a guest link with <code>/voice invite</code> in Discord{% if vc.invite_dm == "hosts" %}. Hosts also get their link by direct message when the event starts{% elif vc.invite_dm == "everyone" %}. Everyone in the event also gets their link by direct message when it starts{% endif %}.</li>
+    <li>Anyone who can use the event's voice can get a guest link with <code>/voice invite</code> in Discord{% if hb.enabled %}. Hosts also get their link by direct message when the event starts{% if vc.invite_dm == "everyone" %}, and so does everyone else in the event{% endif %}{% elif vc.invite_dm == "hosts" %}. Hosts also get their link by direct message when the event starts{% elif vc.invite_dm == "everyone" %}. Everyone in the event also gets their link by direct message when it starts{% endif %}.</li>
     <li>Send the link to the person you're playing with. They open it, sign in with Discord, and are added to the {{ community }} server if they aren't already in it. Then they can join the voice channel.</li>
     <li>Each link works for up to {{ vc.max_guests_per_invite }} {{ "person" if vc.max_guests_per_invite == 1 else "people" }} and only while the event is running. When it ends, the link stops working and guests lose access to the channel.</li>
     <li>Guests don't need a QuestersBoard account, a character or a signup. They stay in the Discord server afterwards unless they leave it.</li>
@@ -120,6 +120,7 @@
   {% endif %}
   <h3 class="sub" id="voice-hosts">Hosts and the channel</h3>
   <ul>
+    {% if hb.enabled %}<li>When the event starts, the host and co-hosts get a short direct message from the bot with the voice, chat and guest links, how to end the event and reopen voice, and the commands below.{% if hb.support_admin %} Admins get one when they press Support Admin.{% endif %}</li>{% endif %}
     <li>The host and co-hosts can manage who's in the event's voice channel with <code>/voice kick</code> (take someone out; they can come back if they still have access), <code>/voice ban</code> (take them out and keep them out until the event ends) and <code>/voice unban</code>.</li>
     <li>These only work for the event they're running, and only while it's running. A ban ends with the event.</li>
     <li>Hosts can't kick or ban the server owner, community admins and officers, or the bot. Co-hosts can't kick or ban the event's host.</li>

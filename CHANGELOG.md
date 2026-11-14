@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Host briefing by DM.** When an event starts, the host and each co-host get one short DM from the bot
+  with what they need to run it: the planned end (Pacific 24-hour with UTC), voice, event chat, event page
+  and their guest voice link, ending the event, reopening voice, and `/voice kick`, `ban` and `unban` with
+  where to type them and who can't be removed. Admins get a Support Admin version when they press the
+  button, listing only what they can do. The guest link is now in the briefing, so hosts don't get a second
+  DM from `[voice] invite_dm`. New `[host_briefing]` (`enabled`, `support_admin`, `delay_seconds`).
+- **`outbox retry-dead` with several copies of one job.** It retries the newest dead copy of each job and
+  clears the older ones, instead of failing because only one copy may wait.
+
 - **Battle.net sign-in in Chrome, Edge and Opera.** The Continue with Battle.net button on the getting-started
   page was stopped by the browser's own security rules in Chromium browsers (Safari let it through). The
   page's form rules now allow the Battle.net login hosts (from `[blizzard] oauth_base`).

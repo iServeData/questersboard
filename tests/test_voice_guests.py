@@ -28,7 +28,8 @@ GUEST, GUEST2, GUEST3 = fake_id(150), fake_id(151), fake_id(152)
 def _cfg(**over):
     return make_cfg(community={"guild_id": GUILD}, discord={"event_channel_id": CH}, event_threads={"enabled": True},
                     voice={"enabled": True, "category_id": CAT, "staff_role_ids": [ADMINS],
-                           "protected_role_ids": [OFFICERS], **over})
+                           "protected_role_ids": [OFFICERS], **over},
+                    host_briefing={"enabled": False})     # [voice] invite_dm on its own (test_host_briefing.py)
 
 
 def _run(seeded, cfg, monkeypatch, w, cohost=None):

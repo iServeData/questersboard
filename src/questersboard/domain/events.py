@@ -607,6 +607,8 @@ def start(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
     audit.record(s, actor, "event.start", "event", ev.id)
     from . import voice
     voice.invite_dms(s, cfg, ev)     # [voice] invite_dm: guest links by DM when the event starts
+    from . import briefing
+    briefing.on_start(s, cfg, ev)    # [host_briefing]: hosts get a DM with what they need to run it
     _notify_post(s, cfg, ev)
     return ev
 

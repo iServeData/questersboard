@@ -173,6 +173,13 @@ enabled = true                                # signing up: Organizer > Support 
 role_ids = []                                 # [] = the [roles] admin roles; or list the roles that get it
 announce = true                               # the note in the event chat (needs [event_threads])
 
+[host_briefing]                                # restart. A short DM from the bot with what's needed to run the
+enabled = true                                # event: links (voice, chat, event page, guest link), ending and
+                                              # reopening voice, and removing someone from voice. Hosts and
+                                              # co-hosts get it when the event starts.
+support_admin = true                          # admins also get it when they press Support Admin
+delay_seconds = 20                            # wait after Start so the voice channel and chat exist first
+
 [ai]                                          # restart
 enabled = false                               # explicit opt-in
 provider = "openai_compatible"                # openai_compatible | none

@@ -514,6 +514,17 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     if unknown:
         raise ConfigError(f"[support_admin] unknown setting {sorted(unknown)[0]!r}")
 
+    hb = r.setdefault("host_briefing", {})
+    for k, dflt in (("enabled", True), ("support_admin", True)):
+        if not isinstance(hb.setdefault(k, dflt), bool):
+            raise ConfigError(f"[host_briefing] {k} must be true or false")
+    wait = hb.setdefault("delay_seconds", 20)
+    if not isinstance(wait, int) or isinstance(wait, bool) or not 0 <= wait <= 600:
+        raise ConfigError("[host_briefing] delay_seconds must be a whole number from 0 to 600")
+    unknown = set(hb) - {"enabled", "support_admin", "delay_seconds"}
+    if unknown:
+        raise ConfigError(f"[host_briefing] unknown setting {sorted(unknown)[0]!r}")
+
     so = r.setdefault("solo_stories", {})
     for k, dflt in (("enabled", True), ("join_me", True), ("in_feeds", False)):
         if not isinstance(so.setdefault(k, dflt), bool):

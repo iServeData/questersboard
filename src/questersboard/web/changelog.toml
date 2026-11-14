@@ -8,6 +8,10 @@
 date = "2026-11-13"
 title = "Solo adventures, and characters that stay current from Blizzard"
 [[release.change]]
+area = "Events"
+kind = "new"
+text = "Hosts and co-hosts get a short direct message when their event starts with the voice, chat and guest links, how to end it, and how to remove someone from voice. Admins get one when they press Support Admin."
+[[release.change]]
 area = "Chronicle"
 kind = "new"
 text = "Write a solo adventure: tell the story of something you did on your own, about one of your characters. It's reviewed like any other story and listed as Solo, below the group stories."

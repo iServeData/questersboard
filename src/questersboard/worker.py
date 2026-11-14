@@ -538,6 +538,25 @@ class Worker:
         except dr.Gone:
             log.info("member %s not reachable; skipped", m.id)
 
+    def job_notify_host_briefing(self, s: Session, p: dict) -> None:
+        """[host_briefing]: the DM with what's needed to run the event (domain/briefing.py)."""
+        from .domain import briefing
+        ev = s.get(Event, p["event_id"])
+        if ev is None or ev.state not in (("scheduled", "in_progress") if p.get("support") else ("in_progress",)):
+            return
+        tries = int(p.get("tries", 0))
+        if briefing.not_ready(self.cfg, ev) and tries < briefing.WAIT_TRIES:
+            outbox.enqueue(s, briefing.KIND, f"{ev.id}:{p['member_id']}:{'s' if p.get('support') else 'h'}{tries + 1}",
+                           {**p, "tries": tries + 1}, run_after=now() + timedelta(seconds=briefing.WAIT_SECONDS))
+            return
+        mid = p["member_id"]
+        if p.get("support"):
+            content = briefing.support_text(self.cfg, ev, bool(p.get("moderator")))
+        else:
+            guest = p.get("guest") if voice.voice_open(ev) else None
+            content = briefing.host_text(self.cfg, ev, mid != ev.creator_id, guest)
+        self._dm(s, [mid], f"brief:{ev.id}", "support" if p.get("support") else "host", content)
+
     def job_notify_material_change(self, s: Session, p: dict) -> None:
         if not self.cfg["discord"].get("notify_dm_on_material_change", True):
             return
