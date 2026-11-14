@@ -12,6 +12,12 @@
 - **No outside links by default.** `item_link_template` and `spell_link_template` are now empty in
   `deploy/config.example.toml`, so tooltips use Blizzard data only. Existing configs keep whatever they set;
   set both to `""` to remove the links.
+- **Calendars are .ics only; fewer outside links.** Add to calendar on event pages offers the event's own
+  .ics file (Apple, Google and Outlook calendars all import it), the guild calendar and "Only my events";
+  the Google Calendar link is gone, and `upcoming.json` / `status.json` no longer include
+  `google_calendar_url` (the site widget uses `ics_url` only). `[ai] base_url` is empty in the example
+  config (set it only when turning AI wording on), and the Retail catalog's reference link is Blizzard's
+  classes page.
 - **Hosts can replace guest voice links.** `/voice invite new:True` (host, co-hosts, event moderators)
   stops every guest link for the running event and gives a new one; people who already joined keep their
   place (`/voice ban` removes someone), and everyone else gets a fresh link from `/voice invite`. Audited as

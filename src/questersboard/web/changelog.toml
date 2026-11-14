@@ -21,6 +21,10 @@ kind = "improved"
 text = "Missing pages, \"Too many requests\" and other errors now show a proper QuestersBoard page with a way back to the board."
 [[release.change]]
 area = "Events"
+kind = "improved"
+text = "Add to calendar gives you the event's calendar file (.ics), which Apple, Google and Outlook calendars all open. QuestersBoard no longer links to Google Calendar."
+[[release.change]]
+area = "Events"
 kind = "new"
 text = "Hosts can make a new guest voice link with /voice invite new:True, which stops every old guest link for the event."
 [[release.change]]

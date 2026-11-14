@@ -11,7 +11,6 @@ from __future__ import annotations
 import hashlib
 import secrets
 from datetime import datetime, timedelta
-from urllib.parse import urlencode
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -141,7 +140,7 @@ def event_url(cfg: Config, public_id) -> str:
 
 
 def event_item(cfg: Config, ev: Event) -> dict:
-    """One event for its own .ics and Google Calendar link. Same UID as the feeds, so adding it and
+    """One event for its own .ics file. Same UID as the feeds, so adding it and
     subscribing don't make two entries. Only what the event page shows: no names."""
     url = event_url(cfg, ev.public_id)
     meet = (ev.muster_location or {}).get("label", "")
@@ -152,18 +151,7 @@ def event_item(cfg: Config, ev: Event) -> dict:
                 sequence=ev.version, url=url)
 
 
-def google_url(it: dict) -> str:
-    """Google Calendar's "add event" link for one item (opens Google; nothing is sent from here)."""
-    q = {"action": "TEMPLATE", "text": it["title"], "dates": f"{_dt(it['start'])}/{_dt(it['end'])}",
-         "details": it.get("description", "")}
-    if it.get("location"):
-        q["location"] = it["location"]
-    return "https://calendar.google.com/calendar/render?" + urlencode(q)
-
-
 def public_links(cfg: Config, pe: PublicEvent) -> dict:
-    """ics_url and google_calendar_url for a public event (upcoming.json, status.json)."""
-    url = event_url(cfg, pe.public_id)
-    it = dict(title=pe.title, start=pe.start_at, end=pe.end_at, location=pe.location_label or pe.muster_label,
-              description="\n".join(x for x in (f"Meet at: {pe.muster_label}" if pe.muster_label else "", url) if x))
-    return {"ics_url": url + "/calendar.ics", "google_calendar_url": google_url(it)}
+    """ics_url for a public event (upcoming.json, status.json): our own calendar file, which Apple, Google and
+    Outlook calendars all import. No links to outside calendar sites."""
+    return {"ics_url": event_url(cfg, pe.public_id) + "/calendar.ics"}

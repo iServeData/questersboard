@@ -174,7 +174,7 @@ def test_create_publish_join_and_upcoming_json(app, seeded):
     assert pub.get("/wow/quester/upcoming.json").json()["items"][0]["roles"][0]["filled"] == 1
     ics = pub.get("/wow/quester/calendar.ics").text
     assert "BEGIN:VEVENT" in ics and "Ragefire run" in ics
-    # Add to calendar: this one event (same UID as the feed), Google link, and links in the JSON for the site
+    # Add to calendar: this one event (same UID as the feed) as .ics only, and the .ics link in the JSON for the site
     one = pub.get(url + "/calendar.ics")
     assert one.status_code == 200 and one.headers["content-type"].startswith("text/calendar")
     assert one.text.count("BEGIN:VEVENT") == 1 and "SUMMARY:Ragefire run" in one.text
@@ -183,11 +183,11 @@ def test_create_publish_join_and_upcoming_json(app, seeded):
     assert f"UID:{uid}" in ics and "Brakka" not in one.text
     page = p.get(url).text
     assert "Add to calendar" in page and f'href="{url.split("community.example.org")[-1]}/calendar.ics"' in page
-    assert "https://calendar.google.com/calendar/render?action=TEMPLATE&amp;text=Ragefire+run" in page
+    assert "This event (.ics)" in page and "google" not in page.lower()
     assert "Only my events (private link)" in page
     item = pub.get("/wow/quester/upcoming.json").json()["items"][0]
     assert item["ics_url"].endswith("/calendar.ics") and "/events/" in item["ics_url"]
-    assert item["google_calendar_url"].startswith("https://calendar.google.com/calendar/render?action=TEMPLATE")
+    assert "google_calendar_url" not in item and "google" not in pub.get("/wow/quester/upcoming.json").text.lower()
     # a non-manager can't start it
     assert p.post(url + "/start", data={"csrf": t2}).status_code == 403
     # per-event consent: default "name me" is pre-checked, and unticking it (hidden 0 only) opts out
