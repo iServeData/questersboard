@@ -131,9 +131,9 @@ class DiscordRest:
         except Gone:
             pass
 
-    # Event voice channels ([voice], FU-1). UNVERIFIED live: needs Manage Channels, Manage Permissions,
-    # Move Members, View Channel, Connect, Speak, Video, Use Voice Activity, Send Messages and Read Message
-    # History for the bot on the voice category (category only; no server-wide Manage Roles). Channels are
+    # Event voice channels ([voice], FU-1): needs Manage Channels, Manage Permissions, Move Members and every
+    # [voice] participant_permissions entry for the bot on the voice category (category only; no server-wide
+    # Manage Roles). Channels are
     # created bare in the category and locked afterwards: see voice.lock_ops.
     def me(self) -> str:
         if not getattr(self, "_me", None):

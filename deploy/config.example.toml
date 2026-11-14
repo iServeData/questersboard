@@ -137,8 +137,8 @@ name_suffix = " · chat"
 
 [voice]                                       # restart. One voice channel per running event (off until approved)
 enabled = false                               # bot needs, on the category only: Manage Channels, Manage Permissions,
-                                              # Move Members, View Channel, Connect, Speak, Video, Use Voice
-                                              # Activity, Send Messages, Read Message History
+                                              # Move Members, plus every permission in participant_permissions
+                                              # (a bot can only give out permissions it has itself)
 category_id = ""                              # the Discord category the channels are created in
 name_template = "{title}"                     # {title} and {id}; trimmed to 100 characters
 user_limit = 0                                # 0 = no cap
@@ -156,6 +156,15 @@ max_guests_per_invite = 5                     # people per guest link (1-25)
 invite_dm = "off"                             # off | hosts | everyone: DM guest links when the event starts
 guest_link_template = ""                      # "" = public_base_url + member_path + "/v/{code}";
                                               # a short domain, e.g. "https://short.example.org/v/{code}"
+participant_permissions = ["view_channel", "connect", "speak", "video", "use_voice_activity", "send_messages",
+                           "read_message_history", "embed_links", "use_application_commands"]
+                                              # what players, hosts, guests and staff get in the channel; "video"
+                                              # is camera and screen share, "use_application_commands" lets
+                                              # them use /voice invite there. Also allowed: attach_files,
+                                              # add_reactions, use_external_emojis, use_external_stickers,
+                                              # use_embedded_activities, use_soundboard, use_external_sounds,
+                                              # send_voice_messages, send_polls, use_external_apps,
+                                              # create_instant_invite, priority_speaker
 
 [support_admin]                               # restart. Admins step into an event's chat and voice without
 enabled = true                                # signing up: Organizer > Support Admin. Not a signup (no character

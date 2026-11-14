@@ -48,6 +48,22 @@ ROLE_TTL = 300          # seconds before a privileged action re-checks Discord r
 DISCORD_API = "https://discord.com/api/v10"
 
 
+def form_action(cfg) -> str:
+    """Where a form may lead, including the redirects after it. Chromium browsers (Chrome, Edge, Opera)
+    apply this to the redirect too, so the Battle.net login reached from the Continue with Battle.net form
+    has to be listed: its sign-in host and the other hosts of the same service that its login passes through."""
+    out = ["'self'", "https://discord.com"]
+    bz = cfg["blizzard"]
+    if bz.get("enabled") and bz.get("battlenet_link_enabled"):
+        host = urlsplit(str(bz.get("oauth_base") or "")).hostname or ""
+        if host:
+            out.append(f"https://{host}")
+            parent = host.split(".", 1)[1] if host.count(".") >= 2 else ""
+            if parent:
+                out.append(f"https://*.{parent}")
+    return " ".join(out)
+
+
 def _h(v: str) -> str:
     return hashlib.sha256(v.encode()).hexdigest()
 
@@ -263,7 +279,7 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("Content-Security-Policy",
                                 "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
-                                "form-action 'self' https://discord.com; frame-ancestors 'none'; base-uri 'none'")
+                                f"form-action {form_action(holder.cfg)}; frame-ancestors 'none'; base-uri 'none'")
         return resp
 
     @app.exception_handler(DomainError)

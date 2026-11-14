@@ -282,8 +282,7 @@ class Worker:
             self._open_voice(s, rest, ev)
             return                                      # members are added by the follow-up run
         ch = ev.discord_voice_channel_id
-        if p.get("sweep"):
-            self._remove_left_over(s, rest, ev)     # once, after the channel was saved
+        self._remove_left_over(s, rest, ev)         # copies left by an earlier failed attempt
         tkey = f"voice-open:{ev.id}:{ch}"
         if self.cfg["event_threads"]["enabled"] and ev.discord_thread_id and not s.scalar(
                 text("SELECT 1 FROM outbox WHERE kind = 'discord.thread_message' AND key = :k"), {"k": tkey}):
@@ -303,7 +302,7 @@ class Worker:
                 force = set(want)                   # set every member's permission again
             for did, st in sorted(want.items()):
                 if did in force or have.get(did) != st:
-                    allow, deny = voice.OVERWRITE[st]
+                    allow, deny = voice.overwrite(self.cfg, st)
                     rest.set_overwrite(ch, did, 1, allow, deny)
                     done[did] = st
                 touched.append(did)
@@ -375,7 +374,7 @@ class Worker:
         ev.discord_voice_members = {}
         ev.voice_empty_since = now()
         s.flush()
-        outbox.enqueue(s, "discord.sync_voice", f"{ev.id}:fill", {"event_id": ev.id, "sweep": True})   # members
+        outbox.enqueue(s, "discord.sync_voice", f"{ev.id}:fill", {"event_id": ev.id})   # add members
         # Discord can apply permission changes on a brand-new channel out of order; check again shortly
         outbox.enqueue(s, "discord.sync_voice", f"{ev.id}:relock", {"event_id": ev.id, "relock": True},
                        run_after=now() + timedelta(seconds=5))

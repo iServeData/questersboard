@@ -16,6 +16,14 @@ area = "Chronicle"
 kind = "new"
 text = "Join me next time on solo stories: readers can ask to come along, and the author can plan a group event from the story in one step. Everyone who asked gets the link."
 [[release.change]]
+area = "Characters"
+kind = "fixed"
+text = "Continue with Battle.net works in Chrome, Edge and Opera again."
+[[release.change]]
+area = "Voice"
+kind = "improved"
+text = "In event voice channels everyone with access can now also post links with previews and use the bot's commands, such as /voice invite."
+[[release.change]]
 area = "Voice"
 kind = "fixed"
 text = "Starting an event no longer sometimes opens several copies of its voice channel; any extra copies are removed."

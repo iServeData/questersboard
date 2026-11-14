@@ -199,6 +199,21 @@ class Config:
 # Validation helpers
 # ---------------------------------------------------------------------------
 
+# [voice] participant_permissions: what signed-up players, hosts, guests and staff get in an event's voice
+# channel (Discord permission names in lowercase with underscores, and their bit). Moderation powers
+# (mute, deafen, move, manage) are deliberately not on this list.
+VOICE_PERMISSIONS = {
+    "view_channel": 10, "connect": 20, "speak": 21, "video": 9, "use_voice_activity": 25,
+    "send_messages": 11, "read_message_history": 16, "embed_links": 14, "attach_files": 15,
+    "add_reactions": 6, "use_external_emojis": 18, "use_external_stickers": 37,
+    "use_application_commands": 31, "use_embedded_activities": 39, "use_soundboard": 42,
+    "use_external_sounds": 45, "send_voice_messages": 46, "send_polls": 49, "use_external_apps": 50,
+    "create_instant_invite": 0, "priority_speaker": 8,
+}
+VOICE_PERMISSIONS_DEFAULT = ["view_channel", "connect", "speak", "video", "use_voice_activity", "send_messages",
+                             "read_message_history", "embed_links", "use_application_commands"]
+
+
 def _req(d: dict, key: str, typ, where: str):
     if key not in d:
         raise ConfigError(f"[{where}] {key} is required")
@@ -476,10 +491,17 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(tpl, str) or (tpl and (not tpl.startswith("https://") or tpl.count("{code}") != 1)):
         raise ConfigError("[voice] guest_link_template must be empty or an https:// address containing {code} "
                           "once, e.g. \"https://short.example.org/v/{code}\"")
+    pp = vc.setdefault("participant_permissions", list(VOICE_PERMISSIONS_DEFAULT))
+    if not isinstance(pp, list) or not all(isinstance(x, str) for x in pp) or set(pp) - set(VOICE_PERMISSIONS):
+        bad = sorted(set(pp) - set(VOICE_PERMISSIONS)) if isinstance(pp, list) else []
+        raise ConfigError("[voice] participant_permissions must list Discord permissions from: "
+                          + ", ".join(VOICE_PERMISSIONS) + (f" (not {bad[0]!r})" if bad else ""))
+    if not {"view_channel", "connect"} <= set(pp):
+        raise ConfigError("[voice] participant_permissions must include view_channel and connect")
     unknown = set(vc) - {"enabled", "category_id", "name_template", "user_limit", "empty_teardown_minutes",
                          "staff_role_ids", "moderators_can_join", "remove_on_leave", "member_states",
                          "guest_invites", "protected_role_ids", "max_guests_per_invite", "invite_dm",
-                         "guest_link_template"}
+                         "guest_link_template", "participant_permissions"}
     if unknown:
         raise ConfigError(f"[voice] unknown setting {sorted(unknown)[0]!r}")
 

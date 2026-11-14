@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Battle.net sign-in in Chrome, Edge and Opera.** The Continue with Battle.net button on the getting-started
+  page was stopped by the browser's own security rules in Chromium browsers (Safari let it through). The
+  page's form rules now allow the Battle.net login hosts (from `[blizzard] oauth_base`).
+- **Event voice permissions in config.** New `[voice] participant_permissions` lists what players, hosts,
+  guests and staff get in an event's voice channel. The default adds Embed Links and Use Application
+  Commands (so `/voice invite` works in the channel chat) to View, Connect, Speak, Video, Voice Activity,
+  Send Messages and Read Message History. The bot needs each of them on the voice category;
+  `discord-permissions` checks. Copies of an event's voice channel left by an earlier failed try are now
+  removed on every voice update, not only when the channel is saved or the event ends.
 - **Event voice: one channel, even when Discord is busy.** If Discord asked the bot to slow down while it
   was giving signed-up players access to a new event voice channel, the channel was forgotten and the next
   try made another one. The channel is now saved as soon as it's made and locked, and members are added in

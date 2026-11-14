@@ -246,7 +246,12 @@ def build(cfg: Config, guild_id: str, roles_list: list[dict], channels: list[dic
         if vcat not in chans:
             rep.fix(f"[voice] category_id {vcat} isn't a category the bot can see.")
         else:
-            need = (VIEW, CONNECT, SPEAK, STREAM, USE_VAD, SEND, HISTORY, MANAGE_CHANNELS, MANAGE_ROLES, MOVE_MEMBERS)
+            from ..config import VOICE_PERMISSIONS, VOICE_PERMISSIONS_DEFAULT
+            give = vc.get("participant_permissions") or VOICE_PERMISSIONS_DEFAULT
+            for n in give:                      # the bot can only give players what it has itself
+                NAMES.setdefault(1 << VOICE_PERMISSIONS[n], n.replace("_", " ").title())
+            need = tuple(sorted({1 << VOICE_PERMISSIONS[n] for n in give} | {VIEW, CONNECT})) + \
+                (MANAGE_CHANNELS, MANAGE_ROLES, MOVE_MEMBERS)
             miss = _missing(effective(guild_id, roles, chans[vcat], bot), need)
             rep.fix(f"Bot needs {', '.join(miss)} on the \"{chans[vcat].get('name')}\" category (category "
                     "permissions only) to open voice channels, give signed-up players access and remove "

@@ -413,3 +413,37 @@ def test_end_removes_left_over_copies(seeded, worker_db, monkeypatch):
         events.end(s, cfg, ORG, eid)
     _drain(w)
     assert copy not in fake.voice and not fake.voice
+
+
+def test_participant_permissions_from_config(seeded, worker_db, monkeypatch):
+    assert voice.PARTICIPANT & voice.EMBED and voice.PARTICIPANT & voice.APP_COMMANDS      # default set
+    with pytest.raises(ConfigError, match="participant_permissions"):
+        _cfg(participant_permissions=["view_channel", "connect", "mute_members"])
+    with pytest.raises(ConfigError, match="view_channel and connect"):
+        _cfg(participant_permissions=["speak"])
+    cfg, fake = _cfg(participant_permissions=["view_channel", "connect", "speak", "attach_files"]), FakeDiscord()
+    w = Worker(ConfigHolder(cfg), worker_db, fake.client())
+    _started(seeded, cfg, monkeypatch, w, actor(80))
+    ow = next(iter(fake.voice.values()))["overwrites"]
+    want = voice.VIEW | voice.CONNECT | voice.SPEAK | (1 << 15)
+    assert ow[fake_id(80)] == (1, want, 0) and ow[ADMINS] == (0, want, 0)
+    assert ow[fake.bot_id][1] & want == want
+
+
+def test_form_action_allows_the_battlenet_login():
+    from questersboard.web.app import form_action
+    on = make_cfg(blizzard={"enabled": True, "battlenet_link_enabled": True, "oauth_base": "https://oauth.battle.net"})
+    assert form_action(on) == "'self' https://discord.com https://oauth.battle.net https://*.battle.net"
+    assert form_action(make_cfg()).startswith("'self' https://discord.com")
+
+
+def test_copies_are_removed_on_the_next_update_while_running(seeded, worker_db, monkeypatch):
+    cfg, fake = _cfg(), FakeDiscord()
+    w = Worker(ConfigHolder(cfg), worker_db, fake.client())
+    eid = _started(seeded, cfg, monkeypatch, w, actor(80))
+    vid = next(iter(fake.voice))
+    _left_over_channel(fake, "Mine run")
+    with seeded.tx() as s:
+        signups.join(s, cfg, actor(81), eid, char(s, cfg, actor(81), "Fixturelate").id)
+    _drain(w)
+    assert set(fake.voice) == {vid} and fake_id(81) in fake.voice[vid]["overwrites"]

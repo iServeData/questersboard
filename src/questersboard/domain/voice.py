@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.orm import Session
 
-from ..config import Config
+from ..config import VOICE_PERMISSIONS, VOICE_PERMISSIONS_DEFAULT, Config
 from ..models import (Event, EventCohost, EventVoiceBan, EventVoiceGuest, EventVoiceInvite, Member, PublicEvent,
                       ServiceHeartbeat, Signup)
 from . import audit, outbox, scheduling
@@ -46,10 +46,22 @@ MOVE_MEMBERS = 1 << 24
 USE_VAD = 1 << 25
 MANAGE_CHANNELS = 1 << 4
 MANAGE_ROLES = 1 << 28
-PARTICIPANT = VIEW | CONNECT | SPEAK | STREAM | USE_VAD | SEND | HISTORY
+EMBED = 1 << 14
+APP_COMMANDS = 1 << 31
+PARTICIPANT = sum(1 << VOICE_PERMISSIONS[n] for n in VOICE_PERMISSIONS_DEFAULT)   # the default set
 LEFT = PARTICIPANT & ~CONNECT          # left the event: may stay if connected, can't rejoin
 BOT = PARTICIPANT | MANAGE_CHANNELS | MANAGE_ROLES | MOVE_MEMBERS
-OVERWRITE = {"in": (PARTICIPANT, 0), "left": (LEFT, 0), "banned": (0, VIEW | CONNECT)}
+
+
+def participant(cfg: Config) -> int:
+    """[voice] participant_permissions as Discord permission bits (always with View and Connect)."""
+    return VIEW | CONNECT | sum(1 << VOICE_PERMISSIONS[n] for n in set(cfg["voice"]["participant_permissions"]))
+
+
+def overwrite(cfg: Config, state: str) -> tuple[int, int]:
+    """(allow, deny) for a member: in, left (may stay if connected, can't rejoin) or banned."""
+    p = participant(cfg)
+    return {"in": (p, 0), "left": (p & ~CONNECT, 0), "banned": (0, VIEW | CONNECT)}[state]
 CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"     # no 0/o, 1/l/i
 CODE_LEN = 8
 
@@ -58,7 +70,7 @@ def channel_name(cfg: Config, ev: Event) -> str:
     return cfg["voice"]["name_template"].format(title=ev.title, id=ev.id)[:100] or f"event-{ev.id}"
 
 
-BOT_SELF = PARTICIPANT | MANAGE_CHANNELS | MOVE_MEMBERS   # Manage Permissions comes copied from the category
+BOT_EXTRA = MANAGE_CHANNELS | MOVE_MEMBERS   # plus what players get; Manage Permissions comes from the category
 
 
 def lock_ops(cfg: Config, bot_user_id: str, bot_role_ids, current: list[dict], keep=()) -> list[tuple]:
@@ -72,8 +84,8 @@ def lock_ops(cfg: Config, bot_user_id: str, bot_role_ids, current: list[dict], k
     staff = sorted(cfg.voice_staff_roles())
     own = next((o for o in current if str(o.get("id")) == bot_user_id), None)
     own_allow = int(own.get("allow") or 0) if own else 0      # keeps a copied Manage Permissions
-    ops = [("put", bot_user_id, 1, own_allow | BOT_SELF, 0), ("put", guild, 0, 0, VIEW | CONNECT)]
-    ops += [("put", rid, 0, PARTICIPANT, 0) for rid in staff]
+    ops = [("put", bot_user_id, 1, own_allow | participant(cfg) | BOT_EXTRA, 0), ("put", guild, 0, 0, VIEW | CONNECT)]
+    ops += [("put", rid, 0, participant(cfg), 0) for rid in staff]
     mine = {bot_user_id, guild, *staff, *(str(r) for r in bot_role_ids), *(str(k) for k in keep)}
     ops += [("del", str(o["id"])) for o in current if str(o.get("id")) not in mine]
     return ops

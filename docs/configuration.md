@@ -98,8 +98,15 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   (confirmed, tentative), `moderators_can_join` (true), `staff_role_ids` (more server roles, such as admins,
   that can join every event voice channel), `remove_on_leave` (false: someone who leaves the event may stay
   while connected but can't rejoin; true disconnects them). The bot needs, on that category only:
-  Manage Channels, Manage Permissions, Move Members, View Channel, Connect, Speak, Video, Use Voice Activity,
-  Send Messages and Read Message History. `questersboard-admin discord-permissions` checks them.
+  Manage Channels, Manage Permissions, Move Members, and every permission players get
+  (`participant_permissions`; a bot can only give out what it has). `questersboard-admin
+  discord-permissions` checks them. `participant_permissions` (default: view_channel, connect, speak, video,
+  use_voice_activity, send_messages, read_message_history, embed_links, use_application_commands) is what
+  players, hosts, guests and staff get in the channel; "video" covers camera and screen share, and
+  use_application_commands lets them use `/voice invite` there. Also allowed: attach_files, add_reactions,
+  use_external_emojis, use_external_stickers, use_embedded_activities, use_soundboard, use_external_sounds,
+  send_voice_messages, send_polls, use_external_apps, create_instant_invite and priority_speaker.
+  Moderation powers (mute, deafen, move, manage) can't be given this way.
   Guest links and host moderation: `guest_invites` (true; `/voice invite`), `max_guests_per_invite` (5, 1-25),
   `invite_dm` (`off` | `hosts` | `everyone`: DM guest links on Start), `guest_link_template` (empty = the
   site's `/v/{code}` page under member_path; e.g. `https://short.example.org/v/{code}` with the `/v/` Nginx
