@@ -371,9 +371,18 @@ def cmd_outbox(args):
     db = _db(cfg, "app")
     with db.tx() as s:
         if args.action == "retry-dead":
+            # Only one copy of a job may wait at a time: retry the newest dead copy of each job, and clear the
+            # older copies (and any copy whose job is already waiting to run again).
+            old = s.execute(text(
+                "UPDATE outbox o SET done_at = now() WHERE o.dead_at IS NOT NULL AND o.done_at IS NULL AND ("
+                " EXISTS (SELECT 1 FROM outbox p WHERE p.kind = o.kind AND p.key = o.key"
+                "         AND p.done_at IS NULL AND p.dead_at IS NULL)"
+                " OR EXISTS (SELECT 1 FROM outbox n WHERE n.kind = o.kind AND n.key = o.key"
+                "         AND n.dead_at IS NOT NULL AND n.done_at IS NULL AND n.id > o.id))")).rowcount
             n = s.execute(text("UPDATE outbox SET dead_at = NULL, attempts = 0, run_after = now() "
                                "WHERE dead_at IS NOT NULL AND done_at IS NULL")).rowcount
-            print(f"requeued {n} job(s)")
+            print(f"requeued {n} job(s)" + (f"; cleared {old} older cop{'y' if old == 1 else 'ies'} of the same "
+                                            f"job{'' if old == 1 else 's'}" if old else ""))
         elif args.action == "dismiss-dead":
             n = s.execute(text("UPDATE outbox SET done_at = now() WHERE dead_at IS NOT NULL AND done_at IS NULL"
                                )).rowcount

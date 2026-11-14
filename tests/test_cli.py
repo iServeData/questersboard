@@ -138,6 +138,25 @@ def test_dead_outbox_job_is_shown_warns_on_deploy_and_can_be_dismissed(cfg_file,
     assert cli.main(["--config", cfg_file, "health", "--socket", nosock]) == 0
 
 
+@needs_db
+def test_retry_dead_with_several_copies_of_one_job(cfg_file, db, capsys):
+    """Regression: five dead copies of one voice update made retry-dead fail (only one copy may wait)."""
+    with db.tx() as s:
+        s.execute(text("UPDATE outbox SET done_at = now() WHERE done_at IS NULL"))
+        for i in range(5):
+            s.execute(text("INSERT INTO outbox (kind, key, payload, dead_at, attempts, last_error) "
+                           "VALUES ('discord.sync_voice', 'fixture-12', '{}', now(), 8, 'rate limited')"))
+        s.execute(text("INSERT INTO outbox (kind, key, payload, dead_at, attempts) "
+                       "VALUES ('discord.render_event', 'fixture-7', '{}', now(), 8)"))
+        s.execute(text("INSERT INTO outbox (kind, key, payload) VALUES ('discord.render_event', 'fixture-7', '{}')"))
+    assert cli.main(["--config", cfg_file, "outbox", "retry-dead"]) == 0
+    assert "requeued 1 job(s); cleared 5 older copies of the same jobs" in capsys.readouterr().out
+    with db.tx() as s:
+        waiting = s.execute(text("SELECT kind, key, attempts FROM outbox WHERE done_at IS NULL")).all()
+        assert sorted(waiting) == [("discord.render_event", "fixture-7", 0), ("discord.sync_voice", "fixture-12", 0)]
+        s.execute(text("UPDATE outbox SET done_at = now() WHERE done_at IS NULL"))
+
+
 def test_deploy_scripts_use_the_deploy_health_mode():
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent / "deploy"
