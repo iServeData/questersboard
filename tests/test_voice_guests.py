@@ -293,3 +293,30 @@ def test_help_page_follows_config(seeded):
     assert r.status_code == 200 and "Event voice" not in r.text and "Event chat" not in r.text
     priv = TestClient(_app(seeded, _cfg())[0], base_url="https://community.example.org").get("/wow/quester/privacy")
     assert "guest voice link" in priv.text
+
+
+def test_what_a_guest_can_and_cant_do(seeded, worker_db, monkeypatch):
+    """A guest gets the event's voice like a player, and nothing else: no guest link of their own, no event
+    chat, no kick or ban, no signup, and no moderation permissions on the channel."""
+    cfg, fake, w, eid, vid = _setup(seeded, worker_db, monkeypatch)
+    with seeded.tx() as s:
+        _, code = voice.invite_for(s, cfg, actor(80), eid)
+        voice.redeem(s, cfg, code, GUEST)
+    _drain(w)
+    g = actor(150, name="Fixture Guest")
+    assert fake.voice[vid]["overwrites"][GUEST] == (1, voice.PARTICIPANT, 0)          # talk, video, chat in voice
+    assert not voice.PARTICIPANT & (1 << 0)                                            # no Create Invite
+    assert not voice.PARTICIPANT & (voice.MOVE_MEMBERS | voice.MANAGE_CHANNELS | voice.MANAGE_ROLES)
+    th = next(iter(fake.threads.values()))
+    assert GUEST not in th["members"]                                                  # not in the event chat
+    with seeded.tx() as s:
+        ev = s.get(voice.Event, eid)
+        assert not voice.can_join(s, cfg, g, ev)                                       # access is the guest row
+        with pytest.raises(PermissionDenied, match="people in the event"):
+            voice.invite_for(s, cfg, g, eid)                                           # can't hand out links
+        with pytest.raises(PermissionDenied):
+            voice.moderate(s, cfg, g, eid, voice.Target(fake_id(80), frozenset()), "kick")
+        assert s.scalar(select(func.count()).select_from(EventVoiceGuest).where(
+            EventVoiceGuest.event_id == eid)) == 1
+        events.end(s, cfg, ORG, eid)
+        assert s.get(EventVoiceGuest, (eid, GUEST)) is None                            # gone when it ends
