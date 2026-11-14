@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Event voice: one channel, even when Discord is busy.** If Discord asked the bot to slow down while it
+  was giving signed-up players access to a new event voice channel, the channel was forgotten and the next
+  try made another one. The channel is now saved as soon as it's made and locked, and members are added in
+  a follow-up step that picks up where it stopped. A copy left in the voice category by an earlier failed
+  try (same name, not saved for any event) is taken back instead of making a new channel, and other
+  copies are removed when the channel is saved and when the event ends.
 - **Privacy page, easier to scan.** In Who else is involved, the Blizzard entry now breaks out Forget my
   Battle.net link, Refresh from Blizzard and Remove imported details into their own indented blocks.
 - **24-hour times everywhere.** Times converted to the viewer's own zone in the browser (event lists, My

@@ -357,3 +357,59 @@ def test_channel_removed_if_it_cant_be_locked(seeded, worker_db, monkeypatch):
     assert fake.voice == {}
     with seeded.tx() as s:
         assert _ev(s, eid).discord_voice_channel_id is None
+
+
+def _left_over_channel(fake, name, parent=CAT):
+    """FIXTURE: a voice channel an earlier, failed attempt left in Discord."""
+    vid = "v" + str(next(fake.ids))
+    fake.voice[vid] = {"name": name, "type": 2, "parent": parent, "limit": 0,
+                       "overwrites": {o["id"]: (o["type"], int(o["allow"]), int(o["deny"]))
+                                      for o in fake.category_overwrites}}
+    return vid
+
+
+def test_rate_limit_while_adding_members_never_makes_a_second_channel(seeded, worker_db, monkeypatch):
+    import time
+    cfg, fake = _cfg(), FakeDiscord()
+    w = Worker(ConfigHolder(cfg), worker_db, fake.client())
+    fake.fail_on = [("PUT", f"/permissions/{fake_id(80)}", 429), ("PUT", f"/permissions/{fake_id(81)}", 429)]
+    eid = _started(seeded, cfg, monkeypatch, w, actor(80), actor(81))
+    for _ in range(6):
+        time.sleep(0.6)                                  # the fixture's retry_after, plus the 0.5 s margin
+        _drain(w)
+    assert len(fake.voice) == 1
+    assert len([c for c in fake.calls if c[0] == "POST" and c[1].endswith("/channels")]) == 1
+    vid, v = next(iter(fake.voice.items()))
+    assert {fake_id(1), fake_id(80), fake_id(81)} <= set(v["overwrites"])
+    with seeded.tx() as s:
+        ev = _ev(s, eid)
+        assert ev.discord_voice_channel_id == vid
+        assert set(ev.discord_voice_members) == {fake_id(1), fake_id(80), fake_id(81)}
+
+
+def test_left_over_channel_is_taken_back_and_extra_copies_removed(seeded, worker_db, monkeypatch):
+    cfg, fake = _cfg(), FakeDiscord()
+    w = Worker(ConfigHolder(cfg), worker_db, fake.client())
+    first, second = _left_over_channel(fake, "Mine run"), _left_over_channel(fake, "Mine run")
+    other = _left_over_channel(fake, "Something else")
+    elsewhere = _left_over_channel(fake, "Mine run", parent=fake_id(55))
+    eid = _started(seeded, cfg, monkeypatch, w, actor(80))
+    assert not [c for c in fake.calls if c[0] == "POST" and c[1].endswith("/channels")]
+    assert first in fake.voice and second not in fake.voice
+    assert other in fake.voice and elsewhere in fake.voice           # other names and categories left alone
+    ow = fake.voice[first]["overwrites"]
+    assert ow[GUILD] == (0, 0, voice.VIEW | voice.CONNECT) and fake.other_role not in ow    # locked again
+    assert fake_id(80) in ow
+    with seeded.tx() as s:
+        assert _ev(s, eid).discord_voice_channel_id == first
+
+
+def test_end_removes_left_over_copies(seeded, worker_db, monkeypatch):
+    cfg, fake = _cfg(), FakeDiscord()
+    w = Worker(ConfigHolder(cfg), worker_db, fake.client())
+    eid = _started(seeded, cfg, monkeypatch, w, actor(80))
+    copy = _left_over_channel(fake, "Mine run")
+    with seeded.tx() as s:
+        events.end(s, cfg, ORG, eid)
+    _drain(w)
+    assert copy not in fake.voice and not fake.voice

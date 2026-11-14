@@ -146,6 +146,12 @@ class DiscordRest:
         body = {"name": name[:100], "type": 2, "parent_id": category_id, "user_limit": user_limit}
         return self._call("POST", f"/guilds/{guild_id}/channels", body)
 
+    def voice_channels_in(self, guild_id: str, category_id: str) -> list[dict]:
+        """Voice channels under one category (id, name), oldest first."""
+        got = self._call("GET", f"/guilds/{guild_id}/channels") or []
+        mine = [c for c in got if c.get("type") == 2 and str(c.get("parent_id")) == str(category_id)]
+        return sorted(mine, key=lambda c: (len(str(c["id"])), str(c["id"])))   # ids grow over time
+
     def channel(self, channel_id: str) -> dict:
         return self._call("GET", f"/channels/{channel_id}")
 

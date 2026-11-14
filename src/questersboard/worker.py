@@ -268,6 +268,9 @@ class Worker:
             if ev.discord_voice_channel_id:
                 self._need_rest().delete_channel(ev.discord_voice_channel_id)
                 self._voice_gone(s, ev)
+                s.flush()
+            if vc["enabled"]:
+                self._remove_left_over(s, self._need_rest(), ev)
             voice.end_session(s, ev)        # guest links, guests and bans go with the event
             return
         if not vc["enabled"] or ev.state != "in_progress":
@@ -276,23 +279,11 @@ class Worker:
         if not ev.discord_voice_channel_id:
             if ev.voice_closed_at is not None:          # removed for being empty; a host can reopen it
                 return
-            made = rest.create_voice_channel(guild, vc["category_id"], voice.channel_name(self.cfg, ev),
-                                             vc["user_limit"])
-            new_ch = str(made["id"])
-            try:
-                self._lock_voice(rest, new_ch, made.get("permission_overwrites") or [])
-            except dr.DiscordError:
-                rest.delete_channel(new_ch)         # never leave an open channel behind
-                raise
-            ev.discord_voice_channel_id = new_ch
-            ev.discord_voice_members = {}
-            ev.voice_empty_since = now()
-            s.flush()
-            # Discord can apply permission changes on a brand-new channel out of order; check again shortly
-            outbox.enqueue(s, "discord.sync_voice", f"{ev.id}:relock", {"event_id": ev.id, "relock": True},
-                           run_after=now() + timedelta(seconds=5))
-            outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})   # adds Join voice
+            self._open_voice(s, rest, ev)
+            return                                      # members are added by the follow-up run
         ch = ev.discord_voice_channel_id
+        if p.get("sweep"):
+            self._remove_left_over(s, rest, ev)     # once, after the channel was saved
         tkey = f"voice-open:{ev.id}:{ch}"
         if self.cfg["event_threads"]["enabled"] and ev.discord_thread_id and not s.scalar(
                 text("SELECT 1 FROM outbox WHERE kind = 'discord.thread_message' AND key = :k"), {"k": tkey}):
@@ -304,16 +295,18 @@ class Worker:
         want = voice.desired_overwrites(s, self.cfg, ev, ids, have)
         staff = self.cfg.voice_staff_roles()
         done = dict(have)
-        compare = have
+        force = set(p.get("force") or [])           # members whose permission is set again regardless
+        touched: list[str] = []
         try:
             if p.get("relock"):
                 self._lock_voice(rest, ch, rest.channel(ch).get("permission_overwrites") or [], keep=have)
-                compare = {}                        # set every member's permission again
+                force = set(want)                   # set every member's permission again
             for did, st in sorted(want.items()):
-                if compare.get(did) != st:
+                if did in force or have.get(did) != st:
                     allow, deny = voice.OVERWRITE[st]
                     rest.set_overwrite(ch, did, 1, allow, deny)
                     done[did] = st
+                touched.append(did)
             for did in sorted(set(have) - set(want)):
                 # only with remove_on_leave = true: take the seat away and disconnect (staff may stay)
                 rest.delete_overwrite(ch, did)
@@ -322,6 +315,13 @@ class Worker:
                     _, roles, _ = rest.member(guild, did)
                     if not roles & staff:
                         rest.disconnect_voice(guild, did)
+        except dr.RateLimited as exc:
+            # keep what was done and carry on later, instead of starting the whole list again
+            ev.discord_voice_members = done
+            rest_of = sorted(force - set(touched)) if p.get("relock") or p.get("force") else []
+            outbox.enqueue(s, "discord.sync_voice", f"{ev.id}:more", {"event_id": ev.id, "force": rest_of},
+                           run_after=now() + timedelta(seconds=exc.retry_after + 0.5))
+            return
         except dr.Gone:
             # someone deleted the channel in Discord: treat it as closed (a host can reopen it)
             log.warning("event %s: voice channel was deleted in Discord", ev.id)
@@ -330,6 +330,56 @@ class Worker:
             outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})
             return
         ev.discord_voice_members = done
+
+    def _left_over(self, s: Session, rest, ev: Event) -> list[dict]:
+        """Voice channels in the category with this event's name that no event has saved, oldest first."""
+        name = voice.channel_name(self.cfg, ev)
+        known = set(s.scalars(select(Event.discord_voice_channel_id)
+                              .where(Event.discord_voice_channel_id.is_not(None))))
+        return [c for c in rest.voice_channels_in(self.cfg.guild_id, self.cfg["voice"]["category_id"])
+                if c.get("name") == name and str(c["id"]) not in known]
+
+    def _remove_left_over(self, s: Session, rest, ev: Event) -> None:
+        for c in self._left_over(s, rest, ev):
+            rest.delete_channel(str(c["id"]))
+            log.warning("event %s: removed a copy of its voice channel left from an earlier attempt", ev.id)
+
+    def _open_voice(self, s: Session, rest, ev: Event) -> None:
+        """Create (or take back) the event's channel and lock it, then save it straight away. Nothing else
+        happens in this run, so a later failure (such as a rate limit while adding members) can't undo the
+        save and lead to a second channel. A channel left over from an earlier failed run has the event's
+        name, sits in the voice category and belongs to no event: the oldest is taken back, and any other
+        such copies are removed."""
+        vc, guild = self.cfg["voice"], self.cfg.guild_id
+        name = voice.channel_name(self.cfg, ev)
+        left_over = self._left_over(s, rest, ev)
+        if left_over:
+            new_ch = str(left_over[0]["id"])
+            log.warning("event %s: took back a voice channel left from an earlier attempt", ev.id)
+            self._lock_voice(rest, new_ch, rest.channel(new_ch).get("permission_overwrites") or [])
+            for extra in left_over[1:]:
+                rest.delete_channel(str(extra["id"]))
+        else:
+            made = rest.create_voice_channel(guild, vc["category_id"], name, vc["user_limit"])
+            new_ch = str(made["id"])
+            try:
+                self._lock_voice(rest, new_ch, made.get("permission_overwrites") or [])
+            except dr.DiscordError:
+                try:
+                    rest.delete_channel(new_ch)     # never leave an open channel behind
+                except dr.DiscordError:
+                    log.warning("event %s: couldn't remove a half-made voice channel; the next run takes "
+                                "it back", ev.id)
+                raise
+        ev.discord_voice_channel_id = new_ch
+        ev.discord_voice_members = {}
+        ev.voice_empty_since = now()
+        s.flush()
+        outbox.enqueue(s, "discord.sync_voice", f"{ev.id}:fill", {"event_id": ev.id, "sweep": True})   # members
+        # Discord can apply permission changes on a brand-new channel out of order; check again shortly
+        outbox.enqueue(s, "discord.sync_voice", f"{ev.id}:relock", {"event_id": ev.id, "relock": True},
+                       run_after=now() + timedelta(seconds=5))
+        outbox.enqueue(s, "discord.render_event", str(ev.id), {"event_id": ev.id})   # adds Join voice
 
     def _lock_voice(self, rest, channel_id: str, current: list[dict], keep=()) -> None:
         _, bot_roles, _ = rest.member(self.cfg.guild_id, rest.me())

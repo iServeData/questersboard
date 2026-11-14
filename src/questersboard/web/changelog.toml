@@ -16,6 +16,10 @@ area = "Chronicle"
 kind = "new"
 text = "Join me next time on solo stories: readers can ask to come along, and the author can plan a group event from the story in one step. Everyone who asked gets the link."
 [[release.change]]
+area = "Voice"
+kind = "fixed"
+text = "Starting an event no longer sometimes opens several copies of its voice channel; any extra copies are removed."
+[[release.change]]
 area = "Characters"
 kind = "fixed"
 text = "Archiving a character that took part in a finished event works again."

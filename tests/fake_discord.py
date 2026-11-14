@@ -15,6 +15,7 @@ class FakeDiscord:
         self.directory: list[dict] = []          # FIXTURE guild members for /members/search
         self.calls: list[tuple[str, str]] = []
         self.fail_next: list[int] = []
+        self.fail_on: list[tuple[str, str, int]] = []   # FIXTURE (method, path ending, status), each used once
         self.forbid_channels: set[str] = set()
         self.ids = itertools.count(5000)
         self.threads: dict[str, dict] = {}       # FIXTURE thread id -> {name, type, parent, members, closed}
@@ -48,8 +49,15 @@ class FakeDiscord:
         if self.fail_next:
             code = self.fail_next.pop(0)
             return httpx.Response(code, json={"retry_after": 0.01, "message": "fixture"})
+        for rule in self.fail_on:
+            if req.method == rule[0] and path.endswith(rule[1]):
+                self.fail_on.remove(rule)
+                return httpx.Response(rule[2], json={"retry_after": 0.01, "message": "fixture"})
         parts = path.strip("/").split("/")
         body = json.loads(req.content or b"{}")
+        if parts[0] == "guilds" and parts[2:] == ["channels"] and req.method == "GET":
+            return httpx.Response(200, json=[{"id": k, "type": v["type"], "name": v["name"], "parent_id": v["parent"]}
+                                             for k, v in self.voice.items()])
         if parts[0] == "channels" and parts[2:] == ["webhooks"]:
             if parts[1] in self.no_manage_webhooks:
                 return httpx.Response(403, json={"code": 50013})

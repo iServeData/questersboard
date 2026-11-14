@@ -2,7 +2,8 @@
 (tests/fake_discord.py); nothing live is exercised."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from conftest import ROLE, actor, at, make_cfg, needs_db
@@ -23,7 +24,7 @@ AUTHOR_EC = actor(20, "event_creator", name="FixtureAuthor")   # the same member
 READER = actor(21, name="FixtureReader")
 REV = actor(2, "chronicle_reviewer")
 ORG = actor(1, "event_creator")
-TODAY = date.today()
+TODAY = datetime.now(ZoneInfo("America/Los_Angeles")).date()   # the fixture community's zone, not UTC
 GOOD = {"attempted": "Finish the long road to the coast.", "happened": "FixtureWanderer walked the whole way "
         "and only died twice.", "outcome": "completed", "moments": "The view from the cliffs."}
 
