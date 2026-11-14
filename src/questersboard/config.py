@@ -457,7 +457,7 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
 
     vc = r.setdefault("voice", {})
     for k, dflt in (("enabled", False), ("moderators_can_join", True), ("remove_on_leave", False),
-                    ("guest_invites", True)):
+                    ("guest_invites", True), ("commands_in_voice_chat", True)):
         if not isinstance(vc.setdefault(k, dflt), bool):
             raise ConfigError(f"[voice] {k} must be true or false")
     vc["category_id"] = _snowflake(vc.get("category_id", ""), "[voice] category_id")
@@ -501,7 +501,7 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     unknown = set(vc) - {"enabled", "category_id", "name_template", "user_limit", "empty_teardown_minutes",
                          "staff_role_ids", "moderators_can_join", "remove_on_leave", "member_states",
                          "guest_invites", "protected_role_ids", "max_guests_per_invite", "invite_dm",
-                         "guest_link_template", "participant_permissions"}
+                         "guest_link_template", "participant_permissions", "commands_in_voice_chat"}
     if unknown:
         raise ConfigError(f"[voice] unknown setting {sorted(unknown)[0]!r}")
 

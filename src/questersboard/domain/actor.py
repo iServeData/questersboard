@@ -19,6 +19,7 @@ class Actor:
     display_name: str = ""
     username: str = ""                 # unique Discord username, when the login/bot provides it
     joined_at: datetime | None = None  # when they joined the Discord server (probation for publishing)
+    voice_chat: bool = False           # a /voice command typed in a running event's voice chat (voice.command_actor)
 
     def __post_init__(self):
         if self.source not in SOURCES:

@@ -125,6 +125,8 @@ community, and keep `backup_keep_days` equal to `QUESTERSBOARD_BACKUP_KEEP_DAYS`
    **Guest links**: anyone with voice access can run `/voice invite` for a link to give someone they're
    playing with outside the event. The guest signs in with Discord on the site, is added to the server if
    needed, and can join that event's voice until it ends (up to `max_guests_per_invite` people per link).
+   Hosts can run `/voice invite new:True` to stop every old guest link for the event and get a new one.
+   `/voice` commands also work in the event's own voice chat (needed when two events run at once).
    **Moderation**: hosts, co-hosts and event moderators can `/voice kick`, `/voice ban` (until the event
    ends) and `/voice unban`, but not on the server owner, bots, admins, officers (protected roles) or
    themselves, and co-hosts can't act on the host. The public **How it works** page (`/wow/quester/help`)

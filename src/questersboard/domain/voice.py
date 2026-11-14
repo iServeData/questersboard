@@ -19,7 +19,7 @@ Lifecycle (the worker does every Discord change, from the outbox):
 from __future__ import annotations
 
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, func, select, text
@@ -160,8 +160,11 @@ def voice_open(ev: Event) -> bool:
     return ev.state == "in_progress" and bool(ev.discord_voice_channel_id)
 
 
-def invite_for(s: Session, cfg: Config, actor: Actor, event_id: int) -> tuple[Event, str]:
-    """The guest link for this person and event (made on first use, the same link after that)."""
+def invite_for(s: Session, cfg: Config, actor: Actor, event_id: int, new: bool = False) -> tuple[Event, str]:
+    """The guest link for this person and event (made on first use, the same link after that).
+    new=True (hosts, co-hosts and event moderators): every guest link for this event stops working and this
+    person gets a fresh one. People who already joined with an old link keep their place; /voice ban
+    removes someone."""
     require_member(cfg, actor)
     actor = ensure_member(s, actor)
     ev = s.get(Event, event_id)
@@ -173,6 +176,12 @@ def invite_for(s: Session, cfg: Config, actor: Actor, event_id: int) -> tuple[Ev
         raise Invalid("Guest links work while the event's voice channel is open.")
     if not can_join(s, cfg, actor, ev):
         raise PermissionDenied("Guest links are for people in the event. Join it first.")
+    if new:
+        if not is_manager(s, cfg, actor, ev):
+            raise PermissionDenied("Only the event's host, a co-host or an event moderator can make new guest "
+                                   "links. Ask a host.")
+        n = s.execute(delete(EventVoiceInvite).where(EventVoiceInvite.event_id == ev.id)).rowcount or 0
+        audit.record(s, actor, "voice.invite_reset", "event", ev.id, old_links=n)
     return ev, _code_for(s, ev, actor.member_id, actor)
 
 
@@ -214,7 +223,13 @@ def invite_dm_text(cfg: Config, ev: Event, code: str) -> str:
             "event's voice channel. No character or signup needed.\n"
             f"- Works for up to {n} {'person' if n == 1 else 'people'}, only until the event ends.\n"
             "- Hosts can remove anyone from the channel.\n"
-            "- Only share it with people you're playing with. You can get it again with `/voice invite`.")
+            "- Only share it with people you're playing with. You can get it again with `/voice invite`.\n"
+            "- Shared too widely? A host can stop every old link with `/voice invite new:True`.")
+
+
+INVITE_RESET_NOTE = ("New guest link made. The old guest links for this event no longer work, including "
+                     "other people's; they get a new one with `/voice invite`. Anyone who already joined with an "
+                     "old link keeps their place; `/voice ban` removes someone.")
 
 
 @dataclass
@@ -237,8 +252,8 @@ def check_invite(s: Session, cfg: Config, code: str, discord_id: str | None = No
         if s.get(EventVoiceGuest, (ev.id, discord_id)) is None:
             used = s.scalar(select(func.count()).select_from(EventVoiceGuest).where(EventVoiceGuest.code == code))
             if used >= cfg["voice"]["max_guests_per_invite"]:
-                raise PermissionDenied("This voice link has been used by as many people as it allows. "
-                                       "Ask for a new one.")
+                raise PermissionDenied("This voice link is full. Ask someone in the event for theirs, or "
+                                       "ask a host for a new one.")
     return ev
 
 
@@ -299,6 +314,17 @@ def moderate(s: Session, cfg: Config, actor: Actor, event_id: int, target: Targe
         outbox.enqueue(s, "discord.voice_kick", f"{ev.id}:{target.discord_id}:{int(now().timestamp())}",
                        {"event_id": ev.id, "discord_id": target.discord_id})
     return ev
+
+
+def command_actor(s: Session, cfg: Config, actor: Actor) -> Actor:
+    """A /voice command typed in a running event's own voice chat counts as typed in a command channel
+    ([voice] commands_in_voice_chat). Only /voice commands use this; others stay in the command channels."""
+    if (actor.source == "slash" and actor.channel_id and cfg["voice"]["enabled"]
+            and cfg["voice"]["commands_in_voice_chat"]
+            and s.scalar(select(Event.id).where(Event.discord_voice_channel_id == str(actor.channel_id),
+                                                Event.state == "in_progress"))):
+        return replace(actor, voice_chat=True)
+    return actor
 
 
 def event_for_command(s: Session, cfg: Config, actor: Actor, channel_id: str | None, manage: bool) -> int:

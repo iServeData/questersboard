@@ -12,6 +12,15 @@
 - **No outside links by default.** `item_link_template` and `spell_link_template` are now empty in
   `deploy/config.example.toml`, so tooltips use Blizzard data only. Existing configs keep whatever they set;
   set both to `""` to remove the links.
+- **Hosts can replace guest voice links.** `/voice invite new:True` (host, co-hosts, event moderators)
+  stops every guest link for the running event and gives a new one; people who already joined keep their
+  place (`/voice ban` removes someone), and everyone else gets a fresh link from `/voice invite`. Audited as
+  `voice.invite_reset`. A full link now says "Ask someone in the event for theirs, or ask a host for a new
+  one" instead of "Ask for a new one".
+- **`/voice` commands in the event's voice chat.** `/voice invite`, `kick`, `ban` and `unban` now work when
+  typed in a running event's own voice channel chat, not only in the command channels, so hosts can pick
+  the event when two are running. `[voice] commands_in_voice_chat` (default true). Discord has to offer the
+  commands there too: add the event voice category under Server Settings > Integrations > QuestersBoard.
 - **"Board's closed" pages while QuestersBoard is down.** When the web service isn't running (an update,
   a restart, a crash) Nginx used to show the site's plain 502. It now shows QuestersBoard-styled offline
   pages for 502, 503 and 504 ("Try again", the WoW page and Discord; no sign-in or menus), keeping the

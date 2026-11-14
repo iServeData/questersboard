@@ -154,6 +154,9 @@ guest_invites = true                          # /voice invite: guest links for p
                                               # (the bot's role needs Create Invite to add guests to the server)
 max_guests_per_invite = 5                     # people per guest link (1-25)
 invite_dm = "off"                             # off | hosts | everyone: DM guest links when the event starts
+commands_in_voice_chat = true                 # /voice commands also work in a running event's voice chat (add
+                                              # the voice category to the bot's command channels in Discord:
+                                              # Server Settings > Integrations); other commands still don't
 guest_link_template = ""                      # "" = public_base_url + member_path + "/v/{code}";
                                               # a short domain, e.g. "https://short.example.org/v/{code}"
 participant_permissions = ["view_channel", "connect", "speak", "video", "use_voice_activity", "send_messages",

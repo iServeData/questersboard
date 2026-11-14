@@ -112,7 +112,14 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   site's `/v/{code}` page under member_path; e.g. `https://short.example.org/v/{code}` with the `/v/` Nginx
   rule), `protected_role_ids` (roles hosts can't `/voice kick` or `/voice ban`; the server owner, bots,
   `staff_role_ids` and `[roles] admin` are always protected). Guests need the bot's role to have **Create
-  Invite** (server level) so they can be added to the server; the permissions check reports it.
+  Invite** (server level) so they can be added to the server; the permissions check reports it. Hosts,
+  co-hosts and event moderators can run `/voice invite new:True` to make a new link: every old guest link for
+  the event stops working (people who already joined stay; `/voice ban` removes someone).
+  `commands_in_voice_chat` (true): `/voice` commands also work when typed in a running event's own voice
+  chat, even though it isn't in `[discord] allowed_command_channel_ids`; that's how hosts pick the event
+  when two are running. Other commands still only work in the command channels. Discord also has to offer
+  the commands there: Server Settings > Integrations > QuestersBoard > Channels, add the event voice
+  category (the channels come and go, so the category is what to allow).
 - **Group sizes** (`[signups.party_size_max]`): the largest group per activity type (quest 5, dungeon 5,
   arena 5, raid 40, battleground 40; others 80). The participant limit can't go above it, a blank limit
   becomes it, and an event's role "How many" numbers can't add up to more than the limit. Live setting.

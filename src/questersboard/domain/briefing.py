@@ -57,7 +57,10 @@ def _page(cfg: Config, ev: Event) -> str:
 
 def _where(cfg: Config) -> str:
     chans = cfg["discord"].get("allowed_command_channel_ids", [])
-    return f" (type these in {', '.join(f'<#{c}>' for c in chans)})" if chans else ""
+    if not chans:
+        return ""
+    vchat = " or the event's voice chat" if cfg["voice"]["enabled"] and cfg["voice"]["commands_in_voice_chat"] else ""
+    return f" (type these in {', '.join(f'<#{c}>' for c in chans)}{vchat})"
 
 
 def _end_line(ev: Event) -> str:
@@ -89,6 +92,8 @@ def _removing(cfg: Config, cohost: bool) -> list[str]:
     return ["", f"**Removing someone from voice**{_where(cfg)}",
             "- `/voice kick @name`: disconnects them. They can rejoin.",
             "- `/voice ban @name`: keeps them out until the event ends. `/voice unban @name` undoes it.",
+            *(["- `/voice invite new:True`: a new guest link; every old guest link for the event stops working."]
+              if cfg["voice"]["guest_invites"] else []),
             f"- You can't remove {who}."]
 
 

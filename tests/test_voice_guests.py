@@ -86,6 +86,60 @@ def test_guest_link_one_per_person_and_only_for_people_in_the_event(seeded, work
         voice.invite_for(s, _cfg(guest_invites=False), actor(80), eid)
 
 
+def test_hosts_can_make_a_new_link_that_stops_the_old_ones(seeded, worker_db, monkeypatch):
+    co = actor(70, name="CoHost")
+    cfg, fake, w, eid, vid = _setup(seeded, worker_db, monkeypatch, cohost=co, max_guests_per_invite=1)
+    with seeded.tx() as s:
+        _, old_player = voice.invite_for(s, cfg, actor(80), eid)
+        _, old_host = voice.invite_for(s, cfg, ORG, eid)
+        voice.redeem(s, cfg, old_player, GUEST)                                    # GUEST is in with the old link
+        with pytest.raises(PermissionDenied, match="host"):
+            voice.invite_for(s, cfg, actor(80), eid, new=True)                     # players can't reset
+        assert voice.check_invite(s, cfg, old_host)                                # nothing changed yet
+        _, fresh = voice.invite_for(s, cfg, co, eid, new=True)                     # a co-host can
+        assert fresh not in (old_player, old_host)
+        for dead in (old_player, old_host):
+            with pytest.raises(NotFound):
+                voice.check_invite(s, cfg, dead)                                   # every old link stops
+        assert s.get(EventVoiceGuest, (eid, GUEST)) is not None                    # joined guests stay
+        voice.redeem(s, cfg, fresh, GUEST2)
+        assert voice.invite_for(s, cfg, actor(80), eid)[1] not in (old_player, fresh)   # player: a new own link
+        _, again = voice.invite_for(s, cfg, actor(71, "event_moderator"), eid, new=True)
+        with pytest.raises(NotFound):
+            voice.check_invite(s, cfg, fresh)
+        acts = list(s.scalars(select(AuditLog.detail).where(AuditLog.action == "voice.invite_reset")))
+        assert [a["old_links"] for a in acts] == [2, 2]
+    assert "/voice invite new:True" in voice.invite_dm_text(cfg, voice.Event(title="Mine run"), fresh)
+    assert "other people's" in voice.INVITE_RESET_NOTE
+
+
+def test_voice_commands_work_in_the_event_voice_chat(seeded, worker_db, monkeypatch):
+    from dataclasses import replace
+
+    from questersboard.domain.permissions import require_member
+    BOTCH = fake_id(160)
+    cfg, fake, w, eid, vid = _setup(seeded, worker_db, monkeypatch)
+    cfg = make_cfg(community={"guild_id": GUILD}, discord={"event_channel_id": CH, "allowed_command_channel_ids": [BOTCH]},
+                   event_threads={"enabled": True}, host_briefing={"enabled": False},
+                   voice={"enabled": True, "category_id": CAT})
+    host = replace(ORG, source="slash", channel_id=vid)
+    with seeded.tx() as s:
+        with pytest.raises(PermissionDenied, match="commands work in"):
+            require_member(cfg, host)                                              # not a command channel
+        a = voice.command_actor(s, cfg, host)
+        assert a.voice_chat and voice.event_for_command(s, cfg, a, vid, manage=True) == eid
+        assert voice.invite_for(s, cfg, a, eid)[1]
+        voice.moderate(s, cfg, a, eid, voice.Target(fake_id(80), frozenset()), "kick")
+        other = replace(ORG, source="slash", channel_id=fake_id(161))              # some other channel
+        assert not voice.command_actor(s, cfg, other).voice_chat
+        off = make_cfg(community={"guild_id": GUILD}, discord={"event_channel_id": CH,
+                       "allowed_command_channel_ids": [BOTCH]}, host_briefing={"enabled": False},
+                       voice={"enabled": True, "category_id": CAT, "commands_in_voice_chat": False})
+        assert not voice.command_actor(s, off, host).voice_chat
+        events.end(s, cfg, ORG, eid)
+        assert not voice.command_actor(s, cfg, host).voice_chat                    # only while it runs
+
+
 def test_redeem_gives_access_until_the_event_ends(seeded, worker_db, monkeypatch):
     cfg, fake, w, eid, vid = _setup(seeded, worker_db, monkeypatch, max_guests_per_invite=2)
     with seeded.tx() as s:
@@ -93,7 +147,7 @@ def test_redeem_gives_access_until_the_event_ends(seeded, worker_db, monkeypatch
         assert voice.redeem(s, cfg, code.upper(), GUEST).channel_id == vid
         voice.redeem(s, cfg, code, GUEST)                                          # same guest again: fine
         voice.redeem(s, cfg, code, GUEST2)
-        with pytest.raises(PermissionDenied, match="as many people"):
+        with pytest.raises(PermissionDenied, match="link is full. Ask someone in the event"):
             voice.redeem(s, cfg, code, GUEST3)                                     # 2 per link
         with pytest.raises(NotFound):
             voice.check_invite(s, cfg, "nosuchcd")

@@ -650,17 +650,22 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
     vgroup = app_commands.Group(name="voice", description="Event voice channel")
 
     @vgroup.command(name="invite", description="Get a guest link to this event's voice for someone you're playing with")
-    async def v_invite(inter: discord.Interaction):
+    @app_commands.describe(new="Hosts: make a new link and stop every old guest link for this event working")
+    async def v_invite(inter: discord.Interaction, new: bool = False):
         async def go():
             cfg = Ctx.cfg()
             actor = await build_actor(inter, "slash")
 
             def q(s):
-                eid = voice.event_for_command(s, cfg, actor, str(inter.channel_id), manage=False)
-                ev, code = voice.invite_for(s, cfg, actor, eid)
+                a = voice.command_actor(s, cfg, actor)
+                eid = voice.event_for_command(s, cfg, a, str(inter.channel_id), manage=False)
+                ev, code = voice.invite_for(s, cfg, a, eid, new=new)
                 return ev.title, code
             title, code = await run_tx(q)
-            await reply(inter, voice.invite_dm_text(cfg, _Titled(title), code))
+            text = voice.invite_dm_text(cfg, _Titled(title), code)
+            if new:
+                text = (f"{voice.INVITE_RESET_NOTE}\n\n" + text)
+            await reply(inter, text)
         await guarded(inter, go())
 
     async def _moderate(inter: discord.Interaction, member: discord.Member, action: str, done: str):
@@ -672,8 +677,9 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
                               is_owner=owner is not None and member.id == owner, is_bot=bool(member.bot))
 
         def q(s):
-            eid = voice.event_for_command(s, cfg, actor, str(inter.channel_id), manage=True)
-            return voice.moderate(s, cfg, actor, eid, target, action).title
+            a = voice.command_actor(s, cfg, actor)
+            eid = voice.event_for_command(s, cfg, a, str(inter.channel_id), manage=True)
+            return voice.moderate(s, cfg, a, eid, target, action).title
         title = await run_tx(q)
         await reply(inter, done.format(name=_md(member.display_name), title=_md(title)))
 

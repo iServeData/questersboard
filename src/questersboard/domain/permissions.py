@@ -54,7 +54,7 @@ def require_member(cfg: Config, actor: Actor) -> None:
         raise PermissionDenied("Your Discord account does not have the member role QuestersBoard requires.")
     if actor.source == "slash":
         allowed = frozenset(cfg["discord"].get("allowed_command_channel_ids", []))
-        if allowed and actor.channel_id not in allowed:
+        if allowed and actor.channel_id not in allowed and not actor.voice_chat:
             raise PermissionDenied("QuestersBoard commands work in "
                                    + ", ".join(f"<#{c}>" for c in cfg["discord"]["allowed_command_channel_ids"])
                                    + ". Buttons on event posts work everywhere.")
