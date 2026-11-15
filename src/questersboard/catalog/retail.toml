@@ -1,10 +1,10 @@
 # Retail (Midnight): every playable race and the classes each can be.
-# source = "seed", verification = "unverified" (recorded 2026-11-03; Haranir classes match Blizzard's
-# announcement). Reference: Blizzard's classes page (source_url). A Blizzard import
+# source = "seed", verification = "unverified" (recorded 2026-11-03 from the Warcraft Wiki class-by-race
+# table; Haranir classes match Blizzard's announcement). A Blizzard import
 # (questersboard-admin blizzard import-reference retail) adds dungeons and raids once the API is enabled.
 # Pandaren, Dracthyr, Earthen and Haranir can be either faction, so they appear under both.
 
-source_url = "https://worldofwarcraft.blizzard.com/en-us/game/classes"
+source_url = "https://warcraft.wiki.gg/wiki/Class"
 
 classes = ["druid", "hunter", "mage", "paladin", "priest", "rogue", "shaman", "warlock", "warrior", "death_knight", "monk", "demon_hunter", "evoker"]
 

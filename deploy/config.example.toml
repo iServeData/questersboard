@@ -186,7 +186,7 @@ delay_seconds = 20                            # wait after Start so the voice ch
 [ai]                                          # restart
 enabled = false                               # explicit opt-in
 provider = "openai_compatible"                # openai_compatible | none
-base_url = ""                                 # the AI service's https:// address (needed only when enabled)
+base_url = "https://api.openai.com/v1"
 model = ""
 timeout_seconds = 30
 max_output_tokens = 900

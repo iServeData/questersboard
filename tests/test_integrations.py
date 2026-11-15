@@ -173,7 +173,7 @@ def _rev():
 
 
 def _cfg_ai():
-    return make_cfg(ai={"enabled": True, "model": "fixture-model", "base_url": "https://ai.example.org/v1"})
+    return make_cfg(ai={"enabled": True, "model": "fixture-model"})
 
 
 def test_ai_payload_is_publication_safe():
