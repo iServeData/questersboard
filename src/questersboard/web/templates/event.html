@@ -21,7 +21,8 @@
   </ul>
   {% if cal_ics %}<details class="wq-cal"><summary class="btn ghost">Add to calendar</summary>
     <div class="wq-cal-menu">
-      <a href="{{ cal_ics }}" download>This event (.ics)</a>
+      <a href="{{ cal_ics }}" download>Apple / Outlook (.ics)</a>
+      <a href="{{ cal_google }}" target="_blank" rel="noopener">Google Calendar<span class="sr-only"> (opens in new tab)</span></a>
       {% if cfg["calendar"].get("public_enabled", True) %}<a href="{{ mp }}/calendar.ics">All guild events (subscribe, .ics)</a>{% endif %}
       {% if actor %}<a href="{{ mp }}/me#calendar">Only my events (private link)</a>{% endif %}
     </div></details>{% endif %}

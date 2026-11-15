@@ -508,6 +508,8 @@ def router(cfg: Config) -> APIRouter:
                    "host_name": (s.get(Character, ev.host_character_id).name if ev.host_character_id else ""),
                    "cal_ics": (f"{mp}/events/{ev.public_id}/calendar.ics"
                                if ev.state in ("scheduled", "in_progress") else ""),
+                   "cal_google": (calendar.google_url(calendar.event_item(w.cfg, ev))
+                                  if ev.state in ("scheduled", "in_progress") else ""),
                    "thread_url": (f"https://discord.com/channels/{w.cfg.guild_id}/{ev.discord_thread_id}"
                                   if ev.discord_thread_id else ""),
                    "show_names": manager or (a is not None and roster.staff_can_view_roster(w.cfg, a)),
