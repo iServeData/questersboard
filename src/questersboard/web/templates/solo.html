@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
-<div class="section-head"><span class="label"><span class="num">//</span> Chronicle</span><h1>Write a solo adventure</h1></div>
+{% if not art %}{% block page_head %}<div class="section-head"><span class="label"><span class="num">//</span> Chronicle</span><h1>Write a solo adventure</h1></div>{% endblock %}{% endif %}
 <p class="note">Out on your own? Tell the story. Solo adventures are reviewed like any other story, labelled Solo, and kept below the group stories. Readers can press Join me next time, and you can turn that into a group event in one step.</p>
 {% if not enabled %}
 <p class="caveat">Solo adventure stories are turned off in this community.</p>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf_field, naming_tip, naming_help, tz_select with context %}
 {% block content %}
-<div class="section-head"><h1>My settings</h1></div>
+{% if not art %}{% block page_head %}<div class="section-head"><h1>My settings</h1></div>{% endblock %}{% endif %}
 <div class="wq-grid">
 <form method="post" class="wq-form panel" action="{{ mp }}/me">{{ csrf_field() }}
   <h2 class="sub">Privacy</h2>

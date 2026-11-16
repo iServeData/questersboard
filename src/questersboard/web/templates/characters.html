@@ -12,7 +12,7 @@
 {%- endmacro %}
 {% block content %}
 {% set bn_on = bn_enabled and sync_regions %}
-<div class="section-head wq-cm-head"><h1>My characters</h1>
+<div class="section-head wq-cm-head">{% if not art %}{% block page_head %}<h1>My characters</h1>{% endblock %}{% endif %}
   <div class="btns"><a class="btn" href="{{ mp }}/characters?add=1#character-form" data-open-character>+ Add a character</a>{% if bz_enabled and details %}
     <form method="post" action="{{ mp }}/characters/details/all" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit" name="action" value="refresh" title="Up to {{ cfg['blizzard'].get('refresh_all_max', 10) }} characters per press; each keeps its sharing">Refresh all from Blizzard</button></form>{% endif %}</div>
 </div>

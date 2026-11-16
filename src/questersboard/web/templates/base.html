@@ -49,17 +49,20 @@
   </div>
   {% if not offline %}{% include "_subnav.html" %}{% endif %}
 </header>
+{% if false %}{% block page_head %}{% endblock %}{% endif %}
 {% block main %}{% if art %}{% set hb = art.banner %}
-{#- [page_art]: today's banner (domain/page_art.py). Decorative: the breadcrumb moves into it; each
-    page keeps its own heading below. -#}
+{#- [page_art]: today's banner (domain/page_art.py). The breadcrumb and the page's own heading (its
+    page_head block) move into it, so the heading isn't repeated below. Pages without a page_head block
+    get the section word instead. -#}
 <div class="wq-hero{% if hb.rails %} wq-hero-rails{% endif %}" data-art="{{ hb.key }}">
   <picture><source media="(max-width:700px)" srcset="{{ hb.image_mobile }}"><img class="wq-hero-img" src="{{ hb.image }}" alt="" fetchpriority="high"></picture>
   <div class="wq-hero-shade" aria-hidden="true"></div>
   {% if hb.logo %}<img class="wq-hero-logo" src="{{ hb.logo }}" alt="">{% endif %}
   <div class="wrap wq-hero-body">
     <nav class="crumb" aria-label="Breadcrumb"><a href="{{ b.game_page_url }}">WoW</a> / {{ self.crumb() }}</nav>
+    {% set ph = self.page_head()|trim %}{% if ph %}<div class="wq-hero-head">{{ ph|safe }}</div>{% else %}
     <p class="wq-hero-eyebrow" aria-hidden="true"><span class="num">//</span> {{ b.subnav_label or "QuestersBoard" }}</p>
-    {% if art.section %}<p class="wq-hero-title" aria-hidden="true">{{ art.section }}</p>{% endif %}
+    {% if art.section %}<p class="wq-hero-title" aria-hidden="true">{{ art.section }}</p>{% endif %}{% endif %}
   </div>
 </div>{% endif %}
 <main id="content" class="wrap wq-main{% if art %} wq-main-art{% endif %}">

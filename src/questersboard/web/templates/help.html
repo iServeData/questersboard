@@ -18,7 +18,7 @@
 <div class="wq-legal-layout">
 {{ legal_toc(toc, mp ~ "/privacy", "Privacy") }}
 <article class="panel wq-legal">
-  <div class="section-head"><span class="label"><span class="num">//</span> QuestersBoard</span><h1>How it works</h1></div>
+  {% if not art %}{% block page_head %}<div class="section-head"><span class="label"><span class="num">//</span> QuestersBoard</span><h1>How it works</h1></div>{% endblock %}{% endif %}
   <p>QuestersBoard is where {{ community }} plans World of Warcraft events, keeps track of who's coming, and shares stories afterwards. You can use it on this site or with the community bot in Discord; both do the same things.</p>
 
   <h2 class="sub" id="start">Getting started</h2>

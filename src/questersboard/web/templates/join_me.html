@@ -2,7 +2,7 @@
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
 <section class="panel wq-msg">
-  <div class="section-head"><span class="label">Solo adventure</span><h1>Join me next time</h1></div>
+  {% if not art %}{% block page_head %}<div class="section-head"><span class="label">Solo adventure</span><h1>Join me next time</h1></div>{% endblock %}{% endif %}
   <p>{% if story_url %}<a href="{{ story_url }}">{{ story_title }}</a>{% else %}{{ story_title }}{% endif %}</p>
   {% if own %}
   <p>This is your own story. People who ask to join you are listed on <a href="{{ mp }}/chronicle/{{ e.id }}">your story's page</a>.</p>

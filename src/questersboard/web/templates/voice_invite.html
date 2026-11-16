@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="panel wq-msg wq-guest">
-  <div class="section-head"><span class="label"><span class="num">//</span> Guest voice</span><h1>{{ title }}</h1></div>
+  {% if not art %}{% block page_head %}<div class="section-head"><span class="label"><span class="num">//</span> Guest voice</span><h1>{{ title }}</h1></div>{% endblock %}{% endif %}
   {% if joined %}
   <p>You can now join the voice channel for <strong>{{ event_title }}</strong>{% if added %}. You've also been added to the {{ cfg["community"]["name"] }} Discord server{% endif %}.</p>
   <p><a class="btn" href="{{ channel_url }}" rel="noopener">Open the voice channel in Discord</a></p>

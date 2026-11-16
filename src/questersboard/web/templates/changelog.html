@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="wq-changelog">
-  <div class="section-head"><span class="label"><span class="num">//</span> QuestersBoard</span><h1>Changelog</h1></div>
+  {% if not art %}{% block page_head %}<div class="section-head"><span class="label"><span class="num">//</span> QuestersBoard</span><h1>Changelog</h1></div>{% endblock %}{% endif %}
   <p class="note">What's new and what's fixed, newest first. Running: commit {{ build.commit }}{% if build.date %} from {{ build.date.strftime("%b %-d, %Y") }}{% endif %}.</p>
   {% for r in releases %}
   <details class="panel wq-release" id="{{ r.id }}"{% if loop.first %} open{% endif %}>

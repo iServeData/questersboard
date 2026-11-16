@@ -132,7 +132,8 @@ def test_pages_show_todays_banner_and_footer(seeded, tmp_path):
     p = page_art.pick(cfg)
     hero = html.split('<div class="wq-hero', 1)[1].split("</main>", 1)[0]
     assert f'data-art="{p["banner"]["key"]}"' in hero and p["banner"]["image"] in hero
-    assert 'class="crumb"' in hero and "wq-hero-title" in hero and ">Help<" in hero
+    assert 'class="crumb"' in hero and "wq-hero-head" in hero and "<h1>How it works</h1>" in hero
+    assert html.count("<h1") == 1 and "wq-hero-title" not in hero    # the page's heading, shown once
     assert html.count('class="crumb"') == 1                       # moved into the banner, not doubled
     assert 'class="wq-main wq-main-art"' in html or "wq-main-art" in html
     foot = html.split('<div class="wq-art', 1)[1]
@@ -156,3 +157,19 @@ def test_still_pictures_without_an_effects_script(seeded, tmp_path):
     cfg = make_cfg(tmp_path, page_art=_art(fx_script=""))
     html = _client(seeded, cfg).get("/wow/quester/help").text
     assert "wq-art" in html and "fx.js" not in html and "data-fx" not in html
+
+
+@needs_db
+def test_banner_holds_each_pages_own_heading(seeded, tmp_path):
+    """With page art on, the page's heading moves into the banner and isn't repeated below."""
+    c = _client(seeded, make_cfg(tmp_path, page_art=_art()))
+    for path, h1 in (("/wow/quester/", "Quests &amp; events"), ("/wow/chronicle/", "Chronicle"),
+                     ("/wow/quester/privacy", "Privacy"), ("/wow/quester/terms", "Terms of use"),
+                     ("/wow/quester/changelog", "Changelog")):
+        r = c.get(path)
+        assert r.status_code == 200, path
+        hero, main = r.text.split('<main id="content"', 1)
+        assert f"<h1>{h1}</h1>" in hero.split('<div class="wq-hero', 1)[1], path
+        assert r.text.count("<h1") == 1 and "<h1" not in main, path
+    plain = _client(seeded, make_cfg(tmp_path)).get("/wow/chronicle/").text
+    assert "wq-hero" not in plain and plain.count("<h1>Chronicle</h1>") == 1     # art off: heading in the page

@@ -2,7 +2,7 @@
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
 <section class="panel wq-legal wq-remove">
-  <div class="section-head"><h1>Remove me from QuestersBoard</h1></div>
+  {% if not art %}{% block page_head %}<div class="section-head"><h1>Remove me from QuestersBoard</h1></div>{% endblock %}{% endif %}
   {% if error %}<p class="wq-form-error" role="alert">{{ error }}</p>{% endif %}
   <p class="wq-danger-note"><strong>This can't be undone.</strong> Once you confirm, your QuestersBoard profile is removed straight away and nothing can be restored, not even by an officer. If you log in again later you start with an empty profile.</p>
 

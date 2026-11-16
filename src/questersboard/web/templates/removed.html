@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="panel wq-legal">
-  <div class="section-head"><h1>Your request is complete</h1></div>
+  {% if not art %}{% block page_head %}<div class="section-head"><h1>Your request is complete</h1></div>{% endblock %}{% endif %}
   <p>Your QuestersBoard profile has been removed and you've been logged out. Here's what was done:</p>
   <ul>
     <li>{% if r.left %}Left {{ r.left|length }} event{{ "s" if r.left|length != 1 }}: {{ r.left|join(", ") }}.{% else %}You weren't signed up for any upcoming events.{% endif %}</li>

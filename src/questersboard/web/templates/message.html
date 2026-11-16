@@ -2,7 +2,7 @@
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
 <section class="panel wq-msg"{% if restore_action %} data-restore-action="{{ restore_action }}" data-restore-message="{{ message }}"{% endif %}>
-  <div class="section-head"><h1>{{ title }}</h1></div>
+  {% if not art %}{% block page_head %}<div class="section-head"><h1>{{ title }}</h1></div>{% endblock %}{% endif %}
   <p>{{ message }}</p>
   {% if leave_events %}
   <ul class="plain-list wq-leave-list">{% for e in leave_events %}

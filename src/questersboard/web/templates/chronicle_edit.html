@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf_field with context %}
 {% block content %}
-<div class="section-head"><span class="label">Chronicle · {% if solo %}Solo adventure{% else %}{{ "Host's story" if host_story else names.get(e.author_id, "") ~ "'s story" }}{% endif %} · {{ e.state.replace('_', ' ') }}</span><h1>{{ ev.title }}</h1></div>
+{% if not art %}{% block page_head %}<div class="section-head"><span class="label">Chronicle · {% if solo %}Solo adventure{% else %}{{ "Host's story" if host_story else names.get(e.author_id, "") ~ "'s story" }}{% endif %} · {{ e.state.replace('_', ' ') }}</span><h1>{{ ev.title }}</h1></div>{% endblock %}{% endif %}
 {% if solo %}<p class="note">A solo adventure: {{ solo_char }}{% if solo_kind %} · {{ solo_kind }}{% endif %} · {{ fmt_local(ev.start_at, ev.timezone).split(" · ")[0] }}. It's reviewed like any other story, listed as Solo, and group stories stay at the top of the Chronicle. Readers can ask to join you next time.</p>
 {% else %}<p class="note">Each person who took part can tell their own story. They all appear on one chronicle page for this event, host first, then co-hosts, then everyone else. Every story is reviewed before it's public.</p>{% endif %}
 {% if e.published_revision_id and e.working_revision_id != e.published_revision_id %}<p class="caveat">The published version stays public until this edit is approved.</p>{% endif %}

@@ -9,7 +9,7 @@
 <div class="wq-legal-layout">
 {{ legal_toc(toc, mp ~ "/terms", "Terms of use") }}
 <article class="panel wq-legal">
-  <div class="section-head"><span class="label"><span class="num">//</span> QuestersBoard</span><h1>Privacy</h1></div>
+  {% if not art %}{% block page_head %}<div class="section-head"><span class="label"><span class="num">//</span> QuestersBoard</span><h1>Privacy</h1></div>{% endblock %}{% endif %}
   {% if lg.effective_date %}<p class="note">Last updated <time datetime="{{ lg.effective_date }}">{{ lg.effective_date }}</time></p>{% endif %}
   <p>QuestersBoard is the event planner and Chronicle for {{ cfg["community"]["name"] }}'s World of Warcraft players. It is run by {{ operator }} on the community's own server. This page explains, in plain terms, what it keeps about you and why.</p>
 

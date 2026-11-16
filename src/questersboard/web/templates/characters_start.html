@@ -6,7 +6,7 @@
     <li class="is-now" aria-current="step"><span>2</span> Connect Battle.net</li>
     <li><span>3</span> Pick your characters</li>
   </ol>
-  <h1>Bring in your characters</h1>
+  {% if not art %}{% block page_head %}<h1>Bring in your characters</h1>{% endblock %}{% endif %}
   <p class="wq-start-lead">Connect Battle.net once and QuestersBoard finds your characters in every game version listed below, marks them as verified, and lets you share them with your guild.</p>
   {% if regions %}
   <form method="get" action="{{ mp }}/characters/battlenet" class="wq-start-form">
