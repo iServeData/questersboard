@@ -28,7 +28,8 @@
 {% if public and not offline %}<link rel="alternate" type="application/atom+xml" title="{{ b.site_name }} WoW Chronicle" href="{{ cp }}/feed.atom">
 <link rel="alternate" type="application/feed+json" title="{{ b.site_name }} WoW Chronicle" href="{{ cp }}/feed.json">{% endif %}
 <script src="{{ sb }}/questersboard.js?v={{ static_v }}" defer></script>
-</head>
+{% set art = art if art is defined and not offline else none %}{% if art and art.fx_script and art.footer.effect != "none" %}<script src="{{ art.fx_script }}" defer></script>
+{% endif %}</head>
 <body class="{{ b.body_class }} wq{% if not b.stylesheet %} wq-fallback{% endif %}">
 <a class="skip" href="#content">Skip to content</a>
 <header class="nav" id="top">
@@ -48,12 +49,39 @@
   </div>
   {% if not offline %}{% include "_subnav.html" %}{% endif %}
 </header>
-{% block main %}<main id="content" class="wrap wq-main">
-  <nav class="crumb" aria-label="Breadcrumb"><a href="{{ b.game_page_url }}">WoW</a> / {% block crumb %}<span aria-current="page">{{ title }}</span>{% endblock %}</nav>
+{% block main %}{% if art %}{% set hb = art.banner %}
+{#- [page_art]: today's banner (domain/page_art.py). Decorative: the breadcrumb moves into it; each
+    page keeps its own heading below. -#}
+<div class="wq-hero{% if hb.rails %} wq-hero-rails{% endif %}" data-art="{{ hb.key }}">
+  <picture><source media="(max-width:700px)" srcset="{{ hb.image_mobile }}"><img class="wq-hero-img" src="{{ hb.image }}" alt="" fetchpriority="high"></picture>
+  <div class="wq-hero-shade" aria-hidden="true"></div>
+  {% if hb.logo %}<img class="wq-hero-logo" src="{{ hb.logo }}" alt="">{% endif %}
+  <div class="wrap wq-hero-body">
+    <nav class="crumb" aria-label="Breadcrumb"><a href="{{ b.game_page_url }}">WoW</a> / {{ self.crumb() }}</nav>
+    <p class="wq-hero-eyebrow" aria-hidden="true"><span class="num">//</span> {{ b.subnav_label or "QuestersBoard" }}</p>
+    {% if art.section %}<p class="wq-hero-title" aria-hidden="true">{{ art.section }}</p>{% endif %}
+  </div>
+</div>{% endif %}
+<main id="content" class="wrap wq-main{% if art %} wq-main-art{% endif %}">
+  {% if not art %}<nav class="crumb" aria-label="Breadcrumb"><a href="{{ b.game_page_url }}">WoW</a> / {% block crumb %}<span aria-current="page">{{ title }}</span>{% endblock %}</nav>{% endif %}
   {% block content %}{% endblock %}
 </main>{% endblock %}
 {% macro foot_line(l) %}{{ l.text }}{% if l.link %}<a href="{{ l.url }}"{% if l.url.startswith("https://") %} target="_blank" rel="noopener"{% endif %}>{{ l.link }}{% if l.url.startswith("https://") %}<span class="sr-only"> (opens in new tab)</span>{% endif %}</a>{% endif %}{{ l.after }}{% endmacro %}
-<footer class="wq-foot">
+<footer class="wq-foot{% if art %} wq-foot-art{% endif %}">
+{% if art %}{% set fa = art.footer %}{% set fx_on = art.fx_script and fa.effect != "none" %}
+  {#- [page_art]: today's footer picture; with fx_script (the site's effects script) the glow flickers
+      and embers rise, with the site's Pause effects button. Still picture without it. -#}
+  <div class="wq-art wq-art-{{ fa.effect }}" data-art="{{ fa.key }}"{% if fx_on %} data-fx{% endif %}>
+    <picture><source media="(max-width:700px)" srcset="{{ fa.image_mobile }}"><img class="wq-art-img" src="{{ fa.image }}" alt="" loading="lazy"></picture>
+    {% if fx_on %}<div class="fx fx-screen" aria-hidden="true">
+      {% if fa.glow %}<picture class="fx-a fx-flicker"><source media="(max-width:700px)" srcset="{{ fa.glow_mobile }}"><img src="{{ fa.glow }}" alt="" loading="lazy"></picture>{% endif %}
+      <div class="fx-embers" data-particles="20"></div>
+    </div>{% endif %}
+    <div class="wq-art-fade" aria-hidden="true"></div>
+    {% if fa.caption %}<p class="wq-art-tag">{{ fa.caption }}</p>{% endif %}
+    {% if fx_on %}<button class="fx-toggle" type="button" hidden>Pause effects</button>{% endif %}
+  </div>
+{% endif %}
   <div class="wrap row wq-foot-row">
     <div class="wq-foot-main">
       <a class="wordmark" href="{{ b.home_url }}">{{ b.wordmark[0] }}<b>{{ b.wordmark[1] }}</b>{{ b.wordmark[2] }}</a>

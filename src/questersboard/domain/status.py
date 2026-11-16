@@ -3,6 +3,7 @@
 Two inputs only, both safe to publish:
 * service_heartbeats: the bot and worker check in every [status] heartbeat_seconds.
 * public_events (+ public_event_voice): the same projection upcoming.json reads.
+* public_voice_channels: head counts in the open channels listed in [public_voice] (counts only).
 
 "Live" means an organiser launched the event (state in_progress). The clock alone never
 makes an event live; once the start time passes without a launch the phase is "waiting".
@@ -18,7 +19,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ..config import Config
-from ..models import PublicEvent, PublicEventVoice, ServiceHeartbeat
+from ..models import PublicEvent, PublicEventVoice, PublicVoiceChannel, ServiceHeartbeat
 from .timeutil import now
 
 SCHEMA_VERSION = 1
@@ -61,6 +62,27 @@ def _service(hb: ServiceHeartbeat | None, at: datetime, stale: int) -> tuple[str
 def _cal_links(cfg, pe) -> dict:
     from .calendar import public_links
     return public_links(cfg, pe)
+
+
+def _voice_channels(s: Session, cfg: Config, at: datetime, vstale: int) -> list[dict]:
+    """[public_voice] channels in config order, as the bot last reported them (the bot keeps the list in
+    step with the config, so a change there needs no web restart). "live" = someone (not a bot) is in it,
+    "quiet" = empty, "unknown" = no fresh count (bot down, or it can't see the channel). Counts only."""
+    guild = cfg["community"]["guild_id"]
+    out = []
+    for r in s.scalars(select(PublicVoiceChannel).order_by(PublicVoiceChannel.position)):
+        fresh = r.in_voice is not None and timedelta(seconds=-60) <= at - r.observed_at <= timedelta(seconds=vstale)
+        n = r.in_voice if fresh else None
+        out.append({
+            "id": r.channel_id, "name": r.name,
+            "state": "unknown" if n is None else ("live" if n > 0 else "quiet"),
+            "in_voice": n,
+            "since": r.occupied_since.isoformat() if n and r.occupied_since else None,
+            "last_active": r.last_active_at.isoformat() if r.last_active_at else None,
+            "observed_at": r.observed_at.isoformat(),
+            "url": f"https://discord.com/channels/{guild}/{r.channel_id}",
+        })
+    return out
 
 
 def snapshot(s: Session, cfg: Config) -> dict:
@@ -114,6 +136,8 @@ def snapshot(s: Session, cfg: Config) -> dict:
                 f"{cfg['web']['member_path'].rstrip('/')}/events/{pe.public_id}",
             **_cal_links(cfg, pe))
     return {"schema_version": SCHEMA_VERSION, "generated_at": iso(at),
+            "voice_channels": _voice_channels(s, cfg, at, vstale),
+            "features": {"event_voice": bool(cfg["voice"]["enabled"])},
             "starting_soon_minutes": soon,
             "expiry": {"public_json_seconds": max(180, 3 * st["cache_seconds"]), "heartbeat_seconds": stale,
                        "voice_seconds": vstale},

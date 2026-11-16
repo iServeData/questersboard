@@ -189,6 +189,11 @@ sudo curl -s --unix-socket /run/questersboard-web.sock http://questersboard/wow/
 
 `[status]` in config.toml is optional; the defaults are in `deploy/config.example.toml`.
 
+Migration 0011 adds `public_voice_channels` (the `[public_voice]` head counts; web reads, bot writes):
+review with `migrate up 0010:0011 --sql`, apply, then restart the web and bot services. Give the bot
+View Channel on each `[public_voice]` channel. `[page_art]` needs only a web restart, after its pictures
+are published on the site.
+
 ## 8c. Hosts installed under the old name (wowquester)
 
 Hosts installed before the rename run `deploy/rename_host.sh` once, from the checkout, after a backup,

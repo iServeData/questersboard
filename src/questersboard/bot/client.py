@@ -719,7 +719,7 @@ class Bot(discord.Client):
     def __init__(self):
         intents = discord.Intents.none()
         intents.guilds = True          # no privileged intents (no message content, no member list)
-        intents.voice_states = True    # non-privileged: only to count people in event voice channels
+        intents.voice_states = True    # non-privileged: only to count people in event and [public_voice] channels
         holder = getattr(Ctx, "holder", None)
         self.item_links = bool(holder and holder.cfg["item_links"]["enabled"])
         if self.item_links:
@@ -744,6 +744,7 @@ class Bot(discord.Client):
 
     async def on_ready(self):
         await self.heartbeat("connected")
+        await self.refresh_public_voice()
 
     async def on_resumed(self):
         await self.heartbeat("connected")
@@ -760,9 +761,32 @@ class Bot(discord.Client):
                 out[str(cid)] = sum(1 for m in getattr(ch, "members", []) if not m.bot)
         return out
 
+    def public_voice(self, channel_ids) -> dict:
+        """[public_voice] channels: (name, people not bots) each, or None when the bot can't see one."""
+        out = {}
+        for cid in channel_ids:
+            ch = self.get_channel(int(cid))
+            out[str(cid)] = None if ch is None or not hasattr(ch, "members") else (
+                getattr(ch, "name", "") or "", sum(1 for m in ch.members if not m.bot))
+        return out
+
+    async def refresh_public_voice(self, only: set[str] | None = None) -> None:
+        """Report the configured open channels (all of them, or just those in `only`). Never fatal."""
+        chans = Ctx.cfg()["public_voice"]["channels"]
+        try:
+            if only is not None and not (only & set(chans)):
+                return
+            seen = self.public_voice([c for c in chans if only is None or c in only])
+            await run_tx(voice.record_public, chans, seen)
+        except Exception:  # noqa: BLE001
+            log.warning("open voice count update failed", exc_info=True)
+
     async def on_voice_state_update(self, member, before, after):
         ids = {str(c.id) for c in (before.channel, after.channel) if c is not None}
-        if not ids or not Ctx.cfg()["voice"]["enabled"]:
+        if not ids:
+            return
+        await self.refresh_public_voice(ids)
+        if not Ctx.cfg()["voice"]["enabled"]:
             return
         try:
             mine = set(await run_tx(voice.open_channels)) & ids
@@ -815,7 +839,10 @@ class Bot(discord.Client):
             # Catch up after a restart and keep empty channels' clocks honest.
             while True:
                 await asyncio.sleep(60)
-                if not Ctx.cfg()["voice"]["enabled"] or not self.is_ready():
+                if not self.is_ready():
+                    continue
+                await self.refresh_public_voice()   # also picks up [public_voice] config changes
+                if not Ctx.cfg()["voice"]["enabled"]:
                     continue
                 try:
                     ids = await run_tx(voice.open_channels)

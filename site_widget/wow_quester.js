@@ -21,6 +21,15 @@
  *     </dl><p class="st-foot"></p>
  *   </div>
  *   Every row starts as Unknown; a missing, old or failed report never shows green.
+ *   Voice rows (optional):
+ *     <div class="st-row" data-component="voice_channels" data-tone="unknown">
+ *       <dt>Voice channels</dt><dd><span class="live-chip" hidden>Live</span><span class="st-dot"></span>
+ *       <span class="st-state">Unknown</span></dd><dd class="st-meta"><span class="st-age">checking…</span></dd></div>
+ *     is a template: one copy per channel in status.json voice_channels ([public_voice] in QuestersBoard's
+ *     config), in that order, with the channel's name, "Live" and the head count, or "Quiet". Hidden when
+ *     no channels are configured. A row with data-component="event_voice" (same markup) shows the
+ *     launched event's voice: "Live", the event and its head count, or "No event live"; hidden when
+ *     event voice channels are off. Live rows get .st-live (the chip replaces the dot and state).
  *
  * 3. Next event card (same status.json):
  *   <div class="panel sched-card" data-wq-next data-endpoint="/wow/quester/status.json">
@@ -172,6 +181,87 @@
   }
   function foot(card, text) { var f = card.querySelector(".st-foot"); if (f) f.textContent = text; }
 
+  // ---------------------------------------------------------------- voice rows
+  function discordUrl(u) {
+    return typeof u === "string" && /^https:\/\/discord\.com\/channels\/\d+\/\d+$/.test(u) ? u : null;
+  }
+  function newTabLink(text, href) {
+    var a = el("a", null, text);
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.appendChild(el("span", "sr-only", " (opens in new tab)"));
+    return a;
+  }
+  // parts: strings, or <a> elements; joined with " · "
+  function voiceRow(r, label, tone, live, state, parts) {
+    r.setAttribute("data-tone", tone);
+    r.classList.toggle("st-live", !!live);
+    var dt = r.querySelector("dt"), chip = r.querySelector(".live-chip"), s = r.querySelector(".st-state"),
+        m = r.querySelector(".st-age");
+    if (dt && label != null) dt.textContent = label;
+    if (chip) chip.hidden = !live;
+    if (s) s.textContent = state;
+    if (!m) return;
+    while (m.firstChild) m.removeChild(m.firstChild);
+    parts.filter(Boolean).forEach(function (p, i) {
+      if (i) m.appendChild(document.createTextNode(" · "));
+      m.appendChild(typeof p === "string" ? document.createTextNode(p) : p);
+    });
+  }
+  function renderVoice(card, d) {
+    var tpl = card.querySelector('[data-component="voice_channels"]');
+    if (tpl) {
+      var old = card.querySelectorAll("[data-voice-row]");
+      for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
+      var list = d && Array.isArray(d.voice_channels) ? d.voice_channels : null;
+      if (!d) {
+        tpl.hidden = false;
+        voiceRow(tpl, null, "unknown", false, "Unknown", [STATUS.failed ? "no response" : "checking…"]);
+      } else {
+        tpl.hidden = true;
+        var after = tpl;
+        (list || []).forEach(function (v) {
+          if (!v || typeof v !== "object") return;
+          var r = tpl.cloneNode(true), href = discordUrl(v.url), n = v.in_voice;
+          r.removeAttribute("data-component");
+          r.setAttribute("data-voice-row", String(v.id || ""));
+          r.hidden = false;
+          var join = href ? newTabLink("Join voice", href) : null, name = v.name || "Voice channel";
+          if (v.state === "live" && typeof n === "number") {
+            voiceRow(r, name, "ok", true, "Live",
+                     [n + " in voice", t(v.since) != null ? "since " + clock(v.since) : "", join]);
+          } else if (v.state === "quiet") {
+            voiceRow(r, name, "unknown", false, "Quiet",
+                     ["nobody in voice", t(v.last_active) != null ? "last active " + age(t(v.last_active)) : "", join]);
+          } else {
+            voiceRow(r, name, "unknown", false, "Unknown", ["no recent count", join]);
+          }
+          after.parentNode.insertBefore(r, after.nextSibling);
+          after = r;
+        });
+      }
+    }
+    var ev = card.querySelector('[data-component="event_voice"]');
+    if (!ev) return;
+    if (!d) {
+      ev.hidden = false;
+      voiceRow(ev, null, "unknown", false, "Unknown", [STATUS.failed ? "no response" : "checking…"]);
+      return;
+    }
+    ev.hidden = !(d.features && d.features.event_voice);
+    if (ev.hidden) return;
+    var e = d.event, live = d.live_count || 0;
+    if (e && (e.phase === "live" || e.phase === "running_over")) {
+      var href = safeUrl(e.url), title = href ? el("a", null, e.title) : e.title;
+      if (href) title.href = href;
+      var count = e.voice && typeof e.voice.in_voice === "number" ? e.voice.in_voice + " in voice" : "";
+      voiceRow(ev, null, "ok", true, "Live", [title, count, live > 1 ? "+" + (live - 1) + " more live" : ""]);
+    } else {
+      voiceRow(ev, null, "unknown", false, "No event live", ["opens when an organiser starts an event"]);
+    }
+  }
+
   function renderStatusCard(card) {
     var d = STATUS.data;
     if (!d || !fresh(d)) {
@@ -179,8 +269,10 @@
       row(card, "event_board", STATUS.failed && !d ? "Unreachable" : "Unknown", STATUS.failed && !d ? "bad" : "unknown", why);
       ["events", "bot", "discord", "worker"].forEach(function (k) { row(card, k, "Unknown", "unknown", why); });
       foot(card, STATUS.failed ? "Event board unavailable." : "Checking…");
+      renderVoice(card, null);
       return;
     }
+    renderVoice(card, d);
     var sv = d.services;
     Object.keys(SVC).forEach(function (k) {
       var x = sv[k], L = SVC[k][x.state];

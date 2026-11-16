@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Daily page pictures.** `[page_art]` (off by default, restart web) puts a short banner at the top of every
+  page and a picture above the footer, one pair a day: the banner list moves forward a day at a time and
+  the footer list moves back, so every pairing comes up once before any repeats (4 banners and 3 footers =
+  12 days; `skip_pairs` leaves some out). The day changes at midnight in `timezone`. With `fx_script` (the
+  host site's effects script) the footer glow flickers and embers rise, with Pause effects; still pictures
+  without it or with reduced motion. The breadcrumb moves into the banner; error and offline pages have
+  no pictures. No inline styles (the app's CSP is unchanged): one file per crop.
+- **Open voice channels on the status card.** `[public_voice] channels` (live, up to 10) lists voice
+  channels whose head counts status.json reports in `voice_channels`: live/quiet/unknown, people (not
+  bots), since, last active and a Join link. The bot updates them as people join and leave and once a
+  minute, whether or not `[voice]` is on. status.json also adds `features.event_voice`. Migration 0011
+  (`public_voice_channels`; app writes, worker and readonly read). `site_widget/wow_quester.js` shows a row
+  per channel (a `data-component="voice_channels"` template row) and an Event voice row, hidden when off.
+
 - **Who can craft shows the item.** A search shows a card per matching item above the table (icon, quality
   colour, the item's tooltip, profession and how many of the listed characters can craft it), most crafters
   first, up to `[blizzard] craft_cards_max` (default 6, 0-24; 0 = no cards; "Showing N of M" when cut). The
