@@ -40,7 +40,7 @@ EMOJI_NAME = re.compile(r"^[A-Za-z0-9_]{2,32}$")
 COVER_NAME = re.compile(r"^[A-Za-z0-9_-]{1,60}\.(webp|png|jpg|jpeg)$")
 
 LIVE_SECTIONS = ("roles", "publishing", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status",
-                 "event_posts", "solo_stories")
+                 "event_posts", "solo_stories", "public_voice")
 API_STATUSES = ("verified", "unverified", "unsupported")
 API_CAPS = ("reference", "character", "quests", "locations", "ownership")
 
@@ -258,6 +258,114 @@ def _ruleset_ids(v, rulesets, where) -> dict[str, int]:
             raise ConfigError(f"{where} ruleset_api_ids.{k} must be a positive number")
         out[str(k)] = n
     return out
+
+
+SITE_PATH = re.compile(r"^/[A-Za-z0-9_./-]+$")
+ART_KEY = re.compile(r"^[a-z0-9_]{1,30}$")
+ART_EFFECTS = ("fire", "arcane", "none")
+PUBLIC_VOICE_MAX = 10
+
+
+def _site_path(v: Any, where: str, required: bool) -> str:
+    if v in (None, "") and not required:
+        return ""
+    if not isinstance(v, str) or not SITE_PATH.match(v) or ".." in v:
+        raise ConfigError(f"{where} must be a path on this site starting with /")
+    return v
+
+
+def _page_art(pa: dict) -> None:
+    """[page_art]: banner + footer picture, one pair a day (domain/page_art.py has the rotation)."""
+    from datetime import date
+    known = {"enabled", "timezone", "start_date", "fx_script", "skip_pairs", "banners", "footers"}
+    if set(pa) - known:
+        raise ConfigError(f"[page_art] unknown setting {sorted(set(pa) - known)[0]!r}")
+    if not isinstance(pa.setdefault("enabled", False), bool):
+        raise ConfigError("[page_art] enabled must be true or false")
+    pa.setdefault("timezone", "")
+    if pa["timezone"]:
+        try:
+            ZoneInfo(str(pa["timezone"]))
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ConfigError("[page_art] timezone is not a valid IANA zone") from None
+    pa.setdefault("start_date", "2026-01-01")
+    try:
+        date.fromisoformat(str(pa["start_date"]))
+    except ValueError:
+        raise ConfigError("[page_art] start_date must be YYYY-MM-DD") from None
+    pa["start_date"] = str(pa["start_date"])
+    pa["fx_script"] = _site_path(pa.get("fx_script", ""), "[page_art] fx_script", False)
+
+    def entries(name: str, fields: dict) -> list[dict]:
+        v = pa.setdefault(name, [])
+        if not isinstance(v, list) or len(v) > 30:
+            raise ConfigError(f"[page_art] {name} must be a list of up to 30 tables")
+        out, keys = [], set()
+        for i, x in enumerate(v):
+            where = f"[page_art] {name}[{i}]"
+            if not isinstance(x, dict) or set(x) - set(fields) - {"key"}:
+                raise ConfigError(f"{where} may only have: key, " + ", ".join(fields))
+            k = x.get("key")
+            if not isinstance(k, str) or not ART_KEY.match(k) or k in keys:
+                raise ConfigError(f"{where} key must be unique: lowercase letters, digits and _ (up to 30)")
+            keys.add(k)
+            e = {"key": k}
+            for f, kind in fields.items():
+                if kind == "image":
+                    e[f] = _site_path(x.get(f, ""), f"{where} {f}", f == "image")
+                elif kind == "bool":
+                    e[f] = x.get(f, False)
+                    if not isinstance(e[f], bool):
+                        raise ConfigError(f"{where} {f} must be true or false")
+                elif kind == "effect":
+                    e[f] = x.get(f, "none")
+                    if e[f] not in ART_EFFECTS:
+                        raise ConfigError(f"{where} {f} must be one of: " + ", ".join(ART_EFFECTS))
+                else:   # text
+                    e[f] = x.get(f, "")
+                    if not isinstance(e[f], str) or len(e[f]) > 80:
+                        raise ConfigError(f"{where} {f} must be text of up to 80 characters")
+            if not e.get("image_mobile"):
+                e["image_mobile"] = e["image"]
+            out.append(e)
+        return out
+
+    pa["banners"] = entries("banners", {"image": "image", "image_mobile": "image", "logo": "image",
+                                        "rails": "bool"})
+    pa["footers"] = entries("footers", {"image": "image", "image_mobile": "image", "glow": "image",
+                                        "glow_mobile": "image", "effect": "effect", "caption": "text"})
+    for f in pa["footers"]:
+        if f["glow"] and not f["glow_mobile"]:
+            f["glow_mobile"] = f["glow"]
+    bk, fk = {b["key"] for b in pa["banners"]}, {f["key"] for f in pa["footers"]}
+    sp = pa.setdefault("skip_pairs", [])
+    if not isinstance(sp, list) or any(not isinstance(p, list) or len(p) != 2 for p in sp):
+        raise ConfigError('[page_art] skip_pairs must be a list like [["banner_key", "footer_key"]]')
+    for b, f in sp:
+        if b not in bk or f not in fk:
+            raise ConfigError(f"[page_art] skip_pairs: {b!r} must be a banner key and {f!r} a footer key")
+    pa["skip_pairs"] = [[b, f] for b, f in sp]
+    if pa["enabled"]:
+        if not pa["banners"] or not pa["footers"]:
+            raise ConfigError("[page_art] needs at least one banner and one footer when enabled")
+        from .domain import page_art
+        seq = page_art.cycle(pa)
+        if not seq:
+            raise ConfigError("[page_art] skip_pairs leaves no pairing to show")
+        if page_art.repeats(seq):
+            log.warning("[page_art] with %d banners and %d footers some days repeat the day before's "
+                        "picture; adding a picture to one list avoids it", len(pa["banners"]), len(pa["footers"]))
+
+
+def _public_voice(pv: dict) -> None:
+    """[public_voice]: open voice channels whose head counts the status card shows."""
+    known = {"channels"}
+    if set(pv) - known:
+        raise ConfigError(f"[public_voice] unknown setting {sorted(set(pv) - known)[0]!r}")
+    ch = _snowflakes(pv.setdefault("channels", []), "[public_voice] channels")
+    if len(ch) > PUBLIC_VOICE_MAX or len(set(ch)) != len(ch):
+        raise ConfigError(f"[public_voice] channels: up to {PUBLIC_VOICE_MAX} different channel IDs")
+    pv["channels"] = ch
 
 
 def validate(raw: dict[str, Any]) -> dict[str, Any]:
@@ -612,6 +720,9 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
             not isinstance(n, dict) or not str(n.get("label", "")) or
             not re.match(r"^(/|https://)", str(n.get("url", ""))) for n in b["footer_nav"]):
         raise ConfigError("[branding] footer_nav must be a list of { label, url } with / or https:// urls")
+
+    _page_art(r.setdefault("page_art", {}))
+    _public_voice(r.setdefault("public_voice", {}))
 
     db = r["database"]
     db.setdefault("admin_url", "")

@@ -5,6 +5,18 @@
 #   [[release.change]]  area = one of AREAS below, kind = "new" | "improved" | "fixed", text = one sentence
 
 [[release]]
+date = "2026-11-15"
+title = "A new picture every day, and who's in voice on the WoW page"
+[[release.change]]
+area = "Site"
+kind = "new"
+text = "Every page has a short WoW banner at the top and a picture above the footer, and the pair changes every day at midnight."
+[[release.change]]
+area = "Events"
+kind = "new"
+text = "The WoW page's Community status card shows our open voice channels with how many people are in each, since when, and a Join voice link."
+
+[[release]]
 date = "2026-11-14"
 title = "Item cards in Who can craft, new guest links for hosts, and new error pages"
 [[release.change]]

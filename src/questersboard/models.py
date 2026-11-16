@@ -483,6 +483,22 @@ class PublicEventVoice(Base):
     __table_args__ = (CheckConstraint("in_voice >= 0", name="ck_public_event_voice_nonneg"),)
 
 
+class PublicVoiceChannel(Base):
+    """Head count in an open voice channel listed in [public_voice] channels (written by the bot).
+
+    Counts only: the channel's name and how many people (not bots) are in it, never who. in_voice is
+    None when the bot can't see the channel. Rows for channels removed from the config are deleted."""
+    __tablename__ = "public_voice_channels"
+    channel_id: Mapped[str] = mapped_column(String(22), primary_key=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    in_voice: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    occupied_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    observed_at: Mapped[datetime] = _now()
+    __table_args__ = (CheckConstraint("in_voice IS NULL OR in_voice >= 0", name="ck_public_voice_nonneg"),)
+
+
 class EventVoiceInvite(Base):
     """A guest link for one running event's voice (one per inviter per event). Deleted when the event ends."""
     __tablename__ = "event_voice_invites"

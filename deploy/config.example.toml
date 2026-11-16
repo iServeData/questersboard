@@ -236,6 +236,32 @@ footer_nav = [ { label = "Discord", url = "https://community.example.org/discord
 error_image = ""                              # e.g. "/assets/images/wow/banner.jpg"
 error_image_mobile = ""
 
+[page_art]                                    # restart. A short banner at the top of every page and a picture above
+enabled = false                               # the footer, one pair a day. The banner list moves forward a day at a
+timezone = ""                                 # time and the footer list moves back; every pairing comes up once
+start_date = "2026-01-01"                     # before any repeats (lists of 3 and 4 give 12 days). Day 1 is
+                                              # start_date; the day changes at midnight in timezone (empty =
+                                              # [community] default_timezone). Pictures are paths on this site.
+fx_script = ""                                # e.g. "/assets/js/fx.js": the site's effects script (flicker + embers,
+                                              # Pause effects button). Empty = still pictures.
+skip_pairs = []                               # pairings never shown, e.g. [["board", "board_dusk"]] (same picture twice)
+# banners: key, image, image_mobile (phones; empty = image), logo (optional picture on the right),
+#          rails (true = gold bars above and below).
+# banners = [
+#   { key = "example", image = "/assets/images/example/hero.jpg", image_mobile = "/assets/images/example/hero_mobile.jpg" },
+# ]
+# footers: key, image, image_mobile, glow + glow_mobile (a transparent PNG the same size as the picture,
+#          lit where the fire is), effect ("fire", "arcane" or "none"), caption (small text, optional).
+# footers = [
+#   { key = "example", image = "/assets/images/example/footer.jpg", glow = "/assets/images/example/footer_glow.png", effect = "fire" },
+# ]
+
+[public_voice]                                # [live] Open voice channels on the site's status card: head counts
+channels = []                                 # (people, not bots), when they filled up and a Join link. Quoted
+                                              # Discord channel IDs, comma separated, up to 10, shown in this
+                                              # order; names come from Discord. The bot needs View Channel on
+                                              # each. Changes apply within a minute, no restart.
+
 [status]                                      # [live] optional; these are the defaults. Feeds status.json for the site's cards
 starting_soon_minutes = 15                    # "Starting soon" this long before the start; "Live" only after an organiser launches
 heartbeat_seconds = 30                        # how often the bot and worker check in

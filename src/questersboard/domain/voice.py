@@ -484,3 +484,40 @@ def support_leave(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event
 
 def _md_plain(text: str) -> str:
     return "".join("\\" + c if c in "*_~`|>\\" else c for c in text)[:64].replace("@", "@\u200b")
+
+
+# --------------------------------------------------------------------------- open channels ([public_voice])
+
+def record_public(s: Session, channels: list[str], seen: dict[str, tuple[str, int] | None],
+                  at: datetime | None = None) -> int:
+    """The bot reports [public_voice] channels: seen[id] = (channel name, people not bots), or None when
+    it can't see the channel. Channels missing from seen keep their last report (it goes stale on the
+    card). Rows for channels no longer configured are deleted; the rest follow the config order."""
+    from ..models import PublicVoiceChannel
+    at = at or now()
+    s.execute(delete(PublicVoiceChannel).where(PublicVoiceChannel.channel_id.not_in(channels or [""])))
+    n = 0
+    for pos, cid in enumerate(channels):
+        row = s.get(PublicVoiceChannel, cid)
+        if row is None:
+            row = PublicVoiceChannel(channel_id=cid, position=pos, observed_at=at)
+            s.add(row)
+        row.position = pos
+        if cid not in seen:
+            continue
+        obs = seen[cid]
+        if obs is None:
+            row.in_voice, row.observed_at = None, at
+            continue
+        name, count = obs
+        count = max(0, int(count))
+        row.name = (name or "")[:100] or None
+        if count > 0 and not row.in_voice:
+            row.occupied_since = at
+        if count == 0:
+            if row.in_voice:
+                row.last_active_at = at
+            row.occupied_since = None
+        row.in_voice, row.observed_at = count, at
+        n += 1
+    return n

@@ -98,7 +98,7 @@ def test_admin_role_can_migrate_down_and_up(db):
     for args in (["downgrade", "base"], ["upgrade", "head"], ["current"]):
         r = subprocess.run(alembic + args, cwd=ROOT, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr[-2000:]
-    assert "0010 (head)" in r.stdout
+    assert "0011 (head)" in r.stdout
 
 
 def test_worker_heartbeat_grants_are_narrow():
@@ -106,7 +106,10 @@ def test_worker_heartbeat_grants_are_narrow():
     with _connect("questersboard_worker", os.environ.get("WQT_WORKER_PW")) as c:
         c.execute("select count(*) from service_heartbeats")
         c.execute("select count(*) from public_event_voice")
+        c.execute("select count(*) from public_voice_channels")
         for sql in ("INSERT INTO public_event_voice (public_id, in_voice) VALUES (gen_random_uuid(), 1)",
+                    "INSERT INTO public_voice_channels (channel_id, position, observed_at) VALUES ('1', 0, now())",
+                    "DELETE FROM public_voice_channels",
                     "UPDATE service_heartbeats SET name = 'bot'", "DELETE FROM service_heartbeats"):
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 c.execute(sql)

@@ -52,6 +52,11 @@ def render(request: Request, name: str, ctx: dict, status: int = 200, public: bo
             if "guild_links" not in ctx:   # submenu: guild rosters this member can open
                 base["guild_links"] = (profiles.my_guild_links(s, a.member_id)
                                        if cfg["blizzard"].get("enabled") else [])
+    from ..domain import page_art
+    art = page_art.pick(cfg)
+    if art is not None:
+        art = dict(art, section=page_art.section(request.url.path, base["mp"], base["cp"]))
+    base["art"] = art
     base.update(ctx)
     base["indexable"] = public and status == 200 and not ctx.get("noindex")   # errors, notices, guest links: no
     base["preview"] = bool(ctx.get("preview") and ctx.get("seo"))   # link-preview card only, never indexed
