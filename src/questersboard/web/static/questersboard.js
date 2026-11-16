@@ -521,7 +521,39 @@
       }
     });
   };
+  // Keep an open tooltip on screen: if it would run past an edge, move it to the tile's other side,
+  // then nudge it sideways if it still doesn't fit. Phone layouts show tooltips in the page flow.
+  var fitTip = function (t) {
+    var tip = t.querySelector(".wq-tip");
+    if (!tip) { return; }
+    t.classList.remove("wq-tip-left", "wq-tip-right");
+    tip.style.removeProperty("--wq-tip-dx");
+    var cs = window.getComputedStyle(tip);
+    if (cs.display === "none" || cs.position !== "absolute") { return; }
+    var vw = document.documentElement.clientWidth, m = 8;
+    var r = tip.getBoundingClientRect(), box = t.getBoundingClientRect();
+    var flip = function (cls, bad) {
+      t.classList.add(cls);
+      var r2 = tip.getBoundingClientRect();
+      if (bad(r2)) { t.classList.remove(cls); return tip.getBoundingClientRect(); }
+      return r2;
+    };
+    if (r.left >= box.right - 1 && r.right > vw - m) {
+      r = flip("wq-tip-left", function (x) { return x.left < m; });
+    } else if (r.right <= box.left + 1 && r.left < m) {
+      r = flip("wq-tip-right", function (x) { return x.right > vw - m; });
+    }
+    var dx = 0;
+    if (r.right > vw - m) { dx = vw - m - r.right; }
+    if (r.left + dx < m) { dx = m - r.left; }
+    if (dx) { tip.style.setProperty("--wq-tip-dx", Math.round(dx) + "px"); }
+  };
+  var fitSoon = function (t) {
+    if (window.requestAnimationFrame) { window.requestAnimationFrame(function () { fitTip(t); }); } else { fitTip(t); }
+  };
   tips.forEach(function (t) {
+    t.addEventListener("mouseenter", function () { fitSoon(t); });
+    t.addEventListener("focusin", function () { fitSoon(t); });
     var b = t.querySelector(".wq-item-btn");
     if (!b) { return; }
     b.addEventListener("click", function (ev) {
@@ -531,6 +563,7 @@
       t.classList.toggle("is-open", open);
       b.setAttribute("aria-expanded", open ? "true" : "false");
       if (!open) { b.blur(); }
+      if (open) { fitSoon(t); }
     });
     // With a mouse, a clicked tooltip closes when the pointer leaves the tile (hover still shows it).
     t.addEventListener("mouseleave", function () {
