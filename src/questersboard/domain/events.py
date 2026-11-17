@@ -656,6 +656,52 @@ def cancel(s: Session, cfg: Config, actor: Actor, event_id: int, reason: str = "
     return ev
 
 
+def cancel_unstarted(s: Session, cfg: Config, ev: Event, note: str = "", notify: bool = True) -> Event:
+    """The worker's cancel for an event nobody started ([scheduling] no_start_*). Same effect as a host's
+    cancel; notify=False (events far past their start) changes the post without messaging anyone."""
+    from .actor import SYSTEM
+    ev = get(s, ev.id, lock=True)
+    if ev.state != "scheduled":          # a host started or cancelled it meanwhile
+        return ev
+    _transition(ev, "cancelled")
+    ev.cancelled_reason = str(cfg["scheduling"]["no_start_reason"])[:500]
+    scheduling.release(s, ev)
+    _changed(ev)
+    if notify:
+        outbox.enqueue(s, "notify.material_change", f"{ev.id}:{ev.version}",
+                       {"event_id": ev.id, "changes": ["cancelled"], "bumped": [], "note": note})
+    audit.record(s, SYSTEM, "event.cancel_unstarted", "event", ev.id, reason=ev.cancelled_reason,
+                 notified=notify)
+    from . import voice
+    voice.end_session(s, ev)
+    _notify_post(s, cfg, ev)
+    return ev
+
+
+def close_unstarted(s: Session, cfg: Config, at: datetime | None = None) -> int:
+    """Cancel events nobody started by [scheduling] no_start_cancel_minutes after their start; runs in
+    the bot (app role). Events later than no_start_quiet_after_hours close without messaging anyone.
+    The worker sends the earlier "Has your event started?" message (Worker.scan_unstarted)."""
+    sc = cfg["scheduling"]
+    cancel = sc["no_start_cancel_minutes"]
+    if not cancel:
+        return 0
+    t = at or now()
+    quiet = timedelta(hours=sc["no_start_quiet_after_hours"])
+    hours = cancel / 60
+    note = (f"It wasn't started within {hours:g} hour{'' if hours == 1 else 's'} of its planned time, "
+            "so it was closed.")
+    n = 0
+    for eid, start_at in s.execute(select(Event.id, Event.start_at).where(
+            Event.state == "scheduled", Event.start_at + timedelta(minutes=cancel) <= t)).all():
+        ev = get(s, eid, lock=True)
+        if ev.state != "scheduled":
+            continue
+        cancel_unstarted(s, cfg, ev, note=note, notify=not (quiet and t - start_at >= quiet))
+        n += 1
+    return n
+
+
 def copy(s: Session, cfg: Config, actor: Actor, event_id: int, start_at: datetime, end_at: datetime,
          tz: str | None = None) -> Event:
     """New draft from an event's template. Never copies people, consent, attendance, outcomes or actual times."""

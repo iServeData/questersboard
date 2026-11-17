@@ -425,6 +425,14 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     _positive(s.get("max_duration_hours", 12), "[scheduling] max_duration_hours")
     _positive(s.get("max_days_ahead", 180), "[scheduling] max_days_ahead")
     _positive(s.get("overrun_grace_minutes", 30), "[scheduling] overrun_grace_minutes", 0)
+    ask = _positive(s.setdefault("no_start_ask_minutes", 60), "[scheduling] no_start_ask_minutes", 0)
+    cancel = _positive(s.setdefault("no_start_cancel_minutes", 120), "[scheduling] no_start_cancel_minutes", 0)
+    if ask and cancel and cancel <= ask:
+        raise ConfigError("[scheduling] no_start_cancel_minutes must be later than no_start_ask_minutes "
+                          "(or 0 to never cancel)")
+    _positive(s.setdefault("no_start_quiet_after_hours", 24), "[scheduling] no_start_quiet_after_hours", 0)
+    if not isinstance(s.setdefault("no_start_reason", "Didn't start"), str) or not s["no_start_reason"].strip():
+        raise ConfigError("[scheduling] no_start_reason must be some text")
     _positive(s.get("max_recurrence_occurrences", 26), "[scheduling] max_recurrence_occurrences")
     s.setdefault("late_join_default", False)
     s.setdefault("reschedule_requires_reconfirm", True)

@@ -18,7 +18,7 @@ import signal
 import sys
 import threading
 import time
-from datetime import timedelta
+from datetime import UTC, timedelta
 
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -568,6 +568,8 @@ class Worker:
         people |= self._managers(s, ev)
         if "cancelled" in p.get("changes", []):
             msg = f"**{ev.title}** on {fmt_local(ev.start_at, ev.timezone)} was cancelled."
+            if p.get("note"):
+                msg += " " + p["note"]
         else:
             words = {"time": "time", "location": "location", "requirements": "who can join"}
             msg = (f"**{ev.title}** changed ({', '.join(words.get(c, c) for c in p.get('changes', []))}). "
@@ -792,6 +794,40 @@ class Worker:
                     n += 1
         return n
 
+    def scan_unstarted(self) -> int:
+        """Events still "scheduled" [scheduling] no_start_ask_minutes after their start: the owner and
+        co-hosts are asked once whether it started. The bot cancels it later (events.close_unstarted);
+        events later than no_start_quiet_after_hours are closed there without asking anyone."""
+        sc = self.cfg["scheduling"]
+        ask, cancel = sc["no_start_ask_minutes"], sc["no_start_cancel_minutes"]
+        if not ask:
+            return 0
+        quiet = timedelta(hours=sc["no_start_quiet_after_hours"])
+        n = 0
+        with self.db.tx() as s:
+            t = now()
+            for ev in list(s.scalars(select(Event).where(Event.state == "scheduled",
+                                                         Event.start_at + timedelta(minutes=ask) <= t))):
+                late = t - ev.start_at
+                if (quiet and late >= quiet) or (cancel and late >= timedelta(minutes=cancel)):
+                    continue
+                ins = s.execute(text(
+                    "INSERT INTO reminder_deliveries (event_id, member_id, offset_minutes, start_at) "
+                    "VALUES (:e, :m, -2, :st) ON CONFLICT DO NOTHING RETURNING event_id"),
+                    {"e": ev.id, "m": ev.creator_id, "st": ev.start_at}).first()
+                if not ins:
+                    continue
+                link = self._url("events", str(ev.public_id))
+                msg = (f"Has your event started? **{ev.title}** was planned for {fmt_local(ev.start_at, ev.timezone)} "
+                       f"({ev.start_at.astimezone(UTC).strftime('%H:%M')} UTC). Start it or cancel it here: {link}")
+                if cancel:
+                    by = ev.start_at + timedelta(minutes=cancel)
+                    msg += (f" If it isn't started by {fmt_local(by, ev.timezone)} "
+                            f"({by.astimezone(UTC).strftime('%H:%M')} UTC), it'll be cancelled and closed.")
+                self._dm(s, self._managers(s, ev), f"nostart:{ev.id}", int(ev.start_at.timestamp()), msg)
+                n += 1
+        return n
+
     def housekeeping(self) -> None:
         r = self.cfg["retention"]
         with self.db.tx() as s:
@@ -860,6 +896,7 @@ class Worker:
                 if t - last_scan > 30:
                     self.scan_reminders()
                     self.scan_overruns()
+                    self.scan_unstarted()
                     self.scan_voice()
                     last_scan = t
                 if t - last_house > 3600:

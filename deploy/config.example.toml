@@ -54,6 +54,14 @@ max_duration_hours = 12
 max_days_ahead = 180
 late_join_default = false
 overrun_grace_minutes = 30                    # how long "in progress" may run past the planned end before a reminder
+# An event nobody started: the owner and co-hosts are asked "Has your event started?" this many
+# minutes after the planned start (0 = never ask), and it's cancelled and closed at the second time
+# (0 = never cancel; must be later than the ask). Events more than no_start_quiet_after_hours late
+# (e.g. found after an outage or upgrade) are closed without messaging anyone (0 = always message).
+no_start_ask_minutes = 60
+no_start_cancel_minutes = 120
+no_start_quiet_after_hours = 24
+no_start_reason = "Didn't start"              # shown on the cancelled post and event page
 reschedule_requires_reconfirm = true
 end_change_notice_only_minutes = 0            # 0 = any time change asks for reconfirm; e.g. 30 = moving only the end by up to 30 min just sends a notice
 max_recurrence_occurrences = 26

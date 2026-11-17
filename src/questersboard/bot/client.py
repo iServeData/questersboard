@@ -851,6 +851,18 @@ class Bot(discord.Client):
                     log.warning("voice count refresh failed", exc_info=True)
         self.loop.create_task(voice_loop())
 
+        async def unstarted_loop():
+            # [scheduling] no_start_cancel_minutes: cancel events nobody started (the worker asks first).
+            while True:
+                await asyncio.sleep(60)
+                try:
+                    n = await run_tx(events.close_unstarted, Ctx.cfg())
+                    if n:
+                        log.info("closed %d event(s) that didn't start", n)
+                except Exception:  # noqa: BLE001
+                    log.warning("closing unstarted events failed", exc_info=True)
+        self.loop.create_task(unstarted_loop())
+
         async def heartbeat_loop():
             while True:
                 await self.heartbeat()
