@@ -573,6 +573,8 @@ def cmd_cover(args):
     print(f"installed {d / 'default_cover.webp'}")
     if cfg["event_posts"].get("default_cover") != "default_cover.webp":
         print('set [event_posts] default_cover = "default_cover.webp" in the config to use it')
+    else:
+        print("upcoming Discord posts show it after: questersboard-admin refresh-posts --yes")
     return 0
 
 

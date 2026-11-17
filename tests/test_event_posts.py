@@ -4,6 +4,7 @@ All names are made up; Discord and Blizzard are FIXTURES (no live calls)."""
 from __future__ import annotations
 
 import io
+import re
 import tomllib
 from datetime import date, timedelta
 
@@ -121,7 +122,8 @@ def test_post_layout_matches_the_mock(seeded, cfg):
         tight = make_cfg(event_posts={"field_spacing": False, "default_cover": "default_cover.webp"})
         assert not any(f["value"].endswith("\u200b")
                        for f in render.event_message(s, tight, ev)["embeds"][0]["fields"])
-        assert e["image"]["url"] == "https://community.example.org/wow/quester/covers/default_cover.webp"
+        assert re.fullmatch(r"https://community\.example\.org/wow/quester/covers/default_cover\.webp\?v=\d+",
+                            e["image"]["url"])
         assert e["author"]["name"].endswith("· Horde")
         ev.faction = "alliance"
         assert render.color(cfg, ev) == 0x1F6FD8

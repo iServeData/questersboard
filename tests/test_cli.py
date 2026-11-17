@@ -232,3 +232,26 @@ def test_refresh_chronicle_is_dry_run_without_yes(cfg_file, capsys):
     assert "dry run" in capsys.readouterr().out
     assert cli.main(["--config", cfg_file, "refresh-chronicle", "--yes"]) == 0
     assert "rebuilt" in capsys.readouterr().out
+
+
+def test_bundled_default_cover_installs_and_changes_the_post_url(cfg_file, tmp_path):
+    """deploy/art/default_cover.jpg installs as-is, and replacing the art gives the post a new image
+    address (?v=), so Discord fetches the new picture instead of one it kept from before."""
+    from PIL import Image
+
+    from questersboard import config as qconfig
+    from questersboard.domain import covers
+    from questersboard.models import Event
+    art = ROOT / "deploy" / "art" / "default_cover.jpg"
+    with Image.open(art) as im:
+        assert im.size == (1600, 640)
+    assert cli.main(["--config", cfg_file, "default-cover", str(art)]) == 0
+    cfg = qconfig.load(cfg_file)
+    cfg["event_posts"]["default_cover"] = "default_cover.webp"
+    ev = Event(cover_image=None, activity_type="questing")
+    f = tmp_path / "covers" / "default_cover.webp"
+    os.utime(f, (1_000_000, 1_000_000))
+    first = covers.url(cfg, ev, absolute=True)
+    assert first.endswith("/covers/default_cover.webp?v=1000000")
+    os.utime(f, (2_000_000, 2_000_000))
+    assert covers.url(cfg, ev, absolute=True) != first

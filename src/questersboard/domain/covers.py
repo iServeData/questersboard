@@ -82,6 +82,12 @@ def url(cfg: Config, ev: Event, absolute: bool = False) -> str | None:
     if name is None:
         return None
     p = path_url(cfg, name)
+    # The file's change time as a version, so replacing the default art (same file name) shows up on
+    # re-rendered Discord posts and pages instead of a copy Discord or a browser kept from before.
+    try:
+        p += f"?v={int((folder(cfg) / name).stat().st_mtime)}"
+    except OSError:
+        pass
     return cfg["community"]["public_base_url"].rstrip("/") + p if absolute else p
 
 
