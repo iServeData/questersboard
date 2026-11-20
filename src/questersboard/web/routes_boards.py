@@ -144,25 +144,36 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
     async def professions_create(request: Request):
         return await _create(request, "profession")
 
+    def _post_page(request: Request, w, s, a, p, edit: dict | None = None, status: int = 200):
+        """A post's own page. edit: {"error", "bad", "form"} when Edit couldn't be saved (it opens again
+        with what was typed)."""
+        if not boards.enabled(w.cfg, p.board):
+            raise NotFound(f"The {boards.BOARD_LABEL[p.board]} is turned off.")
+        v = boards.view(s, w.cfg, a, p)
+        first = next(((x, y) for x, y in boards.windows_of(p) if y > now()), None)
+        start = as_local(first[0], p.timezone) if first else as_local(now() + timedelta(days=1), p.timezone)
+        mins = int((first[1] - first[0]).total_seconds() // 60) if first else 120
+        c = boards.coins(p.fee_copper) if p.fee_copper else {}
+        current = {"body": p.body, "fee": p.fee_kind or "mats",
+                   **{f"fee_{k}": (c.get(k) if c.get(k) not in (None, "0") else "") for k in ("gold", "silver", "copper")}}
+        resp = render(request, "board_post.html", {
+            "title": p.title, "v": v, "p": p, "board_label": boards.BOARD_LABEL[p.board],
+            "page": PAGES[p.board], "board_page": PAGES[p.board], "at_text": boards.at_text, "time_pattern": TIME_PATTERN,
+            "plan_date": start.date().isoformat(), "plan_time": start.strftime("%H:%M"),
+            "plan_minutes": max(15, min(mins, 720)), "fee_kinds": boards.FEE_KINDS,
+            "max_fee_gold": boards.section(w.cfg, p.board).get("max_fee_gold", 99999),
+            "edit": edit or {}, "edit_form": (edit or {}).get("form") or current,
+            "is_mod": has(w.cfg, a, "event_moderator"), "editions": w.cfg.editions})
+        resp.status_code = status
+        return resp
+
     @r.get(mp + "/board/{public_id}")
     def board_post_page(request: Request, public_id: str):
         sess, a = session_or_login(request)
         w = W(request)
         with w.db.tx() as s:
             a = roster.ensure_member(s, a)
-            p = boards.get(s, public_id)
-            if not boards.enabled(w.cfg, p.board):
-                raise NotFound(f"The {boards.BOARD_LABEL[p.board]} is turned off.")
-            v = boards.view(s, w.cfg, a, p)
-            first = next(((x, y) for x, y in boards.windows_of(p) if y > now()), None)
-            start = as_local(first[0], p.timezone) if first else as_local(now() + timedelta(days=1), p.timezone)
-            mins = int((first[1] - first[0]).total_seconds() // 60) if first else 120
-            return render(request, "board_post.html", {
-                "title": p.title, "v": v, "p": p, "board_label": boards.BOARD_LABEL[p.board],
-                "page": PAGES[p.board], "board_page": PAGES[p.board], "at_text": boards.at_text, "time_pattern": TIME_PATTERN,
-                "plan_date": start.date().isoformat(), "plan_time": start.strftime("%H:%M"),
-                "plan_minutes": max(15, min(mins, 720)),
-                "is_mod": has(w.cfg, a, "event_moderator"), "editions": w.cfg.editions})
+            return _post_page(request, w, s, a, boards.get(s, public_id))
 
     @r.get(mp + "/board/{public_id}/icon")
     def board_post_icon(request: Request, public_id: str):
@@ -190,6 +201,17 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
     async def board_post_action(request: Request, public_id: str, action: str):
         form, a = await post_guard(request)
         w = W(request)
+        if action == "edit":
+            data = {k: str(form.get(k) or "") for k in ("body", "fee", "fee_gold", "fee_silver", "fee_copper")}
+            try:
+                with w.db.tx() as s:
+                    boards.edit(s, w.cfg, a, public_id, data)
+            except Invalid as e:
+                with w.db.tx() as s:
+                    me = roster.ensure_member(s, a)
+                    return _post_page(request, w, s, me, boards.get(s, public_id), status=400, edit={
+                        "error": str(e), "bad": e.detail.get("field", ""), "form": data})
+            return redirect(f"{mp}/board/{public_id}")
         with w.db.tx() as s:
             if action == "respond":
                 boards.respond(s, w.cfg, a, public_id, str(form.get("kind") or ""),

@@ -712,3 +712,47 @@ def test_refresh_posts_includes_open_board_posts(seeded, cfg_file, capsys):  # n
     assert cli.main(["--config", cfg_file, "refresh-posts", "--yes"]) == 0
     with seeded.tx() as s:
         assert [j.payload["post_id"] for j in _jobs(s, "discord.render_board_post")] == [pid]
+
+
+def test_poster_can_edit_details_and_fee(seeded, cfg):
+    with seeded.tx() as s:
+        c = _crafter(s, cfg)
+        p = _offer(s, cfg, c, body="Bring leather", fee="mats")
+        p.discord_channel_id = fake_id(892)
+        pub = str(p.public_id)
+        s.execute(text("delete from outbox where kind = 'discord.render_board_post'"))
+        with pytest.raises(PermissionDenied):
+            boards.edit(s, cfg, OTHER, pub, {"body": "x"})
+        with pytest.raises(Invalid, match="Put in the fee"):
+            boards.edit(s, cfg, HELPER, pub, {"body": "Bring leather", "fee": "fee"})
+        boards.edit(s, cfg, HELPER, pub, {"body": "Bring  leather ", "fee": "mats"})     # nothing changed
+        assert _jobs(s, "discord.render_board_post") == []
+        boards.edit(s, cfg, HELPER, pub, {"body": "Materials on me", "fee": "fee", "fee_gold": "2"})
+        assert (p.body, p.fee_kind, p.fee_copper) == ("Materials on me", "fee", 20000)
+        assert [j.payload["post_id"] for j in _jobs(s, "discord.render_board_post")] == [p.id]
+        a, _ch = _adv(s, cfg)                                   # other kinds: details only, fee ignored
+        boards.edit(s, cfg, POSTER, str(a.public_id), {"body": "New plan", "fee": "fee", "fee_gold": "5"})
+        assert a.body == "New plan" and a.fee_kind is None
+        boards.close(s, cfg, HELPER, pub, "done")
+        with pytest.raises(InvalidTransition):
+            boards.edit(s, cfg, HELPER, pub, {"body": "late"})
+
+
+def test_web_edit_post(seeded, tmp_path):
+    a, cfg, tw = _web(seeded, tmp_path)
+    with seeded.tx() as s:
+        c = _crafter(s, cfg)
+        pub = str(_offer(s, cfg, c, body="Bring leather", fee="mats_fee", fee_gold="1", fee_silver="50").public_id)
+    h = tw.login(a, 41)
+    url = f"/wow/quester/board/{pub}"
+    page = h.get(url).text
+    assert '<details class="pb-edit"><summary class="btn ghost">Edit</summary>' in page
+    assert 'value="mats_fee" selected' in page and 'name="fee_gold" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="0" value="1"' in page
+    assert 'name="fee_copper" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="0" value=""' in page
+    r = h.post(url + "/edit", data={"csrf": tw.csrf(h, url), "body": "Typed this", "fee": "fee", "fee_silver": "100"})
+    assert r.status_code == 400 and "from 0 to 99" in r.text and '<details class="pb-edit" open>' in r.text
+    assert ">Typed this</textarea>" in r.text and 'value="100" aria-label="Silver (0 to 99)" class="is-bad"' in r.text
+    r = h.post(url + "/edit", data={"csrf": tw.csrf(h, url), "body": "Typed this", "fee": "fee", "fee_gold": "3"})
+    assert r.status_code == 303
+    page = tw.login(a, 40).get(url).text
+    assert "Typed this" in page and "materials included" in page and "pb-edit" not in page   # not their post

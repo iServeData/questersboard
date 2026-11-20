@@ -25,7 +25,22 @@
       <form method="post" action="{{ mp }}/board/{{ p.public_id }}/done" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit">Mark done</button></form>
       <form method="post" action="{{ mp }}/board/{{ p.public_id }}/extend" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit">Extend</button></form>
       <form method="post" action="{{ mp }}/board/{{ p.public_id }}/remove" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit" data-confirm="Remove this post?">Remove</button></form>
-    </div>{% else %}<p class="note">Closed: {{ v.closed_text }}.</p>{% endif %}
+    </div>
+    {% set ef = edit_form %}{% macro emark(name) %}{% if edit.error and edit.bad == name %} class="is-bad" aria-invalid="true" aria-describedby="pb-edit-error"{% endif %}{% endmacro %}
+    <details class="pb-edit"{% if edit.error %} open{% endif %}><summary class="btn ghost">Edit</summary>
+      <form method="post" action="{{ mp }}/board/{{ p.public_id }}/edit" class="wq-form ab-grid">{{ csrf_field() }}
+        {% if edit.error %}<p class="ab-wide caveat" id="pb-edit-error" role="alert">{{ edit.error }}</p>{% endif %}
+        {% if p.kind == "can_craft" %}{% set fk = ef.fee or "mats" %}
+        <label class="ab-wide">What you ask for<select name="fee" required data-fee{{ emark("fee") }}>{% for k, lbl in fee_kinds.items() %}<option value="{{ k }}"{% if fk == k %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select></label>
+        <fieldset class="ab-wide pb-fee-box" data-fee-coins{% if fk == "mats" %} hidden{% endif %}><legend>Fee</legend>
+          {% for k, top, n in (("gold", max_fee_gold, 6), ("silver", 99, 2), ("copper", 99, 2)) %}<label><span><i class="wq-coin wq-coin-{{ k[0] }}" aria-hidden="true"></i>{{ k|title }}</span><input name="fee_{{ k }}" inputmode="numeric" pattern="[0-9]*" maxlength="{{ n }}" placeholder="0" value="{{ ef['fee_' ~ k] }}" aria-label="{{ k|title }} (0 to {{ top }})"{{ emark("fee_" ~ k) }}></label>{% endfor %}
+        </fieldset>{% endif %}
+        <label class="ab-wide">Details<textarea name="body" maxlength="500" rows="4"{{ emark("body") }}>{{ ef.body }}</textarea></label>
+        <div class="btns ab-wide"><button class="btn" type="submit">Save changes</button></div>
+        <p class="note ab-wide">The Discord card updates too. Nobody is sent a message.</p>
+      </form>
+    </details>
+    {% else %}<p class="note">Closed: {{ v.closed_text }}.</p>{% endif %}
     {% if v.named %}<h3 class="sub">Who answered</h3><ul>{% for k, names in v.named.items() %}<li>{{ {"need": "Also want this", "help": "Can help", "can_make": "Can make it", "ask": "Asked"}.get(k, k) }}: {{ names|join(", ") }}</li>{% endfor %}</ul>{% endif %}
   </div>
   {% if v.can_plan %}

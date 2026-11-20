@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Edit a board post.** The poster can change an open post's details (both boards) and, on a Can craft
+  offer, the fee, from the post's page (`POST /board/<id>/edit`). The Discord card is re-rendered in place;
+  nobody is notified. Title, character, recipe and times stay as posted. No migration.
 - **Daily page pictures.** `[page_art]` (off by default, restart web) puts a short banner at the top of every
   page and a picture above the footer, one pair a day: the banner list moves forward a day at a time and
   the footer list moves back, so every pairing comes up once before any repeats (4 banners and 3 footers =

@@ -552,6 +552,31 @@ def extend(s: Session, cfg: Config, actor: Actor, public_id: str) -> BoardPost:
     return p
 
 
+def edit(s: Session, cfg: Config, actor: Actor, public_id: str, data: dict) -> BoardPost:
+    """The poster changes an open post's details and, on a Can craft offer, what they ask for. The
+    Discord card is edited in place; nobody is notified."""
+    require_member(cfg, actor)
+    actor = ensure_member(s, actor)
+    p = get(s, public_id, lock=True)
+    _mine_or_mod(cfg, actor, p, mod_ok=False)
+    if p.state != "open":
+        raise InvalidTransition("This post is closed.")
+    if len(str(data.get("body") or "").strip()) > 500:
+        raise Invalid("The details can be up to 500 characters.", field="body")
+    body = " ".join(str(data.get("body") or "").split())[:600]
+    fee_kind, fee_copper = p.fee_kind, p.fee_copper
+    if p.kind == "can_craft":
+        fee_kind, fee_copper = _fee(section(cfg, p.board), data)
+    if (body, fee_kind, fee_copper) == (p.body, p.fee_kind, p.fee_copper):
+        return p
+    p.body, p.fee_kind, p.fee_copper = body, fee_kind, fee_copper
+    p.updated_at = now()
+    audit.record(s, actor, "board.edit", "board_post", p.id)
+    if p.discord_channel_id:
+        request_render(s, p)
+    return p
+
+
 def plan_event(s: Session, cfg: Config, actor: Actor, public_id: str, start_at: datetime, end_at: datetime,
                tz: str) -> Event:
     """The poster turns their post into a draft event (Plan an event's edit page opens next). When it's
@@ -856,6 +881,6 @@ def responders(s: Session, p: BoardPost) -> list[int]:
 
 
 __all__ = ["BOARDS", "KINDS", "RESPONSES", "create", "respond", "close", "extend", "plan_event", "on_publish",
-           "recheck_offers", "erase_member", "listing", "view", "my_posts", "could_help", "craftable_choices",
+           "recheck_offers", "erase_member", "edit", "listing", "view", "my_posts", "could_help", "craftable_choices",
            "when_text", "at_text", "get", "enabled", "members_crafters", "card_extra", "responders",
            "any_recipe", "recipe_details", "card_details", "FEE_KINDS", "coins", "coin_text", "fee_text"]

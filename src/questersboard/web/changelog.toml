@@ -8,6 +8,10 @@
 date = "2026-11-20"
 title = "The Adventure Board and Profession help"
 [[release.change]]
+area = "Guild"
+kind = "improved"
+text = "You can edit your post's details, and what you ask for on a craft offer, from the post's page; its Discord card updates too."
+[[release.change]]
 area = "Events"
 kind = "new"
 text = "The Adventure Board, under Quests, is for goals before there's an event: say what you need help with, offer help or look for company, and turn it into an event when enough people are in."
