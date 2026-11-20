@@ -2,6 +2,8 @@
 {%- import "_item_tips.html" as tips with context -%}
 {% macro post_card(v, back="", detail=False) -%}
 {%- set p = v.p -%}
+{%- set mine_t = v.mine|select("in", ("need", "help", "ask"))|list -%}
+{%- set pick_btns = [] -%}{%- for k, l in v.actions.items() if k in ("need", "help", "ask") -%}{%- set _ = pick_btns.append(l) -%}{%- endfor -%}
 {%- set cls = {"need_help": "help", "offer_help": "offer", "company": "co", "need_crafted": "", "can_craft": "can", "recipe": "rec", "farm": "farm"}[p.kind] -%}
 <article class="pb-post {{ cls }}{% if p.closed_reason == 'evented' %} ev{% endif %}" id="post-{{ p.public_id }}">
   <div class="pb-top"><span class="pb-type">{% if p.closed_reason == "evented" %}Became an event{% else %}{{ v.kind_label }}{% endif %}</span>
@@ -23,14 +25,21 @@
   </div>
   {%- if p.body %}<p class="pb-text">{{ p.body }}</p>{% endif %}
   {%- if p.tags %}<div class="ab-tags">{% for t in p.tags %}<span class="ab-tag">{{ t }}</span>{% endfor %}</div>{% endif %}
-  {%- if v.windows %}<div class="ab-when"><b>{{ "Free" if p.kind == "offer_help" else "Works for me" }}:</b> {{ v.windows|join(" · ") }}</div>{% endif %}
+  {%- if v.times %}<div class="ab-when"><b>{{ "Free" if p.kind == "offer_help" else "Works for me" }}:</b>
+    <ul class="ab-timelist">{% for t in v.times %}<li{% if t.best %} class="best"{% elif not t.open %} class="past"{% endif %}>
+      {%- if v.picks and t.open %}<label><input type="checkbox" name="w" value="{{ t.i }}" form="pick-{{ p.public_id }}"{% if t.picked %} checked{% endif %}> {{ t.text }}</label>{% else %}{{ t.text }}{% endif %}
+      {%- if t.n %} <span class="ab-plus" title="Works for {{ t.n }} {{ 'person' if t.n == 1 else 'people' }} who answered">(+{{ t.n }})</span>{% endif %}
+      {%- if t.best %} <span class="ab-best">Most people</span>{% endif %}
+      {%- if not t.open %} <span class="note">over</span>{% endif %}</li>{% endfor %}</ul>
+    {%- if v.picks %}<p class="note ab-pick-note">Tick the times that work for you, then {% if mine_t %}press Save my times{% else %}press {{ pick_btns|join(" or ") }}{% endif %}.</p>{% endif %}
+  </div>{% endif %}
   <div class="pb-meta"><span>Posted {{ at_text(p.created_at, p.timezone) }}</span>
     {%- if p.state == "open" %}<span>Open until {{ at_text(p.expires_at, p.timezone) }}</span>{% endif %}
     {%- if p.kind == "need_crafted" %}<span>{{ v.crafters }} shared character{{ "" if v.crafters == 1 else "s" }} you can see know{{ "s" if v.crafters == 1 else "" }} this recipe</span>{% endif %}</div>
   {%- if v.count_text %}<div class="ab-people">
     {%- for t in v.count_text %}<span>{{ t }}</span>{% endfor %}
   </div>{% endif %}
-  {%- for k, names in v.named.items() %}<p class="pb-names">{{ {"need": "Also want this", "help": "Can help", "can_make": "Can make it", "ask": "Asked"}.get(k, k) }}: {{ names|join(", ") }}</p>{% endfor %}
+  {%- for k, names in v.named.items() %}<p class="pb-names">{{ v.labels.get(k, k) }}: {{ names|join(", ") }}</p>{% endfor %}
   {%- if p.group_size and p.state == "open" %}
   <progress class="ab-meter{% if v.ready %} full{% endif %}" max="{{ p.group_size }}" value="{{ [v.people, p.group_size]|min }}">{{ v.people }} of {{ p.group_size }}</progress>
   {%- if v.ready %}<p class="ab-ready">Enough people{% if v.own %}. You can turn this into an event{% endif %}.</p>{% else %}<p class="ab-wait">{{ v.people }} of {{ p.group_size }} for a group. The poster can turn it into an event at any time.</p>{% endif %}
@@ -39,6 +48,8 @@
   {%- if p.closed_reason == "evented" and v.event %}<div class="ab-event">Planned for {{ at_text(v.event.start_at, v.event.timezone) }}. Everyone who answered was sent the link; nobody was signed up for them.</div>
   {%- elif v.closed_text %}<p class="caveat">Closed: {{ v.closed_text }}.</p>{% endif %}
   <div class="pb-actions">
+    {%- if v.picks %}<form method="post" action="{{ mp }}/board/{{ p.public_id }}/respond" id="pick-{{ p.public_id }}" class="wq-inline" hidden>{{ csrf_field() }}<input type="hidden" name="times" value="1">{% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}</form>
+    {%- if mine_t %}<button class="btn" type="submit" form="pick-{{ p.public_id }}" name="kind" value="{{ mine_t[0] }}">Save my times</button>{% endif %}{% endif %}
     {%- if p.closed_reason == "evented" and v.event %}<a class="btn ghost" href="{{ mp }}/events/{{ v.event.public_id }}">Open the event</a>{% endif %}
     {%- for k, label in v.actions.items() %}
       {%- if k == "answer" %}{% if not detail %}<a class="btn ghost" href="{{ mp }}/board/{{ p.public_id }}#answer">Answer</a>{% endif %}
@@ -46,6 +57,7 @@
       {%- else %}
       <form method="post" action="{{ mp }}/board/{{ p.public_id }}/respond" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="kind" value="{{ k }}">{% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}
         {%- if k in v.mine %}<input type="hidden" name="want" value="0"><button class="btn ghost" type="submit">Take back: {{ label }}</button>
+        {%- elif v.picks and k in ("need", "help", "ask") %}<button class="btn{% if not loop.first %} ghost{% endif %}" type="submit" form="pick-{{ p.public_id }}" name="kind" value="{{ k }}">{{ label }}</button>
         {%- else %}<button class="btn{% if not loop.first %} ghost{% endif %}" type="submit">{% if k == "ask" and v.character %}Ask {{ v.character.name }}{% else %}{{ label }}{% endif %}</button>{% endif %}</form>
       {%- endif %}
     {%- endfor %}

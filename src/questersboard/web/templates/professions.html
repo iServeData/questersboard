@@ -13,8 +13,8 @@
   {% if form_error and open_d == key %}<p class="caveat" role="alert" id="prof-{{ key }}-error">{{ form_error }}</p>{% endif %}{% endmacro %}
 {% macro mark(key, name) %}{% if form_error and open_d == key and bad == name %} class="is-bad" aria-invalid="true" aria-describedby="prof-{{ key }}-error"{% endif %}{% endmacro %}
 {% macro val(key, name) %}{{ form[name] if form_error and open_d == key else "" }}{% endmacro %}
-{% macro char_opts(key) %}{% for c in chars %}<option value="{{ c.id }}"{% if form_error and open_d == key and form.character_id == c.id|string %} selected{% endif %}>{{ c.name }}</option>{% endfor %}{% endmacro %}
-{% macro prof_opts(key) %}{% for n in sec.names %}<option{% if form_error and open_d == key and form.profession == n %} selected{% endif %}>{{ n }}</option>{% endfor %}{% endmacro %}
+{% macro char_opts(key) %}{% for c in chars|alpha("name") %}<option value="{{ c.id }}"{% if form_error and open_d == key and form.character_id == c.id|string %} selected{% endif %}>{{ c.name }}</option>{% endfor %}{% endmacro %}
+{% macro prof_opts(key) %}{% for n in sec.names|alpha %}<option{% if form_error and open_d == key and form.profession == n %} selected{% endif %}>{{ n }}</option>{% endfor %}{% endmacro %}
 {% set can_post = chars and open_n < sec.max_open_per_member %}
 <dialog class="wq-dialog ab-dialog" id="prof-need" aria-labelledby="prof-need-title" data-board-dialog{% if open_d == "need" %} open{% endif %}>
   {{ dialog_head("need", "Ask for a craft") }}{{ gate() }}
@@ -33,10 +33,10 @@
     <input type="hidden" name="kind" value="can_craft">
     {% set crafters = craftable|groupby("character_id")|sort(attribute="list.0.character") %}
     {% set picked = val("offer", "craft_character")|string %}
-    <label class="ab-wide">Character<select name="craft_character" required data-craft-character{{ mark("offer", "craft_character") }}>{% for cid, rs in crafters %}<option value="{{ cid }}"{% if picked == cid|string %} selected{% endif %}>{{ rs[0].character }} ({{ rs|map(attribute="prof")|unique|join(", ") }})</option>{% endfor %}</select></label>
-    <label class="ab-wide">Item they can craft<select name="craft" required data-craft-recipe{{ mark("offer", "craft") }}>{% for cid, rs in crafters %}<optgroup label="{{ rs[0].character }}" data-character="{{ cid }}">{% for r in rs|sort(attribute="name")|sort(attribute="prof") %}{% set v = cid|string ~ ":" ~ r.name %}<option value="{{ v }}"{% if val("offer", "craft") == v %} selected{% endif %}>{{ r.name }} · {{ r.prof }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
+    <label class="ab-wide">Character<select name="craft_character" required data-craft-character{{ mark("offer", "craft_character") }}>{% for cid, rs in crafters|alpha(crafter_name) %}<option value="{{ cid }}"{% if picked == cid|string %} selected{% endif %}>{{ rs[0].character }} ({{ rs|map(attribute="prof")|unique|join(", ") }})</option>{% endfor %}</select></label>
+    <label class="ab-wide">Item they can craft<select name="craft" required data-craft-recipe{{ mark("offer", "craft") }}>{% for cid, rs in crafters|alpha(crafter_name) %}<optgroup label="{{ rs[0].character }}" data-character="{{ cid }}">{% for r in rs|alpha("name") %}{% set v = cid|string ~ ":" ~ r.name %}<option value="{{ v }}"{% if val("offer", "craft") == v %} selected{% endif %}>{{ r.name }} · {{ r.prof }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
     {% set fk = val("offer", "fee") or "mats" %}
-    <label class="ab-wide">What you ask for<select name="fee" required data-fee{{ mark("offer", "fee") }}>{% for k, lbl in fee_kinds.items() %}<option value="{{ k }}"{% if fk == k %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select></label>
+    <label class="ab-wide">What you ask for<select name="fee" required data-fee{{ mark("offer", "fee") }}>{% for k, lbl in fee_kinds|alpha %}<option value="{{ k }}"{% if fk == k %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select></label>
     <fieldset class="ab-wide pb-fee-box" data-fee-coins{% if fk == "mats" %} hidden{% endif %}><legend>Fee</legend>
       {% for k, top, n in (("gold", sec.max_fee_gold, 6), ("silver", 99, 2), ("copper", 99, 2)) %}<label><span><i class="wq-coin wq-coin-{{ k[0] }}" aria-hidden="true"></i>{{ k|title }}</span><input name="fee_{{ k }}" inputmode="numeric" pattern="[0-9]*" maxlength="{{ n }}" placeholder="0" value="{{ val('offer', 'fee_' ~ k) }}" aria-label="{{ k|title }} (0 to {{ top }})"{{ mark("offer", "fee_" ~ k) }}></label>{% endfor %}
     </fieldset>
@@ -59,8 +59,8 @@
 <form class="pb-bar wq-form" method="get" action="{{ mp }}/professions">
   <div class="pb-chips">{% for k, lbl, href in chips %}<a class="pb-chip{% if f.kind == k %} on{% endif %}" href="{{ href }}">{{ lbl }}</a>{% endfor %}</div>
   {% if f.kind %}<input type="hidden" name="kind" value="{{ f.kind }}">{% endif %}
-  <label>Profession<select name="profession"><option value="">Any</option>{% for n in sec.names %}<option{% if f.profession == n %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
-  <label>Edition<select name="edition"><option value="">Any</option>{% for k, ed in editions.items() %}<option value="{{ k }}"{% if f.edition == k %} selected{% endif %}>{{ ed.name }}</option>{% endfor %}</select></label>
+  <label>Profession<select name="profession"><option value="">Any</option>{% for n in sec.names|alpha %}<option{% if f.profession == n %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+  <label>Edition<select name="edition"><option value="">Any</option>{% for k, ed in editions|alpha("name") %}<option value="{{ k }}"{% if f.edition == k %} selected{% endif %}>{{ ed.name }}</option>{% endfor %}</select></label>
   <label class="pb-check"><input type="checkbox" name="can_help" value="1"{% if f.can_help %} checked{% endif %}> Only posts I can help with</label>
   <button class="btn ghost" type="submit">Show</button>
 </form>

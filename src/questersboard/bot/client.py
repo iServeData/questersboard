@@ -27,9 +27,11 @@ from ..domain.errors import DomainError
 from ..domain.timeutil import discord_ts, find_zone, now, resolve_local
 from ..models import Event, Member, Signup
 from ..secrets import SecretError, get_secret, setup_logging
+from ..sorting import alpha                     # every menu is in alphanumerical order
 
 log = logging.getLogger("questersboard.bot")
 BCID = r"wq:bp:(?P<action>need|help|can_make|ask):(?P<post_id>\d+)"
+TCID = r"wq:bt:(?P<post_id>\d+)"
 CID = r"wq:ev:(?P<action>join|tentative|leave|manage|start|end|endyes|voice|reopen|support|supportleave):(?P<event_id>\d+)"
 
 
@@ -283,7 +285,7 @@ class CharacterSelect(discord.ui.Select):
     def __init__(self, event_id: int, chars, roles, tentative: bool):
         self.event_id, self.roles, self.tentative = event_id, roles, tentative
         super().__init__(placeholder="Choose your character",
-                         options=[discord.SelectOption(label=label[:100], value=str(cid)) for cid, label in chars[:25]])
+                         options=[discord.SelectOption(label=label[:100], value=str(cid)) for cid, label in alpha(chars, lambda c: c[1])[:25]])
 
     async def callback(self, inter: discord.Interaction):
         cid = int(self.values[0])
@@ -299,7 +301,7 @@ class RoleSelect(discord.ui.Select):
         self.event_id, self.cid, self.tentative = event_id, cid, tentative
         super().__init__(placeholder="Choose a role",
                          options=[discord.SelectOption(label=label[:100], value=key, description=desc[:100])
-                                  for key, label, desc in roles[:25]])
+                                  for key, label, desc in alpha(roles, lambda r: r[1])[:25]])
 
     async def callback(self, inter: discord.Interaction):
         await guarded(inter, finish_join(inter, self.event_id, self.cid, self.values[0], self.tentative))
@@ -396,6 +398,40 @@ def _board_press(s, cfg: Config, actor: Actor, post_id: int, action: str) -> str
         return "Taken back. Press it again any time."
     boards.respond(s, cfg, actor, str(p.public_id), action)
     return BOARD_REPLY.get(action, "Done.") + " Pressing it again takes it back. Nothing signs you up for an event."
+
+
+def _board_times(s, cfg: Config, actor: Actor, post_id: int, values: list[str]) -> str:
+    """The card's "Times that work for me" menu. Returns the ephemeral reply."""
+    from ..domain import boards
+    from ..models import BoardPost
+    p = s.get(BoardPost, post_id)
+    if p is None or p.state == "removed":
+        return "This post was removed."
+    actor = roster.ensure_member(s, actor)
+    return boards.pick_times(s, cfg, actor, str(p.public_id), list(values))
+
+
+class BoardTimes(discord.ui.DynamicItem[discord.ui.Select], template=TCID):
+    """Persistent "Times that work for me" menu on Adventure Board cards: "wq:bt:<post_id>"."""
+
+    def __init__(self, post_id: int):
+        super().__init__(discord.ui.Select(custom_id=f"wq:bt:{post_id}", min_values=1, max_values=3,
+                                           options=[discord.SelectOption(label="-", value="0")]))
+        self.post_id = post_id
+
+    @classmethod
+    async def from_custom_id(cls, inter, item, match: re.Match):
+        return cls(int(match["post_id"]))
+
+    async def callback(self, inter: discord.Interaction):
+        cfg = Ctx.cfg()
+        values = [str(v) for v in (inter.data or {}).get("values", [])]
+
+        async def go():
+            actor = await build_actor(inter, "button")
+            permissions.require_member(cfg, actor)
+            await reply(inter, await run_tx(_board_times, cfg, actor, self.post_id, values))
+        await guarded(inter, go())
 
 
 class BoardButton(discord.ui.DynamicItem[discord.ui.Button], template=BCID):
@@ -556,7 +592,7 @@ class PickSelect(discord.ui.Select):
     def __init__(self, draft: dict, missing: str, choices):
         self.draft, self.missing = draft, missing
         super().__init__(placeholder=f"Choose a {missing}",
-                         options=[discord.SelectOption(label=label[:100], value=key) for key, label in choices[:25]])
+                         options=[discord.SelectOption(label=label[:100], value=key) for key, label in alpha(choices, lambda c: c[1])[:25]])
 
     async def callback(self, inter: discord.Interaction):
         key = "race" if self.missing == "race" else "klass"
@@ -866,7 +902,7 @@ class Bot(discord.Client):
             log.warning("item card removal queueing failed", exc_info=True)
 
     async def setup_hook(self):
-        self.add_dynamic_items(EventButton, BoardButton)
+        self.add_dynamic_items(EventButton, BoardButton, BoardTimes)
 
         async def reload_loop():
             while True:

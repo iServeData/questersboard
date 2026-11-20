@@ -150,7 +150,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
         if not boards.enabled(w.cfg, p.board):
             raise NotFound(f"The {boards.BOARD_LABEL[p.board]} is turned off.")
         v = boards.view(s, w.cfg, a, p)
-        first = next(((x, y) for x, y in boards.windows_of(p) if y > now()), None)
+        first = boards.best_time(s, p)          # the time that works for the most people
         start = as_local(first[0], p.timezone) if first else as_local(now() + timedelta(days=1), p.timezone)
         mins = int((first[1] - first[0]).total_seconds() // 60) if first else 120
         c = boards.coins(p.fee_copper) if p.fee_copper else {}
@@ -215,7 +215,8 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
         with w.db.tx() as s:
             if action == "respond":
                 boards.respond(s, w.cfg, a, public_id, str(form.get("kind") or ""),
-                               want=form.get("want", "1") != "0", note=str(form.get("note") or ""))
+                               want=form.get("want", "1") != "0", note=str(form.get("note") or ""),
+                               windows=[str(x) for x in form.getlist("w")] if form.get("times") else None)
             elif action in ("done", "remove"):
                 p = boards.close(s, w.cfg, a, public_id, "done" if action == "done" else "removed")
                 if action == "remove":

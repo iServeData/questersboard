@@ -112,6 +112,9 @@ Test file names refer to `tests/`.
 | Re-render current events in the new layout | Done, tested | `test_refresh_posts_is_dry_run_unless_yes` |
 | Re-render open board posts too (`deploy/refresh_posts.sh`) | Done, tested | `test_refresh_posts_includes_open_board_posts` |
 | Offer a craft fee in gold, silver and copper, on the post and its Discord card | Done, tested (needs migration 0013) | `test_craft_fee_is_checked_and_shown`, `test_web_offer_with_fee` |
+| Edit your own post: details, and the fee on a craft offer; the Discord card updates | Done, tested | `test_poster_can_edit_details_and_fee`, `test_web_edit_post` |
+| Answers on a goal pick which times work; (+n) per time on the page and card; Turn into an event starts at the most popular | Done, tested (needs migration 0014) | `test_answers_pick_which_times_work`, `test_web_pick_times` |
+| Every dropdown in alphanumerical order (web and Discord) | Done, tested | `test_sorting.py` |
 | Board posts show the character picture to people who can see it, else the race outline | Done, tested | `test_post_shows_character_picture_only_to_those_who_can_see_it` |
 | Privacy and terms Last updated follows page changes | Done, tested | `test_each_legal_page_change_comes_with_a_new_date` |
 | Role icons at the start of each role's line; upload command gated and never replaces | Done, fixture-tested; live unverified | `test_role_icons.py` |

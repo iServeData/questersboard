@@ -65,6 +65,11 @@ NOTIFY = {"help", "can_make", "ask", "answer"}
 # Responses whose names everyone on the board sees (offers of help); the rest are counts except to the poster.
 NAMED = {"help", "can_make", "answer"}
 PLANNABLE = {"need_help", "company", "offer_help", "farm"}
+# Answers that say which of a goal's times work for the person (Adventure Board posts with times).
+TIME_KINDS = ("need", "help", "ask")
+# The poster's "who answered" line, per (post kind, response kind); the default is NAMED_LABEL[rkind].
+NAMED_LABEL = {"need": "Also want this", "help": "Can help", "can_make": "Can make it", "ask": "Asked"}
+NAMED_LABEL_KIND = {("company", "need"): "In", ("farm", "need"): "Interested"}
 CLOSED_TEXT = {"done": "Marked done", "removed": "Removed", "expired": "Ran out of time", "evented": "Became an event",
                "recipe_gone": "Blizzard no longer shows this recipe", "character": "The character was removed"}
 MAX_WINDOWS = 3
@@ -167,6 +172,54 @@ def at_text(t: datetime, tz: str) -> str:
     """'Thu 26 Nov, 18:40 PST (02:40 UTC)'."""
     d = as_local(t, tz)
     return f"{d.strftime('%a %-d %b, %H:%M')} {d.tzname() or ''} ({t.astimezone(UTC).strftime('%H:%M')} UTC)"
+
+
+def picks_times(p: BoardPost, kind: str) -> bool:
+    """Whether this answer says which of the post's times work (Adventure Board posts that have times)."""
+    return p.board == "adventure" and kind in TIME_KINDS and bool(p.windows)
+
+
+def _picks(p: BoardPost, windows) -> list[int]:
+    """The positions of the post's times that were ticked, checked against the post: at least one, and
+    only times that haven't ended."""
+    wins = windows_of(p)
+    t = now()
+    out = set()
+    for w in windows:
+        try:
+            i = int(str(w).strip())
+        except ValueError:
+            raise Invalid("Pick from the times on the post.", field="w") from None
+        if not 0 <= i < len(wins):
+            raise Invalid("Pick from the times on the post.", field="w")
+        if wins[i][1] <= t:
+            raise Invalid("That time has already passed.", field="w")
+        out.add(i)
+    if not out:
+        raise Invalid("Tick at least one time that works for you.", field="w")
+    return sorted(out)
+
+
+def time_counts(s: Session, p: BoardPost) -> list[int]:
+    """For each of the post's times, how many people who answered (not the poster) it works for. An
+    answer that never picked times counts for every time."""
+    n = len(windows_of(p))
+    if not n or p.board != "adventure":
+        return [0] * n
+    per: dict[int, set] = {}
+    for r in s.scalars(select(BoardResponse).where(BoardResponse.post_id == p.id,
+                                                   BoardResponse.kind.in_(TIME_KINDS))):
+        got = per.setdefault(r.member_id, set())
+        got.update(range(n) if r.windows is None else [i for i in r.windows if 0 <= i < n])
+    per.pop(p.member_id, None)
+    return [sum(1 for got in per.values() if i in got) for i in range(n)]
+
+
+def best_time(s: Session, p: BoardPost) -> tuple[datetime, datetime] | None:
+    """The time that hasn't ended yet and works for the most people (the earliest of a tie)."""
+    wins, counts = windows_of(p), time_counts(s, p)
+    left = [(-counts[i], w[0], i) for i, w in enumerate(wins) if w[1] > now()]
+    return wins[min(left)[2]] if left else None
 
 
 def windows_of(p: BoardPost) -> list[tuple[datetime, datetime]]:
@@ -451,9 +504,11 @@ def _response_kind(p: BoardPost, kind: str) -> str:
 
 
 def respond(s: Session, cfg: Config, actor: Actor, public_id: str, kind: str, want: bool = True,
-            note: str = "", character_id: int | None = None) -> BoardResponse | None:
+            note: str = "", character_id: int | None = None, windows: list | None = None) -> BoardResponse | None:
     """Press a button on someone's post (want=False takes it back). can_make picks the member's character
-    whose Blizzard profile knows the recipe (character_id narrows it); answer needs a note."""
+    whose Blizzard profile knows the recipe (character_id narrows it); answer needs a note. windows: which
+    of a goal's times work (positions; None keeps what was picked, or every time on a new answer). The
+    picks apply to all of the member's answers on the post."""
     require_member(cfg, actor)
     actor = ensure_member(s, actor)
     p = get(s, public_id, lock=True)
@@ -484,6 +539,7 @@ def respond(s: Session, cfg: Config, actor: Actor, public_id: str, kind: str, wa
         skill = skill_text(s, cid, mine[0][1]["prof"])
     elif character_id:
         cid = _own_character(s, actor, character_id).id
+    picks = _picks(p, windows) if windows is not None and picks_times(p, kind) else None
     text = ""
     if kind == "answer":
         text = _text(note, 3, 400, "Your answer")
@@ -493,8 +549,18 @@ def respond(s: Session, cfg: Config, actor: Actor, public_id: str, kind: str, wa
         had.note, had.character_id = text or had.note, cid or had.character_id
         r = had
     else:
-        r = BoardResponse(post_id=p.id, member_id=actor.member_id, kind=kind, character_id=cid, note=text)
+        others = [x for x in s.scalars(select(BoardResponse).where(
+            BoardResponse.post_id == p.id, BoardResponse.member_id == actor.member_id,
+            BoardResponse.kind.in_(TIME_KINDS)))]
+        r = BoardResponse(post_id=p.id, member_id=actor.member_id, kind=kind, character_id=cid, note=text,
+                          windows=others[0].windows if others and picks is None and picks_times(p, kind) else None)
         s.add(r)
+    if picks is not None:
+        for x in s.scalars(select(BoardResponse).where(BoardResponse.post_id == p.id,
+                                                       BoardResponse.member_id == actor.member_id,
+                                                       BoardResponse.kind.in_(TIME_KINDS))):
+            x.windows = picks
+        r.windows = picks
     s.flush()
     audit.record(s, actor, "board.respond", "board_post", p.id, kind=kind)
     if had is None and kind in NOTIFY and section(cfg, p.board)["notify_poster"]:
@@ -503,6 +569,26 @@ def respond(s: Session, cfg: Config, actor: Actor, public_id: str, kind: str, wa
     if p.discord_channel_id:
         request_render(s, p)
     return r
+
+
+def pick_times(s: Session, cfg: Config, actor: Actor, public_id: str, windows: list) -> str:
+    """The card's "Times that work for me" menu: saves the picks on the member's answers. With no answer
+    yet it answers for them when the post has one such button (I'm in, Ask for help); on a goal with two
+    (I need this too, I can help) they press one first. Returns the reply for Discord."""
+    require_member(cfg, actor)
+    actor = ensure_member(s, actor)
+    p = get(s, public_id)
+    kinds = [k for k in RESPONSES.get(p.kind, {}) if picks_times(p, k)]
+    if not kinds:
+        raise Invalid("This post has no times to pick from.")
+    have = [k for k in kinds if s.get(BoardResponse, (p.id, actor.member_id, k)) is not None]
+    if not have and len(kinds) > 1:
+        raise Invalid(f"Press {' or '.join(RESPONSES[p.kind][k] for k in kinds)} first, then pick your times.")
+    respond(s, cfg, actor, public_id, (have or kinds)[0], windows=windows)
+    picks = _picks(p, windows)
+    wins = windows_of(p)
+    said = "; ".join(when_text(*wins[i], p.timezone) for i in picks)
+    return f"Saved. Times that work for you: {said}." + ("" if have else f" You're down as {RESPONSES[p.kind][kinds[0]]}.")
 
 
 def _mine_or_mod(cfg: Config, actor: Actor, p: BoardPost, mod_ok: bool) -> bool:
@@ -697,6 +783,9 @@ class PostView:
     recipe_prof: str = ""
     portrait: str = ""                        # member-area path of the poster's character picture, if visible
     fee: dict = field(default_factory=dict)   # Can craft: {"note", "coins"} (coins in the tooltip's sell shape)
+    times: list = field(default_factory=list)  # [{"i", "text", "n", "open", "picked", "best"}] the post's times
+    picks: bool = False                       # the viewer can tick which times work when answering
+    labels: dict = field(default_factory=dict)  # response kind -> "who answered" label
 
 
 def portrait_path(s: Session, actor: Actor, ch: Character | None, vguilds: set | None = None) -> str:
@@ -765,6 +854,20 @@ def view(s: Session, cfg: Config, actor: Actor, p: BoardPost, pool: dict | None 
                   named=named, answers=answers, mine=mine, own=own,
                   actions={} if own or p.state != "open" else dict(RESPONSES.get(p.kind, {})), skill=skill)
     pv.portrait = portrait_path(s, actor, ch, vguilds)
+    pv.labels = {k: NAMED_LABEL_KIND.get((p.kind, k), NAMED_LABEL.get(k, k)) for k in named}
+    wins = windows_of(p)
+    if wins:
+        counts_t = time_counts(s, p)
+        mine_r = [r for r in resp if r.member_id == actor.member_id and r.kind in TIME_KINDS]
+        mine_w = set(range(len(wins))) if not mine_r or mine_r[0].windows is None else set(mine_r[0].windows)
+        t = now()
+        open_n = [counts_t[i] for i, w in enumerate(wins) if w[1] > t]
+        top = max(open_n) if open_n else 0
+        pv.times = [{"i": i, "text": when_text(a, b, p.timezone), "n": counts_t[i], "open": b > t,
+                     "picked": i in mine_w, "best": b > t and top > 0 and counts_t[i] == top and open_n.count(top) < len(open_n)}
+                    for i, (a, b) in enumerate(wins)]
+        pv.picks = (not own and p.state == "open" and any(picks_times(p, k) for k in RESPONSES.get(p.kind, {}))
+                    and bool(open_n))
     if p.kind == "can_craft" and p.fee_kind:
         pv.fee = {"note": FEE_NOTE[p.fee_kind] if p.fee_kind != "mats" else FEE_KINDS["mats"],
                   "coins": coins(p.fee_copper) if p.fee_kind != "mats" and p.fee_copper else None}
@@ -880,7 +983,7 @@ def responders(s: Session, p: BoardPost) -> list[int]:
                                 .where(BoardResponse.post_id == p.id, Member.erased_at.is_(None)))) - {p.member_id})
 
 
-__all__ = ["BOARDS", "KINDS", "RESPONSES", "create", "respond", "close", "extend", "plan_event", "on_publish",
+__all__ = ["pick_times", "time_counts", "best_time", "picks_times", "BOARDS", "KINDS", "RESPONSES", "create", "respond", "close", "extend", "plan_event", "on_publish",
            "recheck_offers", "erase_member", "edit", "listing", "view", "my_posts", "could_help", "craftable_choices",
            "when_text", "at_text", "get", "enabled", "members_crafters", "card_extra", "responders",
            "any_recipe", "recipe_details", "card_details", "FEE_KINDS", "coins", "coin_text", "fee_text"]

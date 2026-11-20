@@ -29,7 +29,7 @@
 <select name="{{ name }}"{% if required %} required{% endif %}{% if browser_default %} data-tz-default{% endif %}>
   {% if blank_label %}<option value=""{% if not selected %} selected{% endif %}>{{ blank_label }}</option>{% endif %}
   {% if not known.found %}<option value="{{ selected }}" selected>{{ tz_label(selected) }}</option>{% endif %}
-  <optgroup label="Common">{% for z in common %}<option value="{{ z }}"{% if z == selected %} selected{% endif %}>{{ tz_label(z) }}</option>{% endfor %}</optgroup>
+  <optgroup label="Common">{% for z in common|alpha(tz_label) %}<option value="{{ z }}"{% if z == selected %} selected{% endif %}>{{ tz_label(z) }}</option>{% endfor %}</optgroup>
   {% for region, zs in groups %}<optgroup label="{{ region }}">{% for z, lbl in zs if z not in common %}<option value="{{ z }}"{% if z == selected %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</optgroup>{% endfor %}
 </select>
 {%- endmacro %}

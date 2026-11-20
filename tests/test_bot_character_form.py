@@ -142,7 +142,7 @@ def test_join_role_picker_shows_fill_like_the_web(bot, cfg):
                      ("damage", "Damage \u00b7 0 of 3 taken", "3 open")]
     assert chars[0][1] == "Mirel \u00b7 Orc Shaman"
     sel = bc.RoleSelect(ev.id, chars[0][0], roles, False)
-    assert [o.description for o in sel.options] == ["Full: you'd be waitlisted", "3 open"]
+    assert [o.description for o in sel.options] == ["3 open", "Full: you'd be waitlisted"]   # Damage, Tank: A to Z
 
 
 def test_character_list_uses_catalog_names_and_ruleset_labels(bot, cfg):

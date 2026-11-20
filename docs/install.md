@@ -208,6 +208,11 @@ bring your materials, a fee in copper shown as gold, silver and copper, or both)
 `install.sh`: until it's applied, both boards fail to load. Review with `migrate up 0012:0013 --sql`,
 apply with the step 6 migrate command, then restart the web, worker and bot services.
 
+Migration 0014 adds `windows` to `board_responses`: which of a goal's times work for each person who
+answered it, so the page and the Discord card can count people per time. Apply it straight after
+`install.sh`: until it's applied, both boards fail to load. Review with `migrate up 0013:0014 --sql`,
+apply with the step 6 migrate command, then restart the web, worker and bot services.
+
 ## 8c. Hosts installed under the old name (wowquester)
 
 Hosts installed before the rename run `deploy/rename_host.sh` once, from the checkout, after a backup,

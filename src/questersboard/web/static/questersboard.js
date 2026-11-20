@@ -87,7 +87,10 @@
       sel.textContent = "";
       var first = document.createElement("option"); first.value = ""; first.textContent = prompt;
       sel.appendChild(first);
-      items.forEach(function (it) {
+      // alphanumerical, like every dropdown; "Other (type it)" stays last
+      items.slice().sort(function (x, y) {
+        return String(x.label).localeCompare(String(y.label), undefined, {numeric: true, sensitivity: "base"}); })
+        .forEach(function (it) {
         var o = document.createElement("option"); o.value = it.key; o.textContent = it.label; sel.appendChild(o); });
       var other = document.createElement("option"); other.value = OTHER; other.textContent = "Other (type it)";
       sel.appendChild(other);

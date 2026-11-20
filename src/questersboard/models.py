@@ -696,4 +696,5 @@ class BoardResponse(Base):
     kind: Mapped[str] = mapped_column(String(12), primary_key=True)
     character_id: Mapped[int | None] = mapped_column(ForeignKey("characters.id", ondelete="SET NULL"))
     note: Mapped[str] = mapped_column(String(400), nullable=False, default="", server_default="")
+    windows: Mapped[list | None] = mapped_column(ARRAY(SmallInteger))   # times that work (positions); NULL = all
     created_at: Mapped[datetime] = _now()

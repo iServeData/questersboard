@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Pick which times work (Adventure Board).** Answers on a goal with times (I'm in, I need this too,
+  I can help, Ask for help) say which times work: ticks on the web, or the card's "Times that work for
+  me" menu in Discord (`wq:bt:<post_id>`, a persistent select; on a goal with two buttons it asks you to
+  press one first). The times are a list with (+n) people each; "Most people" marks the leader and Turn
+  into an event starts there. Answers from before count for every time. Migration 0014 adds
+  `board_responses.windows`.
+- **Alphanumerical dropdowns.** Every web dropdown and Discord menu is sorted A to Z ignoring case,
+  numbers in number order (`questersboard.sorting`, the `alpha` template filter). Any / None / Not set
+  stay first; defaults (first edition, first host character) are unchanged. `tests/test_sorting.py`
+  fails if a new `<select>` loop isn't sorted.
 - **Edit a board post.** The poster can change an open post's details (both boards) and, on a Can craft
   offer, the fee, from the post's page (`POST /board/<id>/edit`). The Discord card is re-rendered in place;
   nobody is notified. Title, character, recipe and times stay as posted. No migration.

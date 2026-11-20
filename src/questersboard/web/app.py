@@ -288,6 +288,12 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
     tpl.env.globals.update(legal_date=legal_date)
     tpl.env.globals.update(portrait_state=_profiles.portrait_state,
                            silhouette=lambda race: _profiles.silhouette_key(race, sil))
+    from ..sorting import alpha_filter
+    tpl.env.filters["alpha"] = alpha_filter          # every dropdown is in alphanumerical order
+    tpl.env.globals.update(
+        lambda_title=lambda t: str(t).replace("_", " ").title(),
+        crafter_name=lambda pair: pair[1][0]["character"] if pair[1] else "",
+        name_of=lambda mapping: (lambda k: getattr(mapping.get(k), "name", k) if hasattr(mapping, "get") else k))
     tpl.env.autoescape = True
     app.state.tpl = tpl
     member = cfg["web"]["member_path"].rstrip("/")

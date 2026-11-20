@@ -278,7 +278,7 @@ def test_board_message_buttons(seeded, cfg):
         p, _ = _adv(s, cfg, kind="company")
         msg = board_message(s, cfg, p)
         buttons = [c for row in msg["components"] for c in row["components"]]
-        assert [b.get("custom_id") for b in buttons if b.get("custom_id")] == [f"wq:bp:need:{p.id}"]
+        assert [b.get("custom_id") for b in buttons if b.get("custom_id")] == [f"wq:bp:need:{p.id}", f"wq:bt:{p.id}"]
         assert any(b.get("url", "").endswith(f"/board/{p.public_id}") for b in buttons)
 
 
@@ -756,3 +756,66 @@ def test_web_edit_post(seeded, tmp_path):
     assert r.status_code == 303
     page = tw.login(a, 40).get(url).text
     assert "Typed this" in page and "materials included" in page and "pb-edit" not in page   # not their post
+
+
+def test_answers_pick_which_times_work(seeded, cfg):
+    from questersboard.bot.client import TCID, _board_times
+    from questersboard.bot.render import board_message
+    with seeded.tx() as s:
+        p, _ = _adv(s, cfg, kind="company", windows=[(at(24), at(26)), (at(48), at(50)), (at(72), at(74))])
+        pub = str(p.public_id)
+        char(s, cfg, HELPER, "Fixturehelp")
+        boards.respond(s, cfg, HELPER, pub, "need", windows=["1", "2"])
+        boards.respond(s, cfg, OTHER, pub, "need")                      # no picks: every time
+        assert boards.time_counts(s, p) == [1, 2, 2]
+        assert boards.best_time(s, p) == boards.windows_of(p)[1]        # most people, earliest of a tie
+        for bad, msg in (([], "Tick at least one"), (["7"], "Pick from the times"), (["x"], "Pick from the times")):
+            with pytest.raises(Invalid, match=msg):
+                boards.respond(s, cfg, HELPER, pub, "need", windows=bad)
+        boards.respond(s, cfg, HELPER, pub, "need", windows=["2"])      # change my ticks
+        assert boards.time_counts(s, p) == [1, 1, 2]
+        v = boards.view(s, cfg, roster.ensure_member(s, HELPER), p)
+        assert v.picks and [t["picked"] for t in v.times] == [False, False, True]
+        assert [t["best"] for t in v.times] == [False, False, True] and v.labels == {}
+        pv = boards.view(s, cfg, roster.ensure_member(s, POSTER), p)
+        assert not pv.picks and pv.labels == {"need": "In"} and len(pv.named["need"]) == 2
+        msg = board_message(s, cfg, p)
+        works = next(f["value"] for f in msg["embeds"][0]["fields"] if f["name"] == "Works for")
+        lines = works.split("\n")
+        assert len(lines) == 3 and all(x.startswith("• ") for x in lines)
+        assert lines[0].endswith("(+1)") and lines[2].endswith("(+2)")
+        menu = msg["components"][1]["components"][0]
+        assert menu["type"] == 3 and re.fullmatch(TCID, menu["custom_id"]) and menu["max_values"] == 3
+        assert [o["value"] for o in menu["options"]] == ["0", "1", "2"] and "UTC)" in menu["options"][0]["description"]
+        # the card's menu answers I'm in when there's one button, and saves the picks
+        new = actor(44, name="FixtureNew")
+        char(s, cfg, new, "Fixturenew")
+        assert "You're down as I'm in" in _board_times(s, cfg, new, p.id, ["0"])
+        assert boards.time_counts(s, p) == [2, 1, 2]
+        # on a goal with two buttons, press one first
+        q, _ = _adv(s, cfg, name="Fixtureq")
+        with pytest.raises(Invalid, match="Press I need this too or I can help first"):
+            _board_times(s, cfg, new, q.id, ["0"])
+        # profession posts and posts without times have no menu
+        r, _ = _adv(s, cfg, name="Fixturer", windows=[])
+        assert len(board_message(s, cfg, r)["components"]) == 1
+
+
+def test_web_pick_times(seeded, tmp_path):
+    a, cfg, tw = _web(seeded, tmp_path)
+    with seeded.tx() as s:
+        p, _ = _adv(s, cfg, kind="company", windows=[(at(24), at(26)), (at(48), at(50))])
+        pub = str(p.public_id)
+    h = tw.login(a, 41)
+    url = f"/wow/quester/board/{pub}"
+    page = h.get(url).text
+    assert '<ul class="ab-timelist">' in page and f'form="pick-{pub}" checked' in page
+    assert f'type="submit" form="pick-{pub}" name="kind" value="need">I&#39;m in</button>' in page
+    r = h.post(url + "/respond", data={"csrf": tw.csrf(h, url), "times": "1", "kind": "need"})
+    assert r.status_code == 422 and "Tick at least one time" in r.text
+    r = h.post(url + "/respond", data={"csrf": tw.csrf(h, url), "times": "1", "kind": "need", "w": "1"})
+    assert r.status_code == 303
+    page = h.get(url).text
+    assert "Save my times" in page and page.count(" checked") == 1 and "(+1)" in page
+    poster = tw.login(a, 40).get(url).text
+    assert "(+1)" in poster and "Most people" in poster and 'name="w"' not in poster and "In: " in poster

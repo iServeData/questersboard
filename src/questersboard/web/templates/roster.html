@@ -11,8 +11,8 @@
 <details class="wq-filter-box" data-filter-box open>
 <summary>Filter and sort{% if active_filters %} <span class="wq-filter-count">({{ active_filters }} active)</span>{% endif %}</summary>
 <form method="get" class="wq-roster-filters" aria-label="Filter characters">
-  {% macro pick(name, label, values, pretty=false) %}<label>{{ label }}<select name="{{ name }}"><option value="">Any</option>{% for v in values %}<option value="{{ v }}"{% if f[name] == v %} selected{% endif %}>{{ v.replace('_', ' ')|title if pretty else v }}</option>{% endfor %}</select></label>{% endmacro %}
-  {% if opts.edition|length > 1 %}<label>Edition<select name="edition"><option value="">Any</option>{% for v in opts.edition %}<option value="{{ v }}"{% if f.edition == v %} selected{% endif %}>{{ editions[v].name }}</option>{% endfor %}</select></label>{% endif %}
+  {% macro pick(name, label, values, pretty=false) %}<label>{{ label }}<select name="{{ name }}"><option value="">Any</option>{% for v in values|alpha((lambda_title) if pretty else none) %}<option value="{{ v }}"{% if f[name] == v %} selected{% endif %}>{{ v.replace('_', ' ')|title if pretty else v }}</option>{% endfor %}</select></label>{% endmacro %}
+  {% if opts.edition|length > 1 %}<label>Edition<select name="edition"><option value="">Any</option>{% for v in opts.edition|alpha(name_of(editions)) %}<option value="{{ v }}"{% if f.edition == v %} selected{% endif %}>{{ editions[v].name }}</option>{% endfor %}</select></label>{% endif %}
   {{ pick("class", "Class", opts["class"], true) }}
   {{ pick("role", "Role", opts.role, true) }}
   {{ pick("spec", "Spec", opts.spec) }}
@@ -20,7 +20,7 @@
   {% if opts.craft or f.craft %}<label class="wq-craft-filter" id="craft">Who can craft<input type="search" name="craft" value="{{ f.craft }}" maxlength="80" list="craft-recipes" placeholder="Recipe name" autocomplete="off"></label><datalist id="craft-recipes">{% for v in opts.craft %}<option value="{{ v }}">{% endfor %}</datalist>{% endif %}
   <label>Min level<input type="number" name="min_level" min="1" max="90" value="{{ f.min_level }}"></label>
   <label>Min item level<input type="number" name="min_ilvl" min="1" max="999" value="{{ f.min_ilvl }}"></label>
-  <label class="wq-sort-pick">Sort by<select name="sort" data-sort-select>{% for k, lab in sort_columns.items() %}{% for d in (false, true) %}<option value="{{ k }}{{ ':desc' if d else '' }}"{% if sort == k and desc == d %} selected{% endif %}>{{ lab }} ({{ ('Z–A' if d else 'A–Z') if k in ('name', 'class', 'spec', 'roles', 'professions') else ('highest first' if d else 'lowest first') }})</option>{% endfor %}{% endfor %}</select></label>
+  <label class="wq-sort-pick">Sort by<select name="sort" data-sort-select>{% for k, lab in sort_columns|alpha %}{% for d in (false, true) %}<option value="{{ k }}{{ ':desc' if d else '' }}"{% if sort == k and desc == d %} selected{% endif %}>{{ lab }} ({{ ('Z–A' if d else 'A–Z') if k in ('name', 'class', 'spec', 'roles', 'professions') else ('highest first' if d else 'lowest first') }})</option>{% endfor %}{% endfor %}</select></label>
   <button class="btn" type="submit">Filter</button>{% if active_filters %} <a class="linkish" href="{{ request.url.path }}">Clear</a>{% endif %}
 </form>
 </details>

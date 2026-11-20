@@ -8,6 +8,18 @@
 date = "2026-11-20"
 title = "The Adventure Board and Profession help"
 [[release.change]]
+area = "Events"
+kind = "improved"
+text = "When you answer a goal, tick which of its times work for you (on the page, or with the Discord card's Times that work for me menu). Each time shows how many people it works for, and Turn into an event starts at the most popular one."
+[[release.change]]
+area = "Events"
+kind = "improved"
+text = "A goal's times are shown as a list, and the poster sees who's in labelled In instead of Also want this."
+[[release.change]]
+area = "Guild"
+kind = "improved"
+text = "Every dropdown is now in A to Z order, with choices like Any or None first."
+[[release.change]]
 area = "Guild"
 kind = "improved"
 text = "You can edit your post's details, and what you ask for on a craft offer, from the post's page; its Discord card updates too."

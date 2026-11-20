@@ -424,7 +424,9 @@ def router(cfg: Config) -> APIRouter:
                     host_chars.insert(0, cur)
             for c in host_chars:
                 s.expunge(c)
-        return {"editions": w.cfg.editions, "activity_types": ACTIVITY_TYPES, "presets": w.cfg.role_presets,
+        from .routes_boards import ACTIVITY_LABELS
+        return {"editions": w.cfg.editions, "activity_types": ACTIVITY_TYPES, "activity_labels": ACTIVITY_LABELS,
+                "presets": w.cfg.role_presets,
                 "host_chars": host_chars, "cover_url": covers.url(w.cfg, ev) if ev is not None else None,
                 "max_level": max(e.max_level for e in w.cfg.editions.values()),
                 "max_bytes": w.cfg["uploads"].get("max_bytes", 5_000_000),

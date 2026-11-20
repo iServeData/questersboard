@@ -223,10 +223,14 @@ def seed_boards(db: Database, cfg: Config, org: Actor, members: list, mychar: in
             tags=["First-timers welcome", "Explanations wanted"]))
         boards.respond(s, cfg, members[2], str(a.public_id), "need")
         boards.respond(s, cfg, members[3], str(a.public_id), "help")
-        boards.create(s, cfg, members[4], "adventure", dict(
+        co = boards.create(s, cfg, members[4], "adventure", dict(
             kind="company", character_id=cids[4], title="Questing in the Barrens, levels 14 to 18",
             activity_type="quest", body="FIXTURE: chatty questing, voice optional.", timezone=hz,
-            windows=[(day + timedelta(hours=1), day + timedelta(hours=3))], tags=["Social", "Relaxed pace"]))
+            windows=[(day + timedelta(hours=1), day + timedelta(hours=3)),
+                     (day + timedelta(days=1, hours=1), day + timedelta(days=1, hours=4)),
+                     (day + timedelta(days=2), day + timedelta(days=2, hours=2))], tags=["Social", "Relaxed pace"]))
+        boards.respond(s, cfg, members[1], str(co.public_id), "need", windows=["1", "2"])
+        boards.respond(s, cfg, members[2], str(co.public_id), "need", windows=["1"])
         boards.create(s, cfg, org, "adventure", dict(
             kind="offer_help", character_id=mychar, title="Happy to run Ragefire Chasm for anyone new",
             activity_type="dungeon", timezone=hz, tags=["Explanations provided"]))

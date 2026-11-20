@@ -13,7 +13,7 @@ TEMPLATES = Path(__file__).parent / "templates"
 
 # page: (last updated, sha256 of templates/<page>.html)
 PAGES = {
-    "privacy": ("2026-11-20", "1401dda25d3112ee787852642c725e6e02edb1db53c15e83a133b9fbdf2aeb16"),
+    "privacy": ("2026-11-20", "86f504d78814f117c9e8fdb4a0fdbf8762df410c44e3552031feb0ca5c3df47a"),
     "terms": ("2026-11-16", "33c77374d80deae947826690755c1441357cc269f9114489aaf6db6119d58b4f"),
 }
 

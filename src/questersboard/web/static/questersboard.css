@@ -849,3 +849,12 @@ progress.ab-meter.full::-moz-progress-bar{background:#2e8b57}
 .pb-edit .ab-grid,.pb-edit form.ab-grid{grid-template-columns:1fr}
 .pb-side .pb-edit fieldset.pb-fee-box{padding:6px 8px 8px;gap:0 6px}
 .pb-side .pb-edit fieldset.pb-fee-box input{min-width:0;width:100%}
+/* Adventure Board: a goal's times as a list, how many each works for, and ticks for answering */
+.ab-when .ab-timelist{margin:4px 0 0;padding:0 0 0 1.2em;list-style:disc;border:0;background:none;border-radius:0}
+.ab-timelist li{padding:2px 0}
+.ab-timelist li.past{color:var(--muted,#9aa0a6)}
+.ab-timelist label{display:inline;cursor:pointer;font-weight:400}
+.ab-timelist input[type=checkbox]{margin:0 6px 0 0;vertical-align:-2px;accent-color:#c9a227}
+.ab-plus{margin-left:.35em;color:#e6c35c;font-weight:600;white-space:nowrap}
+.ab-best{display:inline-block;margin-left:4px;padding:0 6px;border:1px solid rgba(230,195,92,.55);border-radius:999px;font-size:.75rem;color:#e6c35c;white-space:nowrap}
+.ab-pick-note{margin:6px 0 0}

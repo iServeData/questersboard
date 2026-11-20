@@ -13,10 +13,10 @@
 {% else %}
 {% if left is not none %}<p class="note">You can start {{ left }} more solo {{ "story" if left == 1 else "stories" }} in the next 7 days (up to {{ per_week }} a week).</p>{% endif %}
 <form method="post" class="wq-form panel" action="{{ mp }}/chronicle/solo">{{ csrf_field() }}
-  <label>Character <select name="character_id" required>{% for c in chars %}<option value="{{ c.id }}">{{ c.name }} · {{ c.realm_slug }}</option>{% endfor %}</select></label>
+  <label>Character <select name="character_id" required>{% for c in chars|alpha("name") %}<option value="{{ c.id }}">{{ c.name }} · {{ c.realm_slug }}</option>{% endfor %}</select></label>
   <label>Title <input name="title" maxlength="120" minlength="3" required placeholder="For example: The long walk to Booty Bay"></label>
   <label>When <input type="date" name="day" value="{{ today }}" max="{{ today }}" required></label>
-  <label>What kind of adventure <select name="activity_type">{% for k, l in kinds.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></label>
+  <label>What kind of adventure <select name="activity_type">{% for k, l in kinds|alpha %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></label>
   <label><input type="checkbox" name="named" value="1"{% if named_default %} checked{% endif %}> Name my character in the story</label>
   <p class="note">Unticked, the story describes your character neutrally (for example "an adventurer"). You can change this later.</p>
   <div class="btns"><button class="btn" type="submit"{% if left == 0 %} disabled{% endif %}>Start writing</button></div>

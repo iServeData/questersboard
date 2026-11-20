@@ -199,6 +199,11 @@ def bcid(action: str, post_id: int) -> str:
     return f"wq:bp:{action}:{post_id}"
 
 
+def tcid(post_id: int) -> str:
+    """The "Times that work for me" menu on an Adventure Board card."""
+    return f"wq:bt:{post_id}"
+
+
 def _blizzard_image(cfg: Config, url: str) -> bool:
     from urllib.parse import urlsplit
     return urlsplit(url).hostname in set(cfg["blizzard"].get("render_image_hosts", ["render.worldofwarcraft.com"]))
@@ -226,9 +231,11 @@ def board_message(s: Session, cfg: Config, p, extra: dict | None = None) -> dict
                             .group_by(BoardResponse.kind)).all())
     fields = []
     wins = boards.windows_of(p)
+    tc = boards.time_counts(s, p) if wins else []
     if wins:
-        fields.append({"name": "Works for", "value": "\n".join(boards.when_text(a, b, p.timezone) for a, b in wins)[:1024],
-                       "inline": False})
+        fields.append({"name": "Works for", "value": "\n".join(
+            f"• {boards.when_text(a, b, p.timezone)}" + (f" (+{tc[i]})" if tc[i] else "")
+            for i, (a, b) in enumerate(wins))[:1024], "inline": False})
     said = [boards.count_line(p.kind, k, counts[k]) for k in boards.RESPONSES.get(p.kind, {}) if counts.get(k)]
     if said:
         fields.append({"name": "So far", "value": ", ".join(said)[:1024], "inline": True})
@@ -278,9 +285,20 @@ def board_message(s: Session, cfg: Config, p, extra: dict | None = None) -> dict
         if p.kind == "recipe":
             link = dict(link, label="Answer on QuestersBoard")
         row.append(link)
+    rows = [{"type": 1, "components": row[:5]}]
+    pick = [(i, a, b) for i, (a, b) in enumerate(wins) if b > boards.now()] if p.state == "open" else []
+    if pick and any(boards.picks_times(p, k) for k in boards.RESPONSES.get(p.kind, {})):
+        opts = []
+        for i, a, b in pick:
+            local = boards.when_text(a, b, p.timezone)
+            label, _sep, utc = local.partition(" (")
+            opts.append({"label": label[:100], "value": str(i), "description": f"({utc}"[:100]})
+        rows.append({"type": 1, "components": [{
+            "type": 3, "custom_id": tcid(p.id), "placeholder": "Times that work for me",
+            "min_values": 1, "max_values": len(opts), "options": opts}]})
     embed = {"author": {"name": author[:256]}, "title": p.title[:256], "description": "\n\n".join(desc)[:4000],
              "color": color, "fields": fields[:25],
              "footer": {"text": f"{boards.BOARD_LABEL[p.board]} · QuestersBoard post #{p.id}"}}
     if str(item.get("icon") or "").startswith("https://") and _blizzard_image(cfg, item["icon"]):
         embed["thumbnail"] = {"url": item["icon"]}
-    return {"content": "", "embeds": [embed], "components": [{"type": 1, "components": row[:5]}]}
+    return {"content": "", "embeds": [embed], "components": rows}

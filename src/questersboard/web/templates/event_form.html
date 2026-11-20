@@ -10,22 +10,22 @@
   <fieldset><legend>Game</legend>
     <label>Edition
       <select name="edition" data-edition-select>
-        {% for k, ed in editions.items() %}<option value="{{ k }}" data-uses-realms="{{ 1 if ed.uses_realms else 0 }}"{% if editing and ev.edition == k %} selected{% endif %}>{{ ed.name }}</option>{% endfor %}
+        {% set first_ed = (editions|list)[0] %}{% for k, ed in editions|alpha("name") %}<option value="{{ k }}" data-uses-realms="{{ 1 if ed.uses_realms else 0 }}"{% if (editing and ev.edition == k) or (not editing and k == first_ed) %} selected{% endif %}>{{ ed.name }}</option>{% endfor %}
       </select></label>
     {% for k, ed in editions.items() %}{% if not ed.uses_realms %}
     <label data-for-edition="{{ k }}" data-realmless>Ruleset <span class="note">({{ ed.name }} has no realms)</span>
-      <select name="ruleset">{% for r in ed.rulesets %}<option value="{{ r }}"{% if (editing and ev.ruleset == r) or (not editing and r == ed.default_ruleset) %} selected{% endif %}>{{ ed.ruleset_label(r) }}</option>{% endfor %}</select></label>
+      <select name="ruleset">{% for r in ed.rulesets|alpha(ed.ruleset_label) %}<option value="{{ r }}"{% if (editing and ev.ruleset == r) or (not editing and r == ed.default_ruleset) %} selected{% endif %}>{{ ed.ruleset_label(r) }}</option>{% endfor %}</select></label>
     {% endif %}{% endfor %}
     <label data-realm-field>Realm <span class="note">(needed for editions with realms, e.g. Retail)</span>
       <input name="realm_slug" value="{{ ev.realm_slug or '' if editing else '' }}" placeholder="realm-slug" pattern="[a-z0-9-]{2,64}"></label>
     <label>Faction
-      <select name="faction"><option value="any">Any</option><option value="horde"{% if not editing or ev.faction == 'horde' %} selected{% endif %}>Horde</option><option value="alliance"{% if editing and ev.faction == 'alliance' %} selected{% endif %}>Alliance</option></select></label>
+      <select name="faction"><option value="any">Any</option><option value="alliance"{% if editing and ev.faction == 'alliance' %} selected{% endif %}>Alliance</option><option value="horde"{% if not editing or ev.faction == 'horde' %} selected{% endif %}>Horde</option></select></label>
   </fieldset>
 
   <fieldset><legend>What</legend>
     <label>Title <input name="title" required minlength="3" maxlength="120" value="{{ ev.title if editing else '' }}"></label>
     <label>Type
-      <select name="activity_type">{% for t in activity_types %}<option value="{{ t }}"{% if editing and ev.activity_type == t %} selected{% endif %}>{{ t.replace('_',' ')|title }}</option>{% endfor %}</select></label>
+      <select name="activity_type">{% set alabel = activity_labels or {} %}{% for t in activity_types|alpha(alabel.get) %}<option value="{{ t }}"{% if (editing and ev.activity_type == t) or (not editing and t == activity_types[0]) %} selected{% endif %}>{{ alabel.get(t) or t.replace('_',' ')|title }}</option>{% endfor %}</select></label>
     <label>Where (quest, dungeon or zone)
       <input name="location" list="wq-locations" data-autocomplete="location" maxlength="200" value="{{ ev.activity_location.label if editing and ev.activity_location else '' }}" autocomplete="off">
       <datalist id="wq-locations"></datalist>
@@ -35,7 +35,7 @@
     <span data-for-edition="{{ k }}" hidden><input type="hidden" name="difficulty" value=""></span>
     {% else %}
     <label data-for-edition="{{ k }}">Difficulty <span class="note">(optional)</span>
-      <select name="difficulty"><option value="">Not set</option>{% for d in ed.difficulties %}<option value="{{ d }}"{% if editing and ev.difficulty == d %} selected{% endif %}>{{ d }}</option>{% endfor %}</select></label>
+      <select name="difficulty"><option value="">Not set</option>{% for d in ed.difficulties|alpha %}<option value="{{ d }}"{% if editing and ev.difficulty == d %} selected{% endif %}>{{ d }}</option>{% endfor %}</select></label>
     {% endif %}
     {% endfor %}
     <div class="wq-row">
@@ -50,7 +50,7 @@
     <label>Who can join <input name="eligibility" maxlength="500" value="{{ ev.eligibility if editing else '' }}" placeholder="e.g. level 18+, voice for raids"></label>
     {% if host_chars %}
     <label>Hosted by <span class="note">(the character shown on the post)</span>
-      <select name="host_character_id"><option value="">Don't show a host</option>{% for c in host_chars %}<option value="{{ c.id }}"{% if (editing and ev.host_character_id == c.id) or (not editing and loop.first) %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+      <select name="host_character_id"><option value="">Don't show a host</option>{% for c in host_chars|alpha("name") %}<option value="{{ c.id }}"{% if (editing and ev.host_character_id == c.id) or (not editing and c.id == host_chars[0].id) %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
     {% endif %}
     <label>Cover art <span class="note">(optional PNG, JPEG or WebP, up to {{ (max_bytes / 1000000)|round(1) }} MB. Without one, the community's default art is used.)</span>
       <input type="file" name="cover" accept="image/png,image/jpeg,image/webp"></label>
@@ -70,7 +70,7 @@
     {% if editing %}<p class="note">Showing the current time ({{ fmt_local(ev.start_at, ev.timezone) }}). Leave it as it is to keep it. Changing the date, start or length re-checks the schedule and asks confirmed players to reconfirm.</p>{% endif %}
     {% if not editing %}
     <label>Repeat <span class="note">(optional; creates one draft per occurrence)</span>
-      <select name="rrule"><option value="">Doesn't repeat</option><option value="FREQ=WEEKLY;COUNT=4">Weekly, 4 times</option><option value="FREQ=WEEKLY;COUNT=8">Weekly, 8 times</option><option value="FREQ=WEEKLY;INTERVAL=2;COUNT=4">Every 2 weeks, 4 times</option></select></label>
+      <select name="rrule"><option value="">Doesn't repeat</option><option value="FREQ=WEEKLY;INTERVAL=2;COUNT=4">Every 2 weeks, 4 times</option><option value="FREQ=WEEKLY;COUNT=4">Weekly, 4 times</option><option value="FREQ=WEEKLY;COUNT=8">Weekly, 8 times</option></select></label>
     {% elif ev.series_id %}
     <fieldset class="wq-scope"><legend>Recurring event</legend>
       <label><input type="radio" name="scope" value="one" checked> Only this occurrence</label>
@@ -81,7 +81,7 @@
 
   <fieldset><legend>Signups</legend>
     <label>Policy
-      <select name="signup_policy"><option value="open"{% if not editing or ev.signup_policy == 'open' %} selected{% endif %}>Open: joining confirms a spot</option><option value="approval"{% if editing and ev.signup_policy == 'approval' %} selected{% endif %}>Approval: hosts approve each signup</option></select></label>
+      <select name="signup_policy"><option value="approval"{% if editing and ev.signup_policy == 'approval' %} selected{% endif %}>Approval: hosts approve each signup</option><option value="open"{% if not editing or ev.signup_policy == 'open' %} selected{% endif %}>Open: joining confirms a spot</option></select></label>
     <label>Participant limit <span class="note">(optional; blank means the group size: {% for k, v in party_sizes.items() %}{{ k.replace('_',' ') }} {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}, others 80. Role How many numbers can't add up to more than this.)</span> <input type="number" name="participant_limit" min="1" max="80" value="{{ ev.participant_limit or '' if editing else '' }}"></label>
     <p class="note">Group roles are optional. Use presets, or type your own role names.</p>
     {% set cur = ev.roles if editing else [] %}

@@ -50,7 +50,7 @@
 
 {% macro role_options(selected=none, mine_key=none) %}
   {% if selected is none or selected not in role_keys %}<option value="" disabled selected>Pick a role</option>{% endif %}
-  {% for r in ev.roles %}{% set n = confirmed|selectattr("role_key", "equalto", r.key)|list|length %}{% set n_other = n - (1 if mine_key == r.key else 0) %}
+  {% for r in ev.roles|alpha("label") %}{% set n = confirmed|selectattr("role_key", "equalto", r.key)|list|length %}{% set n_other = n - (1 if mine_key == r.key else 0) %}
   <option value="{{ r.key }}"{% if r.key == selected %} selected{% endif %}>{{ r.label }} · {{ n }} of {{ r.quantity }} taken{% if n_other >= r.quantity %} (full, you'd be waitlisted){% endif %}</option>{% endfor %}
 {% endmacro %}
 {% macro role_hint() %}<span class="note">Open spots: {% for r in ev.roles %}{% set n = confirmed|selectattr("role_key", "equalto", r.key)|list|length %}{{ r.label }} {{ [r.quantity - n, 0]|max }}{% if not loop.last %} · {% endif %}{% endfor %}</span>{% endmacro %}
@@ -64,7 +64,7 @@
       {% if mine.needs_reconfirm %}{% if mine_fits %}<p class="caveat">This event changed. Please reconfirm or leave.</p>
       {% else %}<p class="caveat">This event is now for {{ requirement }}, so {{ mine.character.name }} no longer fits. {% if fit %}Pick another character to stay signed up, or leave.{% else %}None of your characters fit; add one on the Characters page, or leave.{% endif %}</p>{% endif %}
       {% if mine_fits or fit %}<form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/reconfirm">{{ csrf_field() }}
-        {% if not mine_fits %}<label>Character <select name="character_id" required>{% for c in fit %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>{% endif %}
+        {% if not mine_fits %}<label>Character <select name="character_id" required>{% for c in fit|alpha("name") %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>{% endif %}
         {% if ev.roles and mine.role_key not in role_keys %}<label>Role <select name="role_key" required>{{ role_options() }}</select> {{ role_hint() }}</label>{% endif %}
         <button class="btn" type="submit">Reconfirm</button></form>{% endif %}{% endif %}
       <div class="btns">
@@ -74,13 +74,13 @@
       </div>
       <details><summary>Change character, role or privacy</summary>
       <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/change">{{ csrf_field() }}
-        <label>Character <select name="character_id">{% for c in fit %}<option value="{{ c.id }}"{% if c.id == mine.character_id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+        <label>Character <select name="character_id">{% for c in fit|alpha("name") %}<option value="{{ c.id }}"{% if c.id == mine.character_id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
         {% if ev.roles %}<label>Role <select name="role_key" required>{{ role_options(mine.role_key, mine.role_key if mine.state == "confirmed" else none) }}</select> {{ role_hint() }}</label>{% endif %}
         <label><input type="hidden" name="recognition" value="0"><input type="checkbox" name="recognition" value="1"{% if mine.recognition %} checked{% endif %}> Name my character in the public roster and chronicle {{ naming_tip("tip-naming-change") }}</label>{{ naming_help("tip-naming-change") }}
         <button class="btn ghost" type="submit">Save</button></form></details>
     {% elif fit %}
       <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/join">{{ csrf_field() }}
-        <label>Character <select name="character_id">{% for c in fit %}<option value="{{ c.id }}">{{ c.name }} · {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} {{ c.level }}{% endif %}</option>{% endfor %}</select></label>
+        <label>Character <select name="character_id">{% for c in fit|alpha("name") %}<option value="{{ c.id }}">{{ c.name }} · {{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} {{ c.level }}{% endif %}</option>{% endfor %}</select></label>
         {% if ev.roles %}<label>Role <select name="role_key" required>{{ role_options() }}</select> {{ role_hint() }}</label>{% endif %}
         <label><input type="hidden" name="recognition" value="0"><input type="checkbox" name="recognition" value="1"{% if recognition_default %} checked{% endif %}> Name my character publicly <span class="note">(otherwise you're shown as "a healer" etc.)</span> {{ naming_tip("tip-naming-join") }}</label>{{ naming_help("tip-naming-join") }}
         <label><input type="checkbox" name="tentative" value="1"> Tentative <span class="note">(doesn't hold a spot)</span></label>
@@ -147,7 +147,7 @@
     <form method="post" class="wq-form" action="{{ mp }}/events/{{ ev.public_id }}/attendance">{{ csrf_field() }}
       {% for su in rows if su.state in ("confirmed", "tentative") %}
       {% set cur = attendance.get(su.member_id, "unknown") %}
-      <label>{{ su.character.name }} <select name="att_{{ su.member_id }}">{% for v, lbl in (("unknown","Unknown"),("attended","Attended"),("absent","Absent")) %}<option value="{{ v }}"{% if v == cur %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select></label>
+      <label>{{ su.character.name }} <select name="att_{{ su.member_id }}">{% for v, lbl in (("absent","Absent"),("attended","Attended"),("unknown","Unknown")) %}<option value="{{ v }}"{% if v == cur %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select></label>
       {% endfor %}<button class="btn ghost" type="submit">Save attendance</button></form>
     {% endif %}
     {% if stories %}<h3 class="sub">Stories</h3><ul class="plain-list">{% for x, n in stories %}<li>{% if x.author_id == actor.member_id or can('chronicle_reviewer') or can('chronicle_editor') %}<a href="{{ mp }}/chronicle/{{ x.id }}">{{ n }}</a>{% else %}{{ n }}{% endif %}{% if x.author_id == ev.creator_id %} <span class="note">(host)</span>{% endif %} · {{ x.state.replace('_',' ') }}</li>{% endfor %}</ul>

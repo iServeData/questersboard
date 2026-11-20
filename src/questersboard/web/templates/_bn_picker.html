@@ -26,7 +26,7 @@
             <span class="wq-pick-txt"><strong>{{ c.name }}</strong>
             <span class="note">{% if c.race and c["class"] %}{{ (c.faction or "")|title }} {{ c.race }} {{ c["class"] }}{% endif %}{% if c.level %}{% if c.race and c["class"] %} · {% endif %}level {{ c.level }}{% endif %}{% if c.realm %} · {{ c.realm|replace("-", " ")|title }}{% endif %}</span></span></label>
           {% if r.ready and not ed.uses_realms %}
-          <label class="wq-pick-rs">Ruleset <select name="ruleset_{{ ed.key }}_{{ r.i }}">{% for k in ed.rulesets %}<option value="{{ k }}"{% if (r.ruleset or ed.default_ruleset) == k %} selected{% endif %}>{{ ed.ruleset_label(k) }}</option>{% endfor %}</select>{% if not r.ruleset %} <span class="note">Blizzard didn't say; check it's right.</span>{% endif %}</label>
+          <label class="wq-pick-rs">Ruleset <select name="ruleset_{{ ed.key }}_{{ r.i }}">{% for k in ed.rulesets|alpha(ed.ruleset_label) %}<option value="{{ k }}"{% if (r.ruleset or ed.default_ruleset) == k %} selected{% endif %}>{{ ed.ruleset_label(k) }}</option>{% endfor %}</select>{% if not r.ruleset %} <span class="note">Blizzard didn't say; check it's right.</span>{% endif %}</label>
           {% endif %}
           {% if not r.named %}<p class="note">Battle.net shows a temporary name, which usually means the game wants this character renamed. Log in with it, pick a new name, then sync again.</p>
           {% elif not r.ready %}<p class="note">Blizzard didn't send the race, class or faction yet; add this one by hand.</p>{% endif %}
