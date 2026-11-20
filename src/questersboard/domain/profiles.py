@@ -19,7 +19,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..config import Config
-from ..models import SHARE_LEVELS, Character, CharacterProfile
+from ..models import SHARE_LEVELS, BoardPost, Character, CharacterProfile
 from . import audit
 from .actor import Actor
 from .errors import Invalid, NotFound
@@ -381,7 +381,10 @@ def import_profile(s: Session, cfg: Config, bz, actor: Actor, character_id: int,
     _resolve_icons(s, cfg, bz, ed, ch.region, data)
     prof = s.get(CharacterProfile, ch.id)
     same = prof is not None and prof.edition == ch.edition and prof.region == ch.region
-    _resolve_recipes(s, cfg, bz, ed, ch.region, data, (prof.groups or {}) if same else None)
+    offered = {(p.recipe_name or p.title or "").casefold() for p in s.scalars(
+        select(BoardPost).where(BoardPost.character_id == ch.id, BoardPost.state == "open",
+                                BoardPost.kind == "can_craft"))}
+    _resolve_recipes(s, cfg, bz, ed, ch.region, data, (prof.groups or {}) if same else None, offered)
     guild = data.get("guild") or {}
     if prof is None:
         prof = CharacterProfile(character_id=ch.id, member_id=ch.member_id)
@@ -545,9 +548,11 @@ def _linked_icon(s: Session, bz, region: str, sns: str, body: dict, default_path
     return bz.media_icon(s, region, default_path, sns)
 
 
-def _resolve_recipes(s: Session, cfg: Config, bz, ed, region: str, data: dict, before: dict | None) -> None:
+def _resolve_recipes(s: Session, cfg: Config, bz, ed, region: str, data: dict, before: dict | None,
+                     first: set[str] | None = None) -> None:
     """Icons and tooltips for known recipes. What an earlier import found is kept (by recipe id), so each
     import looks up at most [blizzard] recipe_lookups new recipes and later refreshes fill in the rest.
+    Recipes named in `first` (the character's open craft offers) are looked up before the others.
     detail_icons = false skips this."""
     bzc = cfg["blizzard"]
     profs = [p for p in data.get("professions") or [] if p.get("recipes")]
@@ -566,27 +571,29 @@ def _resolve_recipes(s: Session, cfg: Config, bz, ed, region: str, data: dict, b
     hours = bzc.get("cache_hours_static", 168)
     stamp = now().date().isoformat()
     pre = {k.casefold(): v for k, v in (cfg.raw.get("item_links", {}).get("professions") or {}).items()}
-    for p in profs:
-        for r in p["recipes"]:
-            got = known.get(r["id"])
-            if got is not None and (got.get("seen", "") >= stamp or
-                                    ((got.get("icon") or got.get("tip")) and got.get("rv", 1) >= RECIPE_DATA_VERSION)):
-                r.update(got)
-                continue
-            if got is not None:
-                r.update(got)                       # older data stays until the new lookup has something
-            if budget <= 0:
-                continue
-            budget -= 1
-            new = _recipe_item(s, bz, region, sns, hours, r["id"], r.get("name") or "",
-                               pre.get(str(p.get("name") or "").casefold()))
-            if new:
-                r.update(new)
-                r["rv"] = RECIPE_DATA_VERSION
-            elif got is None or not (got.get("icon") or got.get("tip")):
-                r["seen"] = (now() + timedelta(days=7)).date().isoformat()   # nothing: retry in a week
-            else:
-                r["rv"] = RECIPE_DATA_VERSION           # a lookup that failed now keeps the old details
+    first = first or set()
+    pairs = [(p, r) for p in profs for r in p["recipes"]]
+    pairs.sort(key=lambda pr: str(pr[1].get("name") or "").casefold() not in first)   # stable: offers first
+    for p, r in pairs:
+        got = known.get(r["id"])
+        if got is not None and (got.get("seen", "") >= stamp or
+                                ((got.get("icon") or got.get("tip")) and got.get("rv", 1) >= RECIPE_DATA_VERSION)):
+            r.update(got)
+            continue
+        if got is not None:
+            r.update(got)                       # older data stays until the new lookup has something
+        if budget <= 0:
+            continue
+        budget -= 1
+        new = _recipe_item(s, bz, region, sns, hours, r["id"], r.get("name") or "",
+                           pre.get(str(p.get("name") or "").casefold()))
+        if new:
+            r.update(new)
+            r["rv"] = RECIPE_DATA_VERSION
+        elif got is None or not (got.get("icon") or got.get("tip")):
+            r["seen"] = (now() + timedelta(days=7)).date().isoformat()   # nothing: retry in a week
+        else:
+            r["rv"] = RECIPE_DATA_VERSION           # a lookup that failed now keeps the old details
 
 
 def _static_page(s: Session, bz, region: str, ref, sns: str, hours: float) -> dict:

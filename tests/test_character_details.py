@@ -656,3 +656,16 @@ def test_example_config_links_to_no_other_sites():
 def test_craft_query_and_filter_rows_without_a_database():
     assert profiles.craft_query("  a   b ") == "a b" and len(profiles.craft_query("y" * 200)) == 80
     assert profiles.craft_query(None) == ""
+
+
+def test_recipes_on_open_craft_offers_are_looked_up_first(monkeypatch):
+    seen = []
+    monkeypatch.setattr(profiles, "_recipe_item", lambda s, bz, region, sns, hours, rid, name, pre=None:
+                        seen.append(name) or {"tip": {"name": name}})
+    cfg = type("C", (), {"raw": {}, "__getitem__": lambda self, k: {"recipe_lookups": 1}})()
+    ed = SimpleNamespace(namespace=lambda kind, region: "static-fixture-us")
+    data = {"professions": [{"name": "Leatherworking", "recipes": [
+        {"id": 1, "name": "Fixture Boots"}, {"id": 2, "name": "Fixture Belt"}]}]}
+    profiles._resolve_recipes(None, cfg, None, ed, "us", data, None, {"fixture belt"})
+    assert seen == ["Fixture Belt"]                       # a budget of 1 goes to the offered recipe
+    assert [r["name"] for r in data["professions"][0]["recipes"]] == ["Fixture Boots", "Fixture Belt"]
