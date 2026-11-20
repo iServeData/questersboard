@@ -756,6 +756,13 @@ body:has(.wq-more[open]) .wq-fab,body:has(.wq-acct[open]) .wq-fab{display:none}
 .pb-main{display:flex;gap:12px;align-items:flex-start}
 .pb-main .wq-icon{width:44px;height:44px;flex:0 0 44px;border:1px solid #1eff00;border-radius:4px}
 .pb-main .wq-icon.c{border-color:#cfcfcf}
+.pb-item{flex:0 0 auto}
+.pb-item .wq-item-btn{padding:0;background:none;border:0;width:auto;border-radius:4px}
+.pb-item .wq-item-btn:hover .wq-icon,.pb-item.is-open .wq-icon{box-shadow:0 0 0 2px rgba(255,255,255,.35)}
+.pb-main .pb-item .wq-icon-none{display:block;width:44px;height:44px;border:1px dashed rgba(225,228,232,.3);border-radius:4px}
+.pb-reagents{font-size:.88rem;margin:4px 0 0;opacity:.9}
+.wq-tip-reagents{margin-top:4px}
+@media (max-width:760px){.pb-item .wq-tip{position:absolute;left:0;top:calc(100% + 6px);width:min(300px,calc(100vw - 48px));box-shadow:0 8px 24px rgba(0,0,0,.6)}}
 .pb-title{font-size:1.05rem;font-weight:600;margin:0 0 2px}
 .pb-title.u{color:#1eff00}.pb-title.w{color:#fff}
 .pb-who{font-size:.88rem;opacity:.85;margin:0}

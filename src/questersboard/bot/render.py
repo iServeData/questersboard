@@ -199,6 +199,11 @@ def bcid(action: str, post_id: int) -> str:
     return f"wq:bp:{action}:{post_id}"
 
 
+def _blizzard_image(cfg: Config, url: str) -> bool:
+    from urllib.parse import urlsplit
+    return urlsplit(url).hostname in set(cfg["blizzard"].get("render_image_hosts", ["render.worldofwarcraft.com"]))
+
+
 def board_message(s: Session, cfg: Config, p, extra: dict | None = None) -> dict:
     """The Discord card for an Adventure Board or profession help post. Counts only: nobody who pressed a
     button is named. extra: facts the app worked out (crafters, skill), since the worker never reads
@@ -227,6 +232,16 @@ def board_message(s: Session, cfg: Config, p, extra: dict | None = None) -> dict
     said = [boards.count_line(p.kind, k, counts[k]) for k in boards.RESPONSES.get(p.kind, {}) if counts.get(k)]
     if said:
         fields.append({"name": "So far", "value": ", ".join(said)[:1024], "inline": True})
+    item = extra.get("item") if isinstance(extra.get("item"), dict) and p.board == "profession" else {}
+    lines = [str(x) for x in item.get("lines") or []]
+    if item.get("makes") and item["makes"].casefold() != p.title.casefold():
+        lines.insert(0, f"Creates: {item['makes']}")
+    if item.get("qty"):
+        lines.append(f"Makes {int(item['qty'])} at a time")
+    if lines:
+        fields.append({"name": "Item", "value": "\n".join(lines)[:1024], "inline": False})
+    if item.get("reagents"):
+        fields.append({"name": "Reagents", "value": str(item["reagents"])[:1024], "inline": False})
     if p.kind == "need_crafted" and "crafters" in extra:
         n = int(extra["crafters"])
         fields.append({"name": "Can make it", "value": f"{n} shared character{'s' if n != 1 else ''}", "inline": True})
@@ -262,4 +277,6 @@ def board_message(s: Session, cfg: Config, p, extra: dict | None = None) -> dict
     embed = {"author": {"name": author[:256]}, "title": p.title[:256], "description": "\n\n".join(desc)[:4000],
              "color": color, "fields": fields[:25],
              "footer": {"text": f"{boards.BOARD_LABEL[p.board]} · QuestersBoard post #{p.id}"}}
+    if str(item.get("icon") or "").startswith("https://") and _blizzard_image(cfg, item["icon"]):
+        embed["thumbnail"] = {"url": item["icon"]}
     return {"content": "", "embeds": [embed], "components": [{"type": 1, "components": row[:5]}]}

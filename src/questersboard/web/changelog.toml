@@ -27,6 +27,10 @@ text = "The new-post forms on both boards open from buttons at the top of the pa
 area = "Guild"
 kind = "improved"
 text = "Offer a craft asks for the character first, then lists only the items that character can craft."
+[[release.change]]
+area = "Guild"
+kind = "improved"
+text = "Craft posts, and their cards in Discord, now show the item's details from Blizzard and the reagents it needs. Point at or tap the item's icon on the site for the full tooltip. Press Refresh from Blizzard on a character page to add reagents to recipes imported earlier."
 
 [[release]]
 date = "2026-11-15"

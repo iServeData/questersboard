@@ -46,6 +46,23 @@ def _crafter(s, cfg, who=HELPER, name="Fixturesmith", share="members", recipe=RE
     return c
 
 
+DETAILS = {"id": 1, "item_id": 9001, "quality": "uncommon", "rv": 2,
+           "icon": "https://render.worldofwarcraft.com/forever-us/icons/56/fixture_kit.jpg",
+           "tip": {"binding": "Binds when picked up", "stats": [{"text": "+8 Armor", "green": False}],
+                   "sell": {"gold": "0", "silver": "1", "copper": "20"}},
+           "reagents": "Fixture Leather (4), Fixture Thread", "qty": 2}
+
+
+def _detailed(s, cfg, who=HELPER, name="Fixturesmith"):
+    """A crafter whose FIXTURE recipe has Blizzard details (tooltip, reagents, icon)."""
+    c = _crafter(s, cfg, who, name)
+    prof = s.get(CharacterProfile, c.id)
+    prof.groups = {"professions": [{"name": "Leatherworking", "skill": 165,
+                                    "recipes": [{"name": RECIPE, **DETAILS}]}]}
+    s.flush()
+    return c
+
+
 def _drain(w):
     for _ in range(20):
         if not w.tick():
@@ -292,6 +309,38 @@ def test_can_craft_needs_blizzard_recipe_and_closes_when_gone(seeded, cfg):
         assert q.state == "closed" and q.closed_reason == "recipe_gone"
 
 
+def test_craft_posts_carry_item_details(seeded, cfg):
+    from questersboard.bot.render import board_message
+    with seeded.tx() as s:
+        c = _detailed(s, cfg)
+        p = boards.create(s, cfg, HELPER, "profession", {"kind": "can_craft", "character_id": c.id,
+                                                          "recipe_name": RECIPE})
+        extra = boards.card_extra(s, p)
+        item = extra["item"]
+        assert item["reagents"] == DETAILS["reagents"] and item["qty"] == 2 and item["icon"] == DETAILS["icon"]
+        assert "+8 Armor" in item["lines"] and "Sell Price: 1s 20c" in item["lines"]
+        e = board_message(s, cfg, p, extra)["embeds"][0]
+        got = {f["name"]: f["value"] for f in e["fields"]}
+        assert got["Reagents"] == DETAILS["reagents"]
+        assert "Binds when picked up" in got["Item"] and "Makes 2 at a time" in got["Item"]
+        assert e["thumbnail"]["url"] == DETAILS["icon"]
+        # a Need crafted post for the same item shows the same game data
+        mine = char(s, cfg, POSTER, "Fixturebuyer")
+        q = boards.create(s, cfg, POSTER, "profession", {"kind": "need_crafted", "character_id": mine.id,
+                                                          "title": RECIPE})
+        assert boards.card_extra(s, q)["item"]["reagents"] == DETAILS["reagents"]
+        # an icon from anywhere but Blizzard's image host is left off
+        prof = s.get(CharacterProfile, c.id)
+        prof.groups = {"professions": [{"name": "Leatherworking", "skill": 165, "recipes": [
+            {"name": RECIPE, **DETAILS, "icon": "https://elsewhere.example.org/x.jpg"}]}]}
+        s.flush()
+        assert "thumbnail" not in board_message(s, cfg, p, boards.card_extra(s, p))["embeds"][0]
+        # no details stored yet: the card is as before
+        prof.groups = {"professions": [{"name": "Leatherworking", "skill": 165, "recipes": [{"name": RECIPE}]}]}
+        s.flush()
+        assert "item" not in boards.card_extra(s, p)
+
+
 def test_removed_character_closes_offers(seeded, cfg):
     with seeded.tx() as s:
         c = _crafter(s, cfg)
@@ -487,6 +536,28 @@ def test_web_profession_pages(seeded, tmp_path):
     page = p.get("/wow/quester/professions?new=offer").text
     assert 'id="prof-offer" aria-labelledby="prof-offer-title" data-board-dialog open' in page
     assert 'data-open-dialog="prof-need"' in page and 'aria-invalid' not in page
+
+
+def test_web_craft_post_shows_item_details(seeded, tmp_path):
+    a, cfg, tw = _web(seeded, tmp_path)
+    with seeded.tx() as s:
+        c = _detailed(s, cfg)
+        p = boards.create(s, cfg, HELPER, "profession", {"kind": "can_craft", "character_id": c.id,
+                                                          "recipe_name": RECIPE})
+        pub = str(p.public_id)
+    v = tw.login(a, 40)
+    for url in ("/wow/quester/professions", f"/wow/quester/board/{pub}"):
+        page = v.get(url).text
+        assert "Reagents:</b> Fixture Leather (4), Fixture Thread" in page
+        assert 'class="wq-item wq-recipe pb-item wq-q-uncommon" data-tip' in page
+        assert "+8 Armor" in page and "Makes 2 at a time" in page and "Leatherworking recipe" in page
+        assert f'src="/wow/quester/board/{pub}/icon"' in page and "render.worldofwarcraft.com" not in page
+    seen = []
+    a.state.web.bz.fetch_icon = lambda url, max_bytes=200_000: seen.append(url) or (b"\x89PNG-fixture", "image/png")
+    r = v.get(f"/wow/quester/board/{pub}/icon")
+    assert r.status_code == 200 and r.content == b"\x89PNG-fixture" and seen == [DETAILS["icon"]]
+    anon = tw.TestClient(a, base_url="https://community.example.org", follow_redirects=False)
+    assert anon.get(f"/wow/quester/board/{pub}/icon").status_code in (303, 401, 404)
 
 
 def test_web_boards_off_and_signed_out(seeded, tmp_path):

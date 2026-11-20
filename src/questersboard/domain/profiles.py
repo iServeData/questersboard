@@ -448,10 +448,51 @@ def _resolve_icons(s: Session, cfg: Config, bz, ed, region: str, data: dict) -> 
             row["icon"] = seen[key]
 
 
-def _recipe_item(s: Session, bz, region: str, sns: str, hours: float, rid: int, name: str) -> dict:
+RECIPE_DATA_VERSION = 2      # 2: reagents and how many it makes; older stored recipes are looked up again
+
+
+def _reagents(recipe: dict) -> str:
+    """'Light Leather (6), Coarse Thread' from a recipe page's reagents list (Retail's shape; UNVERIFIED
+    whether WoW: Forever recipe pages carry it)."""
+    parts = []
+    for x in recipe.get("reagents") or []:
+        if isinstance(x, dict) and _label(x.get("reagent")):
+            q = x.get("quantity")
+            parts.append(_label(x["reagent"])[:60] + (f" ({q})" if isinstance(q, int) and q > 1 else ""))
+    return ", ".join(parts)[:300]
+
+
+def _pattern_reagents(page, name: str, prefixes: list[str]) -> str:
+    """The reagents from the recipe item ("Pattern: Name") when there is one: Blizzard's
+    reagents_display_string (verified on WoW: Forever for a tailoring pattern, Nov 2026). Trainer-taught
+    recipes have no recipe item."""
+    for pre in prefixes:
+        want = f"{pre}: {name}"
+        found = page("/data/wow/search/item", params={"name.en_US": want, "orderby": "id", "_page": "1"})
+        hits = [h.get("data") or {} for h in found.get("results") or [] if isinstance(h, dict)]
+        exact = [h for h in hits if isinstance(h.get("id"), int) and _label(h).lower() == want.lower()]
+        if not exact:
+            continue
+        item = page(f"/data/wow/item/{exact[0]['id']}")
+        pv = item.get("preview_item") if isinstance(item.get("preview_item"), dict) else {}
+        rec = pv.get("recipe") if isinstance(pv.get("recipe"), dict) else {}
+        rd = rec.get("reagents_display_string")
+        if isinstance(rd, str) and rd.strip():
+            rd = rd.strip()
+            return (rd.split(":", 1)[1].strip() if rd.lower().startswith("reagents:") else rd)[:300]
+        got = _reagents(rec)
+        if got:
+            return got
+    return ""
+
+
+def _recipe_item(s: Session, bz, region: str, sns: str, hours: float, rid: int, name: str,
+                 prefixes: list[str] | None = None) -> dict:
     """What a known recipe makes, for its icon and tooltip: the recipe's crafted item, or else the item
-    named exactly like the recipe. Returns {item_id, quality, tip, icon} (any part may be missing), or
-    {} when neither is found. Only the edition's static data is read; failures just return {}."""
+    named exactly like the recipe. Returns {item_id, quality, tip, icon, reagents, qty} (any part may be
+    missing), or {} when neither is found. reagents come from the recipe page, else from the recipe item
+    named with one of `prefixes` ("Pattern"). Only the edition's static data is read; failures just
+    return {}."""
     def page(path, ns=sns, params=None):
         try:
             st, body = bz.get(s, region, path, ns, hours, params=params)
@@ -485,6 +526,13 @@ def _recipe_item(s: Session, bz, region: str, sns: str, hours: float, rid: int, 
         icon = _linked_icon(s, bz, region, sns, recipe, f"/data/wow/media/recipe/{rid}")
         if icon:
             out["icon"] = icon
+    reag = _reagents(recipe) or (_pattern_reagents(page, name, prefixes) if prefixes and name else "")
+    if reag:
+        out["reagents"] = reag
+    cq = recipe.get("crafted_quantity") if isinstance(recipe.get("crafted_quantity"), dict) else {}
+    qty = cq.get("value") or cq.get("minimum")
+    if isinstance(qty, (int, float)) and qty > 1:
+        out["qty"] = int(qty)
     return out
 
 
@@ -512,21 +560,33 @@ def _resolve_recipes(s: Session, cfg: Config, bz, ed, region: str, data: dict, b
     for p in (before or {}).get("professions") or []:
         for r in p.get("recipes") or [] if isinstance(p, dict) else []:
             if isinstance(r, dict) and isinstance(r.get("id"), int) and (r.get("icon") or r.get("tip") or r.get("seen")):
-                known[r["id"]] = {k: r[k] for k in ("item_id", "quality", "makes", "tip", "icon", "seen") if k in r}
+                known[r["id"]] = {k: r[k] for k in ("item_id", "quality", "makes", "tip", "icon", "seen",
+                                                    "reagents", "qty", "rv") if k in r}
     budget = int(bzc.get("recipe_lookups", 80))
     hours = bzc.get("cache_hours_static", 168)
     stamp = now().date().isoformat()
+    pre = {k.casefold(): v for k, v in (cfg.raw.get("item_links", {}).get("professions") or {}).items()}
     for p in profs:
         for r in p["recipes"]:
             got = known.get(r["id"])
-            if got is not None and (got.get("icon") or got.get("tip") or got.get("seen", "") >= stamp):
+            if got is not None and (got.get("seen", "") >= stamp or
+                                    ((got.get("icon") or got.get("tip")) and got.get("rv", 1) >= RECIPE_DATA_VERSION)):
                 r.update(got)
                 continue
+            if got is not None:
+                r.update(got)                       # older data stays until the new lookup has something
             if budget <= 0:
                 continue
             budget -= 1
-            got = _recipe_item(s, bz, region, sns, hours, r["id"], r.get("name") or "")
-            r.update(got or {"seen": (now() + timedelta(days=7)).date().isoformat()})   # nothing: retry in a week
+            new = _recipe_item(s, bz, region, sns, hours, r["id"], r.get("name") or "",
+                               pre.get(str(p.get("name") or "").casefold()))
+            if new:
+                r.update(new)
+                r["rv"] = RECIPE_DATA_VERSION
+            elif got is None or not (got.get("icon") or got.get("tip")):
+                r["seen"] = (now() + timedelta(days=7)).date().isoformat()   # nothing: retry in a week
+            else:
+                r["rv"] = RECIPE_DATA_VERSION           # a lookup that failed now keeps the old details
 
 
 def _static_page(s: Session, bz, region: str, ref, sns: str, hours: float) -> dict:

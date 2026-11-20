@@ -30,16 +30,10 @@
     {% set link = ed.item_link(i.item_id) if ed else "" %}{% if link %}<a class="wq-tip-link" href="{{ link }}" target="_blank" rel="noopener noreferrer">View on Wowhead ↗</a>{% endif %}
   </div>
 </div>{% endmacro %}
-{# A known recipe: what it makes (icon, quality colour, item tooltip) when Blizzard links one. #}
-{#   cid/v: the character id and cache version when not on its own page (Who can craft); sub: a line
-     under the name; cls: extra classes. #}
-{% macro recipe(ref, r, prof, ed, cid=none, v=none, sub="", cls="", size=28) %}{% set t = r.tip or {} %}
-{% if r.icon or r.tip %}<div class="wq-item wq-recipe wq-q-{{ r.quality or 'common' }}{% if cls %} {{ cls }}{% endif %}" data-tip>
-  <button type="button" class="wq-item-btn" aria-expanded="false">
-    {% if r.icon %}<img class="wq-icon" src="{{ mp }}/characters/{{ cid if cid else c.id }}/icon/recipes/{{ ref }}?v={{ v if v else ver() }}" alt="" width="{{ size }}" height="{{ size }}" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif %}
-    <span class="wq-item-txt"><span class="wq-item-name">{{ r.name }}</span>{% if sub %}<span class="note">{{ sub }}</span>{% endif %}</span>
-  </button>
-  <div class="wq-tip" role="tooltip">
+{# The tooltip of a known recipe: the item it makes (Blizzard's tooltip lines), its reagents and
+   profession. r: the stored recipe (tip, makes, reagents, qty, item_id). #}
+{% macro recipe_tip(r, prof, ed, cls="") %}{% set t = r.tip or {} %}
+  <div class="wq-tip{% if cls %} {{ cls }}{% endif %}" role="tooltip">
     <div class="wq-tip-name">{{ r.makes or r.name }}</div>
     {% if r.makes %}<div class="note">Made with {{ r.name }}</div>{% endif %}
     {% if t.binding %}<div>{{ t.binding }}</div>{% endif %}{% if t.unique %}<div>{{ t.unique }}</div>{% endif %}
@@ -53,9 +47,21 @@
     {% for sp in t.spells or [] %}<div class="wq-tip-green">{{ sp }}</div>{% endfor %}
     {% if t.description %}<div class="wq-tip-gold">"{{ t.description }}"</div>{% endif %}
     {% if t.sell %}<div>Sell Price: {{ coins(t.sell) }}</div>{% endif %}
+    {% if r.reagents %}<div class="wq-tip-reagents">Reagents: {{ r.reagents }}</div>{% endif %}
+    {% if r.qty %}<div class="note">Makes {{ r.qty }} at a time</div>{% endif %}
     <div class="note">{{ prof }} recipe</div>
     {% set link = ed.item_link(r.item_id) if ed and r.item_id else "" %}{% if link %}<a class="wq-tip-link" href="{{ link }}" target="_blank" rel="noopener noreferrer">View on Wowhead ↗</a>{% endif %}
-  </div>
+  </div>{% endmacro %}
+{# A known recipe: what it makes (icon, quality colour, item tooltip) when Blizzard links one. #}
+{#   cid/v: the character id and cache version when not on its own page (Who can craft); sub: a line
+     under the name; cls: extra classes. #}
+{% macro recipe(ref, r, prof, ed, cid=none, v=none, sub="", cls="", size=28) %}{% set t = r.tip or {} %}
+{% if r.icon or r.tip or r.reagents %}<div class="wq-item wq-recipe wq-q-{{ r.quality or 'common' }}{% if cls %} {{ cls }}{% endif %}" data-tip>
+  <button type="button" class="wq-item-btn" aria-expanded="false">
+    {% if r.icon %}<img class="wq-icon" src="{{ mp }}/characters/{{ cid if cid else c.id }}/icon/recipes/{{ ref }}?v={{ v if v else ver() }}" alt="" width="{{ size }}" height="{{ size }}" loading="lazy" referrerpolicy="no-referrer">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif %}
+    <span class="wq-item-txt"><span class="wq-item-name">{{ r.name }}</span>{% if sub %}<span class="note">{{ sub }}</span>{% endif %}</span>
+  </button>
+  {{ recipe_tip(r, prof, ed) }}
 </div>{% else %}<span class="wq-recipe-plain{% if cls %} {{ cls }}{% endif %}"><span class="wq-icon wq-icon-none" aria-hidden="true"></span><span class="wq-item-txt"><span>{{ r.name }}</span>{% if sub %}<span class="note">{{ sub }}</span>{% endif %}</span></span>{% endif %}{% endmacro %}
 {% macro talent(ref, t, ed) %}
 <div class="wq-item wq-talent{% if t.rank %} wq-talent-on{% endif %}" data-tip>

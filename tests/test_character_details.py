@@ -145,7 +145,10 @@ def _recipe_handler(req):
     ns = req.url.params.get("namespace", "")
     if p == "/data/wow/recipe/1353" and ns == "static-forever-us":
         return httpx.Response(200, json={"id": 1353, "name": "Fixture Boots",
-                                         "crafted_item": {"id": 501, "name": "Fixture Boots"}})
+                                         "crafted_item": {"id": 501, "name": "Fixture Boots"},
+                                         "reagents": [{"reagent": {"name": "Fixture Leather", "id": 601}, "quantity": 6},
+                                                      {"reagent": {"name": "Fixture Thread", "id": 602}, "quantity": 1}],
+                                         "crafted_quantity": {"value": 1}})
     if p == "/data/wow/item/501":
         return httpx.Response(200, json={
             "id": 501, "name": "Fixture Boots", "quality": {"type": "UNCOMMON"},
@@ -176,7 +179,9 @@ def test_known_recipes_get_icons_and_tooltips(seeded, tmp_path, monkeypatch):
     assert boots["item_id"] == 501 and boots["quality"] == "uncommon" and boots["icon"].endswith("fixture_boots.jpg")
     assert boots["tip"]["armor"] == "41 Armor" and boots["tip"]["stats"] == [{"text": "+3 Agility", "green": False}]
     assert "icon" not in pants and pants["seen"]                         # nothing found: retried in a week
+    assert boots["reagents"] == "Fixture Leather (6), Fixture Thread" and "qty" not in boots and boots["rv"] == 2
     page = c.get("/wow/quester/characters").text
+    assert "Reagents: Fixture Leather (6), Fixture Thread" in page
     assert f"/characters/{cid}/icon/recipes/0-0?" in page and "Leatherworking recipe" in page and "41 Armor" in page
     assert 'class="wq-recipe-plain"' in page and "render.worldofwarcraft.com" not in page
     r = c.get(f"/wow/quester/characters/{cid}/icon/recipes/0-1")
@@ -189,6 +194,41 @@ def test_known_recipes_get_icons_and_tooltips(seeded, tmp_path, monkeypatch):
     with seeded.tx() as s:
         groups = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()
     assert groups["professions"][0]["recipes"][0]["icon"].endswith("fixture_boots.jpg")
+
+
+@needs_db
+def test_recipe_reagents_from_the_pattern_and_older_data_looked_up_again(seeded, tmp_path, monkeypatch):
+    def h(req):
+        p, q = req.url.path, req.url.params.get("name.en_US", "")
+        if p == "/data/wow/recipe/1355":
+            return httpx.Response(404)
+        if p == "/data/wow/search/item" and q == "Pattern: Fixture Pants":
+            return httpx.Response(200, json={"results": [{"data": {"id": 777, "name": {"en_US": "Pattern: Fixture Pants"}}}]})
+        if p == "/data/wow/item/777":
+            return httpx.Response(200, json={"id": 777, "name": "Pattern: Fixture Pants", "preview_item": {
+                "recipe": {"reagents_display_string": "Fixture Cloth (3), Fixture Dye"}}})
+        return _recipe_handler(req)
+    a, cfg, calls = _bz_app(seeded, tmp_path, monkeypatch, h)
+    with seeded.tx() as s:
+        cid = char(s, cfg, actor(78), "Zulmara Ashveil").id
+    c = login(a, 78)
+    c.post(f"/wow/quester/characters/{cid}/details", data={"csrf": csrf(c), "groups": ["professions"]})
+    with seeded.tx() as s:
+        groups = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()
+        boots, pants = groups["professions"][0]["recipes"]
+        assert pants["reagents"] == "Fixture Cloth (3), Fixture Dye"        # from the recipe item
+        # details stored before reagents were kept: the next refresh looks them up again
+        for r in (boots, pants):
+            r.pop("rv", None)
+            r.pop("reagents", None)
+        s.execute(text("update character_profiles set groups = cast(:g as jsonb) where character_id=:i"),
+                  {"g": __import__("json").dumps(groups), "i": cid})
+    assert c.post(f"/wow/quester/characters/{cid}/details",
+                  data={"csrf": csrf(c), "groups": ["professions"]}).status_code == 303
+    with seeded.tx() as s:
+        groups = s.execute(text("select groups from character_profiles where character_id=:i"), {"i": cid}).scalar()
+    boots = groups["professions"][0]["recipes"][0]
+    assert boots["reagents"] == "Fixture Leather (6), Fixture Thread" and boots["icon"].endswith("fixture_boots.jpg")
 
 
 @needs_db

@@ -162,7 +162,29 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
                 "page": PAGES[p.board], "board_page": PAGES[p.board], "at_text": boards.at_text, "time_pattern": TIME_PATTERN,
                 "plan_date": start.date().isoformat(), "plan_time": start.strftime("%H:%M"),
                 "plan_minutes": max(15, min(mins, 720)),
-                "is_mod": has(w.cfg, a, "event_moderator")})
+                "is_mod": has(w.cfg, a, "event_moderator"), "editions": w.cfg.editions})
+
+    @r.get(mp + "/board/{public_id}/icon")
+    def board_post_icon(request: Request, public_id: str):
+        """The icon of a profession post's item (Blizzard's game art, the same for everyone), fetched
+        by QuestersBoard so pages load images only from this site."""
+        from fastapi.responses import Response
+        sess, a = session_or_login(request, bucket="i")
+        w = W(request)
+        with w.db.tx() as s:
+            p = boards.get(s, public_id)
+            if not boards.enabled(w.cfg, p.board):
+                raise NotFound("Icon not found.")
+            got = boards.recipe_details(s, p)
+            url = str((got or {}).get("r", {}).get("icon") or "")
+        hosts = set(w.cfg["blizzard"].get("render_image_hosts", ["render.worldofwarcraft.com"]))
+        from urllib.parse import urlsplit
+        if not url.startswith("https://") or urlsplit(url).hostname not in hosts:
+            raise NotFound("Icon not found.")
+        img = w.bz.fetch_icon(url)
+        if img is None:
+            raise NotFound("Blizzard didn't send this icon.")
+        return Response(img[0], media_type=img[1], headers={"Cache-Control": "private, max-age=86400"})
 
     @r.post(mp + "/board/{public_id}/{action}")
     async def board_post_action(request: Request, public_id: str, action: str):

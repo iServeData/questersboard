@@ -167,6 +167,50 @@ def skill_text(s: Session, character_id: int | None, profession: str | None) -> 
     return profession
 
 
+def any_recipe(s: Session, name: str) -> dict | None:
+    """The stored details of a recipe with this name from any imported profile, preferring one with a
+    tooltip and reagents. Only Blizzard's game data (what the item is and needs) is read from it, never
+    who knows it, so sharing doesn't apply."""
+    key = (name or "").strip().casefold()
+    if not key:
+        return None
+    best = None
+    for prof in s.scalars(select(CharacterProfile)):
+        for x in _recipes(prof):
+            if x["name"].casefold() == key:
+                score = bool(x["r"].get("tip")) + bool(x["r"].get("reagents"))
+                if best is None or score > best[0]:
+                    best = (score, x)
+                if score == 2:
+                    return x
+    return best[1] if best else None
+
+
+def recipe_details(s: Session, p: BoardPost) -> dict | None:
+    """{name, prof, r} for a profession post's item: the crafter's own recipe for Can craft, else any
+    imported profile's (Need crafted)."""
+    if p.kind == "can_craft":
+        got = known_recipe(s, p.character_id, p.recipe_name or p.title)
+        if got and (got["r"].get("tip") or got["r"].get("reagents")):
+            return got
+    if p.kind in ("can_craft", "need_crafted"):
+        return any_recipe(s, p.recipe_name or p.title)
+    return None
+
+
+def card_details(x: dict | None) -> dict:
+    """What the Discord card shows about the item (the worker never reads profiles): tooltip lines,
+    reagents, how many it makes, quality and Blizzard's icon URL."""
+    if not x:
+        return {}
+    from .item_links import tooltip_lines
+    r = x["r"]
+    out = {"lines": tooltip_lines(r.get("tip") or {})[:20], "reagents": r.get("reagents") or "",
+           "makes": r.get("makes") or "", "qty": r.get("qty") or 0, "quality": r.get("quality") or "",
+           "icon": r.get("icon") or ""}
+    return {k: v for k, v in out.items() if v}
+
+
 def members_crafters(s: Session, recipe: str) -> int:
     """Characters whose Professions are shared with all members and who know this recipe (the Discord
     card's count: the channel is for every member, so guild-only sharing doesn't count there)."""
@@ -218,6 +262,9 @@ def card_extra(s: Session, p: BoardPost) -> dict:
         extra["crafters"] = members_crafters(s, p.recipe_name or p.title)
     if p.kind in ("can_craft", "recipe", "farm") and p.profession:
         extra["skill"] = skill_text(s, p.character_id, p.profession)
+    item = card_details(recipe_details(s, p))
+    if item:
+        extra["item"] = item
     return extra
 
 
@@ -562,6 +609,8 @@ class PostView:
     ready: bool = False                       # enough people for the group size
     people: int = 0
     can_make_with: list[str] = field(default_factory=list)   # viewer's characters that know the recipe
+    recipe: dict = field(default_factory=dict)    # the item's stored Blizzard details: tip, reagents, quality …
+    recipe_prof: str = ""
 
 
 def char_line(cfg: Config, ch: Character | None, extra: str = "") -> str:
@@ -637,6 +686,12 @@ def view(s: Session, cfg: Config, actor: Actor, p: BoardPost, pool: dict | None 
                 pool = viewer_pool(s, cfg, actor)
             hit = next((h for h in pool.get(key, []) if h[0].ch.id == p.character_id), None)
             pv.icon = f"/characters/{p.character_id}/icon/recipes/{hit[1]['ref']}" if hit and hit[1]["r"].get("icon") else ""
+    if p.board == "profession":
+        seen = next(({"r": h[1]["r"], "prof": h[1]["prof"]} for h in (pool or {}).get(key, [])
+                     if p.kind == "need_crafted" and h[1]["r"].get("tip") and h[1]["r"].get("reagents")), None)
+        got = seen or recipe_details(s, p)
+        if got:
+            pv.recipe, pv.recipe_prof = got["r"], got["prof"]
     if p.group_size:
         pv.people = 1 + counts.get("need", 0) + counts.get("help", 0)
         pv.ready = pv.people >= p.group_size
@@ -718,4 +773,5 @@ def responders(s: Session, p: BoardPost) -> list[int]:
 
 __all__ = ["BOARDS", "KINDS", "RESPONSES", "create", "respond", "close", "extend", "plan_event", "on_publish",
            "recheck_offers", "erase_member", "listing", "view", "my_posts", "could_help", "craftable_choices",
-           "when_text", "at_text", "get", "enabled", "members_crafters", "card_extra", "responders"]
+           "when_text", "at_text", "get", "enabled", "members_crafters", "card_extra", "responders",
+           "any_recipe", "recipe_details", "card_details"]

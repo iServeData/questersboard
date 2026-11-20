@@ -73,6 +73,12 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
 - **Profession help** (`[professions]`, live): `enabled`, `channel_id`, `post_days` (how long a post stays
   open, 1–60; 7), `max_open_per_member` (1–50; 5), `names` (the profession list) and `notify_poster`.
   Can craft offers come only from recipes on the member's imported Blizzard Professions.
+  Can craft and Need crafted posts, on the site and on their Discord cards, show the item's stored
+  Blizzard details: its tooltip lines, reagents and an icon. Reagents come from Blizzard's recipe
+  data, or else from the recipe item named with an `[item_links] professions` prefix ("Pattern: …").
+  Recipes imported before reagents were kept are looked up again on the next Refresh from Blizzard,
+  within `[blizzard] recipe_lookups`. UNVERIFIED: whether WoW: Forever recipe pages list reagents
+  (the recipe-item route was checked for one tailoring pattern).
 
 - **Roles** (`[roles]`): Discord role IDs (quoted strings) per capability: `event_creator`,
   `event_moderator`, `exclusive_designator`, `chronicle_editor`, `chronicle_reviewer`,

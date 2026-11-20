@@ -1,4 +1,5 @@
 {#- One Adventure Board or profession help post, as a card. v: domain.boards.PostView. -#}
+{%- import "_item_tips.html" as tips with context -%}
 {% macro post_card(v, back="", detail=False) -%}
 {%- set p = v.p -%}
 {%- set cls = {"need_help": "help", "offer_help": "offer", "company": "co", "need_crafted": "", "can_craft": "can", "recipe": "rec", "farm": "farm"}[p.kind] -%}
@@ -6,9 +7,17 @@
   <div class="pb-top"><span class="pb-type">{% if p.closed_reason == "evented" %}Became an event{% else %}{{ v.kind_label }}{% endif %}</span>
     {%- if v.own %}<span class="pb-badge member">Your post</span>{% elif p.kind == "can_craft" and p.state == "open" %}<span class="pb-badge">Blizzard-checked</span>{% elif p.kind == "recipe" %}<span class="pb-badge member">Member question</span>{% endif %}</div>
   <div class="pb-main">
-    {%- if v.icon %}<img class="wq-icon{% if p.kind != 'can_craft' %} c{% endif %}" src="{{ mp }}{{ v.icon }}" alt="" width="44" height="44" loading="lazy">
+    {%- if v.recipe %}{% set ed = editions[p.edition] if editions is defined and p.edition in editions else none %}
+    <div class="wq-item wq-recipe pb-item wq-q-{{ v.recipe.quality or 'common' }}" data-tip>
+      <button type="button" class="wq-item-btn" aria-expanded="false" aria-label="Item details: {{ v.recipe.makes or p.title }}">
+        {%- if v.recipe.icon %}<img class="wq-icon" src="{{ mp }}/board/{{ p.public_id }}/icon" alt="" width="44" height="44" loading="lazy">{% else %}<span class="wq-icon wq-icon-none" aria-hidden="true"></span>{% endif -%}
+      </button>
+      {{ tips.recipe_tip(v.recipe, v.recipe_prof, ed) }}
+    </div>
+    {%- elif v.icon %}<img class="wq-icon{% if p.kind != 'can_craft' %} c{% endif %}" src="{{ mp }}{{ v.icon }}" alt="" width="44" height="44" loading="lazy">
     {%- elif v.character %}<img class="wq-icon c pb-sil" src="{{ mp }}/static/silhouettes/{{ silhouette(v.character.race_key) }}.svg?v={{ static_v }}" alt="" width="44" height="44">{% endif %}
-    <div><p class="pb-title {{ 'u' if p.kind == 'can_craft' else 'w' }}">{% if detail %}{{ p.title }}{% else %}<a href="{{ mp }}/board/{{ p.public_id }}">{{ p.title }}</a>{% endif %}</p><p class="pb-who">{{ v.who }}</p></div>
+    <div><p class="pb-title {{ 'u' if p.kind == 'can_craft' else 'w' }}">{% if detail %}{{ p.title }}{% else %}<a href="{{ mp }}/board/{{ p.public_id }}">{{ p.title }}</a>{% endif %}</p><p class="pb-who">{{ v.who }}</p>
+    {%- if v.recipe.reagents %}<p class="pb-reagents"><b>Reagents:</b> {{ v.recipe.reagents }}</p>{% endif %}</div>
   </div>
   {%- if p.body %}<p class="pb-text">{{ p.body }}</p>{% endif %}
   {%- if p.tags %}<div class="ab-tags">{% for t in p.tags %}<span class="ab-tag">{{ t }}</span>{% endfor %}</div>{% endif %}
