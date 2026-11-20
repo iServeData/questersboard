@@ -293,9 +293,11 @@ def _boards(r: dict) -> None:
     pr["channel_id"] = _snowflake(pr.setdefault("channel_id", ""), "[professions] channel_id")
     _whole(pr, "post_days", 7, 1, 60, "professions")
     _whole(pr, "max_open_per_member", 5, 1, 50, "professions")
+    _whole(pr, "max_fee_gold", 99999, 1, 214748, "professions")
     if not _names(pr, "names", DEFAULT_PROFESSIONS, "professions"):
         raise ConfigError("[professions] names must list at least one profession")
-    unknown = set(pr) - {"enabled", "notify_poster", "channel_id", "post_days", "max_open_per_member", "names"}
+    unknown = set(pr) - {"enabled", "notify_poster", "channel_id", "post_days", "max_open_per_member",
+                         "max_fee_gold", "names"}
     if unknown:
         raise ConfigError(f"[professions] unknown setting {sorted(unknown)[0]!r}")
 

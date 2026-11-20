@@ -656,7 +656,9 @@ class BoardPost(Base):
     """A post on the Adventure Board ([adventures]) or the profession help board ([professions]).
     Members only. windows: up to three [start, end] UTC ISO pairs (Adventure Board)."""
     __tablename__ = "board_posts"
-    __table_args__ = (Index("ix_board_posts_open", "board", "state", "expires_at"),)
+    __table_args__ = (Index("ix_board_posts_open", "board", "state", "expires_at"),
+                      CheckConstraint("(fee_kind IS NULL OR fee_kind IN ('mats', 'mats_fee', 'fee')) AND "
+                                      "(fee_copper IS NULL OR fee_copper > 0)", name="ck_board_posts_fee"))
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     public_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
     board: Mapped[str] = mapped_column(String(12), nullable=False)
@@ -673,6 +675,8 @@ class BoardPost(Base):
     windows: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC", server_default="UTC")
     group_size: Mapped[int | None] = mapped_column(SmallInteger)
+    fee_kind: Mapped[str | None] = mapped_column(String(10))        # Can craft: mats / mats_fee / fee
+    fee_copper: Mapped[int | None] = mapped_column(BigInteger)      # the fee in copper (fee kinds only)
     state: Mapped[str] = mapped_column(String(10), nullable=False, default="open", server_default="open")
     closed_reason: Mapped[str] = mapped_column(String(40), nullable=False, default="", server_default="")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

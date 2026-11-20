@@ -242,6 +242,10 @@ def board_message(s: Session, cfg: Config, p, extra: dict | None = None) -> dict
         fields.append({"name": "Item", "value": "\n".join(lines)[:1024], "inline": False})
     if item.get("reagents"):
         fields.append({"name": "Reagents", "value": str(item["reagents"])[:1024], "inline": False})
+    from ..domain.boards import fee_text
+    fee = fee_text(p) if p.kind == "can_craft" else ""
+    if fee:
+        fields.append({"name": "Fee", "value": fee[:1024], "inline": False})
     if p.kind == "need_crafted" and "crafters" in extra:
         n = int(extra["crafters"])
         fields.append({"name": "Can make it", "value": f"{n} shared character{'s' if n != 1 else ''}", "inline": True})

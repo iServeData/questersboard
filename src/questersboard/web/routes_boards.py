@@ -51,7 +51,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
                    "kinds": boards.KINDS[board], "chips": [(k, lbl, "?" + urlencode({**keep, **({"kind": k} if k else {})}))
                                                           for k, lbl in chips],
                    "mine": boards.my_posts(s, a, board), "open_n": boards.open_count(s, a.member_id, board),
-                   "sec": sec, "editions": w.cfg.editions, "tz": tz, "form_error": form_error, "form": form or {}, "bad": bad,
+                   "sec": sec, "fee_kinds": boards.FEE_KINDS, "editions": w.cfg.editions, "tz": tz, "form_error": form_error, "form": form or {}, "bad": bad,
                    "open_form": bool(form_error) or request.query_params.get("new", "") in ("1", "need_crafted", "can_craft", "ask"),
                    "new_q": request.query_params.get("new", ""),
                    "at_text": boards.at_text, "time_pattern": TIME_PATTERN,
@@ -94,7 +94,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
     def _keep(form) -> dict:
         """What the member typed, so a form with a problem comes back filled in."""
         keys = ["kind", "character_id", "title", "body", "activity_type", "group_size", "timezone",
-                "profession", "recipe_name", "craft", "craft_character"]
+                "profession", "recipe_name", "craft", "craft_character", "fee", "fee_gold", "fee_silver", "fee_copper"]
         keys += [f"{k}_{i}" for i in range(boards.MAX_WINDOWS) for k in ("date", "from", "to")]
         out = {k: str(form.get(k) or "") for k in keys}
         out["tags"] = list(form.getlist("tags"))
@@ -105,7 +105,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
         w = W(request)
         tz = str(form.get("timezone") or w.cfg["community"]["default_timezone"])
         data = {k: form.get(k) for k in ("kind", "character_id", "title", "body", "activity_type", "group_size",
-                                         "profession", "recipe_name")}
+                                         "profession", "recipe_name", "fee", "fee_gold", "fee_silver", "fee_copper")}
         data["timezone"] = tz
         if board == "adventure":
             data["tags"] = form.getlist("tags")

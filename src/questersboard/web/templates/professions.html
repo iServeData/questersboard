@@ -35,6 +35,11 @@
     {% set picked = val("offer", "craft_character")|string %}
     <label class="ab-wide">Character<select name="craft_character" required data-craft-character{{ mark("offer", "craft_character") }}>{% for cid, rs in crafters %}<option value="{{ cid }}"{% if picked == cid|string %} selected{% endif %}>{{ rs[0].character }} ({{ rs|map(attribute="prof")|unique|join(", ") }})</option>{% endfor %}</select></label>
     <label class="ab-wide">Item they can craft<select name="craft" required data-craft-recipe{{ mark("offer", "craft") }}>{% for cid, rs in crafters %}<optgroup label="{{ rs[0].character }}" data-character="{{ cid }}">{% for r in rs|sort(attribute="name")|sort(attribute="prof") %}{% set v = cid|string ~ ":" ~ r.name %}<option value="{{ v }}"{% if val("offer", "craft") == v %} selected{% endif %}>{{ r.name }} · {{ r.prof }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
+    {% set fk = val("offer", "fee") or "mats" %}
+    <label class="ab-wide">What you ask for<select name="fee" required data-fee{{ mark("offer", "fee") }}>{% for k, lbl in fee_kinds.items() %}<option value="{{ k }}"{% if fk == k %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select></label>
+    <fieldset class="ab-wide pb-fee-box" data-fee-coins{% if fk == "mats" %} hidden{% endif %}><legend>Fee</legend>
+      {% for k, top, n in (("gold", sec.max_fee_gold, 6), ("silver", 99, 2), ("copper", 99, 2)) %}<label><span><i class="wq-coin wq-coin-{{ k[0] }}" aria-hidden="true"></i>{{ k|title }}</span><input name="fee_{{ k }}" inputmode="numeric" pattern="[0-9]*" maxlength="{{ n }}" placeholder="0" value="{{ val('offer', 'fee_' ~ k) }}" aria-label="{{ k|title }} (0 to {{ top }})"{{ mark("offer", "fee_" ~ k) }}></label>{% endfor %}
+    </fieldset>
     <label class="ab-wide">Details<textarea name="body" maxlength="500" rows="3" placeholder="What to bring"{{ mark("offer", "body") }}>{{ val("offer", "body") }}</textarea></label>
     <div class="btns ab-wide"><button class="btn" type="submit">Offer it</button></div>
   </form>

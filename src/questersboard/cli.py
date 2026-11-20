@@ -294,7 +294,7 @@ def cmd_role_emojis(args):
             return 1
         print(f"  {key}: uploaded as {name}")
     print("Done. New and edited event posts show the icons within 30 minutes; "
-          "`questersboard-admin refresh-posts --yes` updates the current posts.")
+          "`sudo ./deploy/refresh_posts.sh` updates the current posts.")
     return 0
 
 
@@ -401,26 +401,36 @@ def cmd_outbox(args):
 
 
 def cmd_refresh_posts(args):
-    """Re-render every upcoming or running event's Discord post (after an upgrade changes the layout).
+    """Re-render the Discord post of every upcoming or running event and every open board post (after an
+    upgrade changes the layout).
 
     Edits existing bot posts in place; nothing new is posted and nobody is pinged. With [event_threads]
-    on, each re-render also opens that event's chat thread. Dry run unless --yes.
+    on, each event re-render also opens that event's chat thread. Dry run unless --yes.
     """
-    from .domain import outbox
+    from .domain import boards, outbox
+    from .models import BoardPost
     cfg = _cfg(args)
     db = _db(cfg, "app")
     with db.tx() as s:
         rows = list(s.execute(text(
             "SELECT id, title FROM events WHERE state IN ('scheduled','in_progress') "
             "AND discord_message_id IS NOT NULL ORDER BY start_at")))
+        posts = list(s.scalars(select(BoardPost).where(BoardPost.state == "open",
+                                                      BoardPost.discord_message_id.is_not(None))
+                               .order_by(BoardPost.created_at)))
         for r in rows:
-            print(f"  #{r.id} {r.title}")
+            print(f"  event #{r.id} {r.title}")
+        for p in posts:
+            print(f"  board post #{p.id} {p.title}")
+        n = len(rows) + len(posts)
         if not args.yes:
-            print(f"dry run: {len(rows)} post(s) would be updated. Re-run with --yes to queue the updates.")
+            print(f"dry run: {n} post(s) would be updated. Re-run with --yes to queue the updates.")
             return 0
         for r in rows:
             outbox.enqueue(s, "discord.render_event", str(r.id), {"event_id": r.id})
-    print(f"queued {len(rows)} post update(s); the worker applies them within a minute.")
+        for p in posts:
+            boards.request_render(s, p)
+    print(f"queued {n} post update(s); the worker applies them within a minute.")
     return 0
 
 
@@ -574,7 +584,7 @@ def cmd_cover(args):
     if cfg["event_posts"].get("default_cover") != "default_cover.webp":
         print('set [event_posts] default_cover = "default_cover.webp" in the config to use it')
     else:
-        print("upcoming Discord posts show it after: questersboard-admin refresh-posts --yes")
+        print("upcoming Discord posts show it after: sudo ./deploy/refresh_posts.sh")
     return 0
 
 
@@ -631,7 +641,7 @@ def main(argv=None) -> int:
     ob = sub.add_parser("outbox")
     ob.add_argument("action", choices=("status", "retry-dead", "dismiss-dead"))
     ob.set_defaults(fn=cmd_outbox)
-    rp = sub.add_parser("refresh-posts", help="re-render upcoming events' Discord posts (dry run unless --yes)")
+    rp = sub.add_parser("refresh-posts", help="re-render upcoming events' and open board posts' Discord cards (dry run unless --yes)")
     rp.add_argument("--yes", action="store_true")
     rp.set_defaults(fn=cmd_refresh_posts)
     op = sub.add_parser("offline-pages", help="write the pages shown while QuestersBoard is down (for Nginx)")

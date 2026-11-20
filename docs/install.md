@@ -203,6 +203,11 @@ channel for each board, give the bot View Channel, Send Messages, Embed Links an
 there (members: View Channel and Read Message History only), and put its ID in `[adventures] channel_id`
 / `[professions] channel_id` (live sections, no restart). Empty means website only.
 
+Migration 0013 adds `fee_kind` and `fee_copper` to `board_posts` (what a crafter asks on Offer a craft:
+bring your materials, a fee in copper shown as gold, silver and copper, or both). Apply it straight after
+`install.sh`: until it's applied, both boards fail to load. Review with `migrate up 0012:0013 --sql`,
+apply with the step 6 migrate command, then restart the web, worker and bot services.
+
 ## 8c. Hosts installed under the old name (wowquester)
 
 Hosts installed before the rename run `deploy/rename_host.sh` once, from the checkout, after a backup,

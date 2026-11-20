@@ -284,6 +284,8 @@ def create_app(holder: ConfigHolder, db: Database, oauth: DiscordOAuth | None = 
     from .. import build as _build
     from . import account as _account
     tpl.env.globals.update(build=_build.info(), ago=_account.ago)
+    from .legal_dates import legal_date
+    tpl.env.globals.update(legal_date=legal_date)
     tpl.env.globals.update(portrait_state=_profiles.portrait_state,
                            silhouette=lambda race: _profiles.silhouette_key(race, sil))
     tpl.env.autoescape = True

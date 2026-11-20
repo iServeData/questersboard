@@ -208,6 +208,13 @@ def seed_boards(db: Database, cfg: Config, org: Actor, members: list, mychar: in
             ch = s.execute(text("select member_id, edition, region from characters where id=:i"), {"i": cid}).one()
             s.add(CharacterProfile(character_id=cid, member_id=ch[0], edition=ch[1], region=ch[2],
                                    groups={"professions": [prof]}, shares={"professions": "members"}))
+        # FIXTURE portrait (the preview serves a stand-in picture for it), shared with members
+        s.execute(text("update characters set verification='ownership_verified' where id=:i"), {"i": cids[1]})
+        ch = s.execute(text("select member_id, edition, region from characters where id=:i"), {"i": cids[1]}).one()
+        s.add(CharacterProfile(character_id=cids[1], member_id=ch[0], edition=ch[1], region=ch[2],
+                               groups={"portrait": [{"key": "avatar", "url": "https://render.worldofwarcraft.com/"
+                                                     "forever-us/character/fixture-avatar.jpg"}]},
+                               shares={"portrait": "members"}))
         s.flush()
         a = boards.create(s, cfg, members[1], "adventure", dict(
             kind="need_help", character_id=cids[1], title="Wailing Caverns, first clear", activity_type="dungeon",
@@ -226,7 +233,8 @@ def seed_boards(db: Database, cfg: Config, org: Actor, members: list, mychar: in
         boards.create(s, cfg, members[2], "profession", dict(
             kind="need_crafted", character_id=cids[2], title="Heavy Armor Kit", body="FIXTURE: two please, I have leather."))
         boards.create(s, cfg, members[0], "profession", dict(kind="can_craft", character_id=cids[0],
-                                                              recipe_name="Guardian Belt", body="Bring 4 heavy leather."))
+                                                              recipe_name="Guardian Belt", body="Bring 4 heavy leather.",
+                                                              fee="mats_fee", fee_gold="1", fee_silver="50"))
         q = boards.create(s, cfg, members[5], "profession", dict(
             kind="recipe", character_id=cids[5], profession="Leatherworking", title="Pattern: Barbaric Gloves"))
         boards.respond(s, cfg, members[0], str(q.public_id), "answer", note="FIXTURE: sold by the leatherworking supplier in the Crossroads.")

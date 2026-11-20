@@ -135,6 +135,7 @@ channel_id = ""                               # Discord channel for its cards, e
                                               # ("" = website only); same bot permissions as above
 post_days = 7                                 # posts close after this many days (the poster can extend)
 max_open_per_member = 5                       # open posts each member can have on this board
+max_fee_gold = 99999                          # the most gold an Offer a craft fee can ask
 notify_poster = true                          # message the poster when someone can make it, asks or answers
 names = ["Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Herbalism", "Inscription",
          "Jewelcrafting", "Leatherworking", "Mining", "Skinning", "Tailoring", "Cooking", "Fishing",
@@ -315,7 +316,7 @@ session_days_after_expiry = 1
 [legal]                                       # restart. Shown on /privacy and /terms; optional
 operator = ""                                 # who runs this install; empty = the [community] name
 contact = "Message an organiser in the community Discord server."
-effective_date = ""                           # YYYY-MM-DD shown as "Last updated"; empty = hidden
+effective_date = ""                           # YYYY-MM-DD; the pages show this or the date the page text last changed, whichever is later
 backup_keep_days = 30                         # keep in step with QUESTERSBOARD_BACKUP_KEEP_DAYS
 
 [rate_limits]                                 # [live]

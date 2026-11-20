@@ -262,6 +262,10 @@ def test_web_solo_flow(web_app, seeded, wcfg):
     assert "Fixture walk" not in pub.get("/wow/chronicle/feed.json").text   # feeds: group stories only
     assert "Fixture walk" not in pub.get("/wow/chronicle/latest.json").text
     assert slug in pub.get("/wow/chronicle/sitemap.xml").text
+    # everyone sees the button; someone not logged in is sent to log in first, then back here
+    gate = pub.get(f"/wow/quester/stories/{pid}/join")
+    assert gate.status_code in (302, 303) and "/wow/quester/login" in gate.headers["location"]
+    assert f"stories/{pid}/join" in gate.headers["location"].replace("%2F", "/")
     r2 = login(app, 21)
     jp = r2.get(f"/wow/quester/stories/{pid}/join")
     assert jp.status_code == 200 and "I'd like to come along" in jp.text

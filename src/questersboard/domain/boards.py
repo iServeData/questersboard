@@ -68,6 +68,59 @@ PLANNABLE = {"need_help", "company", "offer_help", "farm"}
 CLOSED_TEXT = {"done": "Marked done", "removed": "Removed", "expired": "Ran out of time", "evented": "Became an event",
                "recipe_gone": "Blizzard no longer shows this recipe", "character": "The character was removed"}
 MAX_WINDOWS = 3
+
+# What a crafter asks for a Can craft offer. Stored as fee_kind; the fee itself in copper.
+FEE_KINDS = {"mats": "Bring your materials, no fee", "mats_fee": "Bring your materials, plus a fee",
+             "fee": "A fee, materials included"}
+FEE_NOTE = {"mats": "Bring your materials, no fee", "mats_fee": "bring your materials",
+            "fee": "materials included"}
+
+
+def coins(copper: int | None) -> dict:
+    """{"gold", "silver", "copper"} as strings, the shape of a tooltip's sell price (100 copper = 1 silver,
+    100 silver = 1 gold)."""
+    n = max(int(copper or 0), 0)
+    return {"gold": str(n // 10000), "silver": str(n // 100 % 100), "copper": str(n % 100)}
+
+
+def coin_text(copper: int | None) -> str:
+    """'5g 20s' like the game's money, for Discord (no coin pictures there)."""
+    c = coins(copper)
+    return " ".join(f"{c[k]}{k[0]}" for k in ("gold", "silver", "copper") if c[k] != "0") or "0c"
+
+
+def fee_text(p: BoardPost) -> str:
+    """The card's Fee line: "5g 20s, bring your materials", or "" when the post doesn't say."""
+    if p.fee_kind == "mats":
+        return FEE_NOTE["mats"]
+    if p.fee_kind in ("mats_fee", "fee") and p.fee_copper:
+        return f"{coin_text(p.fee_copper)}, {FEE_NOTE[p.fee_kind]}"
+    return ""
+
+
+def _fee(sec: dict, data: dict) -> tuple[str | None, int | None]:
+    """(fee_kind, fee_copper) from the form's fee, fee_gold, fee_silver and fee_copper."""
+    kind = str(data.get("fee") or "").strip()
+    if not kind:
+        return None, None
+    if kind not in FEE_KINDS:
+        raise Invalid("Pick what you ask for.", field="fee")
+    if kind == "mats":
+        return kind, None
+    parts = {}
+    for k, top in (("gold", int(sec.get("max_fee_gold", 99999))), ("silver", 99), ("copper", 99)):
+        raw = str(data.get(f"fee_{k}") or "").strip()
+        if not raw:
+            parts[k] = 0
+            continue
+        if not raw.isdigit() or int(raw) > top:
+            raise Invalid(f"{k.title()} must be a whole number from 0 to {top}.", field=f"fee_{k}")
+        parts[k] = int(raw)
+    total = parts["gold"] * 10000 + parts["silver"] * 100 + parts["copper"]
+    if total <= 0:
+        raise Invalid("Put in the fee in gold, silver or copper, or pick Bring your materials, no fee.",
+                      field="fee_gold")
+    return kind, total
 MAX_WINDOW_HOURS = 12                 # default for [adventures] max_window_hours
 
 
@@ -370,6 +423,7 @@ def create(s: Session, cfg: Config, actor: Actor, board: str, data: dict) -> Boa
                               "press Refresh from Blizzard on the character page if they learned it recently.", field="craft")
             p.title = p.recipe_name = got["name"][:120]
             p.profession = got["prof"][:40]
+            p.fee_kind, p.fee_copper = _fee(sec, data)
         else:
             if prof and prof.casefold() not in names:
                 raise Invalid("Pick a profession from the list.", field="profession")
@@ -616,6 +670,25 @@ class PostView:
     can_make_with: list[str] = field(default_factory=list)   # viewer's characters that know the recipe
     recipe: dict = field(default_factory=dict)    # the item's stored Blizzard details: tip, reagents, quality …
     recipe_prof: str = ""
+    portrait: str = ""                        # member-area path of the poster's character picture, if visible
+    fee: dict = field(default_factory=dict)   # Can craft: {"note", "coins"} (coins in the tooltip's sell shape)
+
+
+def portrait_path(s: Session, actor: Actor, ch: Character | None, vguilds: set | None = None) -> str:
+    """The character's Blizzard picture (through our route) when its Portrait is visible to the viewer,
+    else "" and the card falls back to the race outline."""
+    if ch is None or ch.archived_at is not None:
+        return ""
+    prof = s.get(CharacterProfile, ch.id)
+    if prof is None or not any(x.get("key") == "avatar" and x.get("url")
+                               for x in (prof.groups or {}).get("portrait") or []):
+        return ""
+    from . import profiles
+    if vguilds is None:
+        vguilds = profiles.viewer_guilds(s, actor.member_id)
+    if "portrait" not in profiles.visible_groups(prof, ch, actor.member_id, vguilds):
+        return ""
+    return f"/characters/{ch.id}/portrait/avatar"
 
 
 def char_line(cfg: Config, ch: Character | None, extra: str = "") -> str:
@@ -644,7 +717,7 @@ def count_line(kind: str, rkind: str, n: int) -> str:
 
 
 def view(s: Session, cfg: Config, actor: Actor, p: BoardPost, pool: dict | None = None,
-         mine_recipes: dict | None = None) -> PostView:
+         mine_recipes: dict | None = None, vguilds: set | None = None) -> PostView:
     own = p.member_id == actor.member_id
     ch = s.get(Character, p.character_id) if p.character_id else None
     resp = list(s.scalars(select(BoardResponse).where(BoardResponse.post_id == p.id)
@@ -666,6 +739,10 @@ def view(s: Session, cfg: Config, actor: Actor, p: BoardPost, pool: dict | None 
                   count_text=[count_line(p.kind, k, counts[k]) for k in RESPONSES.get(p.kind, {}) if counts.get(k)],
                   named=named, answers=answers, mine=mine, own=own,
                   actions={} if own or p.state != "open" else dict(RESPONSES.get(p.kind, {})), skill=skill)
+    pv.portrait = portrait_path(s, actor, ch, vguilds)
+    if p.kind == "can_craft" and p.fee_kind:
+        pv.fee = {"note": FEE_NOTE[p.fee_kind] if p.fee_kind != "mats" else FEE_KINDS["mats"],
+                  "coins": coins(p.fee_copper) if p.fee_kind != "mats" and p.fee_copper else None}
     if p.event_id:
         pv.event = s.get(Event, p.event_id)
     if p.state != "open":
@@ -740,7 +817,9 @@ def listing(s: Session, cfg: Config, actor: Actor, board: str, f: dict | None = 
     if f.get("can_help") and board == "profession":
         posts = [p for p in posts if p.kind == "need_crafted" and (p.recipe_name or p.title).casefold() in mine
                  and p.member_id != actor.member_id]
-    return [view(s, cfg, actor, p, pool, mine) for p in posts]
+    from .profiles import viewer_guilds
+    vg = viewer_guilds(s, actor.member_id)
+    return [view(s, cfg, actor, p, pool, mine, vg) for p in posts]
 
 
 def my_posts(s: Session, actor: Actor, board: str) -> list[BoardPost]:
@@ -779,4 +858,4 @@ def responders(s: Session, p: BoardPost) -> list[int]:
 __all__ = ["BOARDS", "KINDS", "RESPONSES", "create", "respond", "close", "extend", "plan_event", "on_publish",
            "recheck_offers", "erase_member", "listing", "view", "my_posts", "could_help", "craftable_choices",
            "when_text", "at_text", "get", "enabled", "members_crafters", "card_extra", "responders",
-           "any_recipe", "recipe_details", "card_details"]
+           "any_recipe", "recipe_details", "card_details", "FEE_KINDS", "coins", "coin_text", "fee_text"]

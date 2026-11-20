@@ -15,9 +15,11 @@
       {{ tips.recipe_tip(v.recipe, v.recipe_prof, ed) }}
     </div>
     {%- elif v.icon %}<img class="wq-icon{% if p.kind != 'can_craft' %} c{% endif %}" src="{{ mp }}{{ v.icon }}" alt="" width="44" height="44" loading="lazy">
+    {%- elif v.portrait %}<span class="pb-av"><img class="wq-icon c pb-por" src="{{ mp }}{{ v.portrait }}" alt="" width="44" height="44" loading="lazy" referrerpolicy="no-referrer" data-av-portrait><img class="wq-icon c pb-sil" src="{{ mp }}/static/silhouettes/{{ silhouette(v.character.race_key) }}.svg?v={{ static_v }}" alt="" width="44" height="44" data-av-fallback hidden></span>
     {%- elif v.character %}<img class="wq-icon c pb-sil" src="{{ mp }}/static/silhouettes/{{ silhouette(v.character.race_key) }}.svg?v={{ static_v }}" alt="" width="44" height="44">{% endif %}
     <div><p class="pb-title {{ 'u' if p.kind == 'can_craft' else 'w' }}">{% if detail %}{{ p.title }}{% else %}<a href="{{ mp }}/board/{{ p.public_id }}">{{ p.title }}</a>{% endif %}</p><p class="pb-who">{{ v.who }}</p>
-    {%- if v.recipe.reagents %}<p class="pb-reagents"><b>Reagents:</b> {{ v.recipe.reagents }}</p>{% endif %}</div>
+    {%- if v.recipe.reagents %}<p class="pb-reagents"><b>Reagents:</b> {{ v.recipe.reagents }}</p>{% endif %}
+    {%- if v.fee %}<p class="pb-fee"><b>Fee:</b> {% if v.fee.coins %}{{ tips.coins(v.fee.coins)|trim }}, {{ v.fee.note }}{% else %}{{ v.fee.note }}{% endif %}</p>{% endif %}</div>
   </div>
   {%- if p.body %}<p class="pb-text">{{ p.body }}</p>{% endif %}
   {%- if p.tags %}<div class="ab-tags">{% for t in p.tags %}<span class="ab-tag">{{ t }}</span>{% endfor %}</div>{% endif %}

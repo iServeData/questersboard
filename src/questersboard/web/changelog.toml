@@ -29,6 +29,14 @@ kind = "improved"
 text = "Offer a craft asks for the character first, then lists only the items that character can craft."
 [[release.change]]
 area = "Guild"
+kind = "new"
+text = "Offer a craft can say what you ask for: bring your materials, a fee in gold, silver and copper like the auction house, or both. The fee shows on the post and its Discord card."
+[[release.change]]
+area = "Events"
+kind = "improved"
+text = "Board posts show the poster's character picture to people who can see that character's portrait, and the race outline to everyone else."
+[[release.change]]
+area = "Guild"
 kind = "improved"
 text = "Craft posts, and their cards in Discord, now show the item's details from Blizzard and the reagents it needs. Point at or tap the item's icon on the site for the full tooltip. Press Refresh from Blizzard on a character page to add reagents to recipes imported earlier (recipes with an open craft post are looked up first); that character's open craft cards in Discord update too."
 

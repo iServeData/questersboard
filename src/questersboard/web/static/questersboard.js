@@ -531,6 +531,24 @@
     who.addEventListener("change", sync);
     sync();
   });
+  // Offer a craft: the gold, silver and copper boxes show only when a fee is asked. Without this script
+  // they always show, and the server ignores them for "no fee".
+  document.querySelectorAll("select[data-fee]").forEach(function (sel) {
+    var box = sel.form && sel.form.querySelector("[data-fee-coins]");
+    if (!box) return;
+    var sync = function () { box.hidden = sel.value === "mats"; };
+    sel.addEventListener("change", sync);
+    sync();
+  });
+  // Board posts: the poster's character picture, or their race outline when Blizzard has none.
+  document.querySelectorAll("img[data-av-portrait]").forEach(function (img) {
+    var miss = function () {
+      img.hidden = true;
+      var alt = img.parentNode && img.parentNode.querySelector("[data-av-fallback]");
+      if (alt) alt.hidden = false;
+    };
+    if (img.complete && img.naturalWidth === 0) { miss(); } else { img.addEventListener("error", miss); }
+  });
   // Pill tabs over a character's details: show one tab's sections at a time. Without this script the
   // tab bar stays hidden and every section shows. On a single character's page the tab follows #hash.
   var tabBars = document.querySelectorAll("[data-tabs]");

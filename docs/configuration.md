@@ -71,7 +71,7 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   preference choices) and `notify_poster` (DM the poster when someone offers help; default true).
 
 - **Profession help** (`[professions]`, live): `enabled`, `channel_id`, `post_days` (how long a post stays
-  open, 1–60; 7), `max_open_per_member` (1–50; 5), `names` (the profession list) and `notify_poster`.
+  open, 1–60; 7), `max_open_per_member` (1–50; 5), `max_fee_gold` (the most gold an Offer a craft fee can ask, 1–214748; 99999), `names` (the profession list) and `notify_poster`.
   Can craft offers come only from recipes on the member's imported Blizzard Professions.
   Can craft and Need crafted posts, on the site and on their Discord cards, show the item's stored
   Blizzard details: its tooltip lines, reagents and an icon. Reagents come from Blizzard's recipe

@@ -15,6 +15,7 @@ from questersboard.domain import boards, erasure, events, profiles, roster
 from questersboard.domain.errors import Invalid, InvalidTransition, PermissionDenied
 from questersboard.models import BoardPost, BoardResponse, CharacterProfile, Outbox
 from questersboard.worker import Worker
+from test_cli import cfg_file  # noqa: F401  (fixture: the example config against the test cluster)
 
 pytestmark = needs_db
 POSTER = actor(40, name="FixturePoster")
@@ -604,3 +605,110 @@ def test_discord_button_press_toggles(seeded, cfg):
         assert boards.view(s, cfg, roster.ensure_member(s, POSTER), p).counts == {}
         boards.close(s, cfg, POSTER, str(p.public_id), "removed")
         assert _board_press(s, cfg, btn, p.id, "help") == "This post was removed."
+
+
+# ------------------------------------------------------------------ craft fees, poster pictures
+
+def _offer(s, cfg, c, **fee):
+    return boards.create(s, cfg, HELPER, "profession", {"kind": "can_craft", "character_id": c.id,
+                                                        "recipe_name": RECIPE, **fee})
+
+
+def test_craft_fee_is_checked_and_shown(seeded, cfg):
+    from questersboard.bot.render import board_message
+    with seeded.tx() as s:
+        c = _crafter(s, cfg)
+        for fee, field, msg in (({"fee": "beer"}, "fee", "Pick what you ask for"),
+                                ({"fee": "fee"}, "fee_gold", "Put in the fee"),
+                                ({"fee": "fee", "fee_gold": "0", "fee_silver": "0"}, "fee_gold", "Put in the fee"),
+                                ({"fee": "fee", "fee_silver": "100"}, "fee_silver", "from 0 to 99"),
+                                ({"fee": "fee", "fee_copper": "-1"}, "fee_copper", "from 0 to 99"),
+                                ({"fee": "mats_fee", "fee_gold": "100000"}, "fee_gold", "from 0 to 99999")):
+            with pytest.raises(Invalid, match=msg) as e:
+                _offer(s, cfg, c, **fee)
+            assert e.value.detail.get("field") == field
+        p = _offer(s, cfg, c, fee="mats_fee", fee_gold="5", fee_silver="20", fee_copper="")
+        assert (p.fee_kind, p.fee_copper) == ("mats_fee", 52000)
+        assert boards.fee_text(p) == "5g 20s, bring your materials"
+        got = {f["name"]: f["value"] for f in board_message(s, cfg, p, boards.card_extra(s, p))["embeds"][0]["fields"]}
+        assert got["Fee"] == "5g 20s, bring your materials"
+        v = boards.view(s, cfg, POSTER, p)
+        assert v.fee == {"note": "bring your materials", "coins": {"gold": "5", "silver": "20", "copper": "0"}}
+        q = _offer(s, cfg, c, fee="fee", fee_copper="7")
+        assert boards.fee_text(q) == "7c, materials included"
+        m = _offer(s, cfg, c, fee="mats", fee_gold="9")          # coins left in a hidden box are ignored
+        assert (m.fee_kind, m.fee_copper) == ("mats", None) and boards.fee_text(m) == "Bring your materials, no fee"
+        old = _offer(s, cfg, c)                                   # a post that doesn't say: no Fee line
+        assert old.fee_kind is None and boards.fee_text(old) == "" and boards.view(s, cfg, POSTER, old).fee == {}
+        assert "Fee" not in {f["name"] for f in board_message(s, cfg, old, {})["embeds"][0]["fields"]}
+
+
+def test_web_offer_with_fee(seeded, tmp_path):
+    a, cfg, tw = _web(seeded, tmp_path)
+    with seeded.tx() as s:
+        c = _crafter(s, cfg)
+    h = tw.login(a, 41)
+    page = h.get("/wow/quester/professions").text
+    assert '<select name="fee" required data-fee>' in page and 'name="fee_silver"' in page
+    assert 'data-fee-coins hidden>' in page                       # "no fee" is picked to start with
+    form = {"kind": "can_craft", "craft_character": str(c.id), "craft": f"{c.id}:{RECIPE}", "body": "",
+            "fee": "fee", "fee_gold": "", "fee_silver": "", "fee_copper": ""}
+    r = h.post("/wow/quester/professions", data={"csrf": tw.csrf(h, "/wow/quester/professions"), **form})
+    assert r.status_code == 400 and "Put in the fee" in r.text
+    assert 'value="fee" selected' in r.text and 'data-fee-coins>' in r.text and 'name="fee_gold"' in r.text
+    form.update(fee_gold="12", fee_silver="5")
+    r = h.post("/wow/quester/professions", data={"csrf": tw.csrf(h, "/wow/quester/professions"), **form})
+    assert r.status_code == 303, r.text
+    page = tw.login(a, 40).get("/wow/quester/professions").text
+    assert ('<p class="pb-fee"><b>Fee:</b> 12<i class="wq-coin wq-coin-g" aria-label="gold"></i> '
+            '5<i class="wq-coin wq-coin-s" aria-label="silver"></i>, materials included</p>') in page
+
+
+def test_post_shows_character_picture_only_to_those_who_can_see_it(seeded, tmp_path):
+    a, cfg, tw = _web(seeded, tmp_path)
+    with seeded.tx() as s:
+        p, c = _adv(s, cfg)
+        s.execute(text("update characters set verification='ownership_verified' where id=:i"), {"i": c.id})
+        s.add(CharacterProfile(character_id=c.id, member_id=c.member_id, edition=c.edition, region=c.region,
+                               groups={"portrait": [{"key": "avatar", "url": "https://render.worldofwarcraft.com/"
+                                                     "forever-us/character/fixture-avatar.jpg"}]},
+                               shares={"portrait": "private"}))
+        s.flush()
+        s.expire_all()
+        assert boards.view(s, cfg, roster.ensure_member(s, OTHER), p).portrait == ""
+        assert boards.view(s, cfg, roster.ensure_member(s, POSTER), p).portrait == f"/characters/{c.id}/portrait/avatar"
+        pub, cid = str(p.public_id), c.id
+    other = tw.login(a, 42)
+    page = other.get("/wow/quester/adventures").text
+    assert "data-av-portrait" not in page and "pb-sil" in page
+    with seeded.tx() as s:
+        s.get(CharacterProfile, cid).shares = {"portrait": "members"}
+    for url in ("/wow/quester/adventures", f"/wow/quester/board/{pub}"):
+        page = other.get(url).text
+        assert f'src="/wow/quester/characters/{cid}/portrait/avatar"' in page and "data-av-portrait" in page
+        assert "data-av-fallback hidden" in page and "render.worldofwarcraft.com" not in page
+    with seeded.tx() as s:                                     # no picture from Blizzard: the race outline
+        s.get(CharacterProfile, cid).groups = {"portrait": []}
+    assert "data-av-portrait" not in other.get("/wow/quester/adventures").text
+
+
+def test_refresh_posts_includes_open_board_posts(seeded, cfg_file, capsys):  # noqa: F811
+    from questersboard import cli
+    from questersboard.config import load
+    cfg = load(cfg_file)
+    with seeded.tx() as s:
+        p, _c = _adv(s, cfg)
+        p.discord_channel_id = p.discord_message_id = fake_id(890)
+        closed, _c2 = _adv(s, cfg, name="Fixtureother", title="Fixture closed")
+        closed.discord_message_id = fake_id(891)
+        closed.state = "closed"
+        s.execute(text("delete from outbox where kind = 'discord.render_board_post'"))
+        pid = p.id
+    assert cli.main(["--config", cfg_file, "refresh-posts"]) == 0
+    out = capsys.readouterr().out
+    assert f"board post #{pid} Fixture Caverns" in out and "Fixture closed" not in out and "dry run: 1 post(s)" in out
+    with seeded.tx() as s:
+        assert _jobs(s, "discord.render_board_post") == []
+    assert cli.main(["--config", cfg_file, "refresh-posts", "--yes"]) == 0
+    with seeded.tx() as s:
+        assert [j.payload["post_id"] for j in _jobs(s, "discord.render_board_post")] == [pid]
