@@ -122,6 +122,7 @@ channel_id = ""                               # Discord channel for the board's 
 group_size = 5                                # people a goal looks for when the poster doesn't say
 open_days = 14                                # a post closes after its last time window, or this many days
 max_open_per_member = 5                       # open posts each member can have on this board
+max_window_hours = 12                         # longest a single "time that works" can be (1 to 24)
 notify_poster = true                          # message the poster when someone offers to help or asks
 tags = ["First-timers welcome", "Explanations wanted", "Explanations provided", "Relaxed pace",
         "Short session", "Break-friendly", "Listening-only voice is fine", "Roleplay welcome",

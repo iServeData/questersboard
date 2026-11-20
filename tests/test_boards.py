@@ -403,6 +403,16 @@ def test_web_adventure_board_flow(seeded, tmp_path):
     assert 'name="from_0"' in page and 'type="time"' not in page and 'placeholder="19:00"' in page
     tok = tw.csrf(c, "/wow/quester/adventures")
     day = at(48).astimezone(__import__("zoneinfo").ZoneInfo(TZ)).date().isoformat()
+    # 21:00 to 19:00 reads as past midnight (22 hours): refused with the times, and nothing typed is lost
+    bad = c.post("/wow/quester/adventures", data={
+        "csrf": tok, "character_id": cid, "kind": "company", "title": "Fixture long day",
+        "activity_type": "quest", "body": "Keep me", "date_0": day, "from_0": "21:00", "to_0": "19:00",
+        "timezone": TZ, "group_size": "7", "tags": ["Social"]})
+    assert bad.status_code == 400
+    assert "is 22 hours long" in bad.text and "up to 12 hours" in bad.text and "next day" in bad.text
+    for frag in ('value="Fixture long day"', ">Keep me<", f'value="{day}"', 'value="21:00"', 'value="19:00"',
+                 'value="7"', 'value="Social" checked', 'value="company" selected', 'value="quest" selected'):
+        assert frag in bad.text, frag
     r = c.post("/wow/quester/adventures", data={
         "csrf": tok, "character_id": cid, "kind": "need_help", "title": "Fixture Keep, all bosses",
         "activity_type": "dungeon", "body": "Slow and steady", "date_0": day, "from_0": "19:00", "to_0": "21:30",

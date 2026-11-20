@@ -280,9 +280,10 @@ def _boards(r: dict) -> None:
     _whole(ad, "group_size", 5, 2, 40, "adventures")
     _whole(ad, "open_days", 14, 1, 60, "adventures")
     _whole(ad, "max_open_per_member", 5, 1, 50, "adventures")
+    _whole(ad, "max_window_hours", 12, 1, 24, "adventures")
     _names(ad, "tags", DEFAULT_BOARD_TAGS, "adventures")
     unknown = set(ad) - {"enabled", "notify_poster", "channel_id", "group_size", "open_days",
-                         "max_open_per_member", "tags"}
+                         "max_open_per_member", "max_window_hours", "tags"}
     if unknown:
         raise ConfigError(f"[adventures] unknown setting {sorted(unknown)[0]!r}")
     pr = r.setdefault("professions", {})

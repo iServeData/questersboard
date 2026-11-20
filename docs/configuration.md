@@ -67,7 +67,7 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
 
 - **Adventure Board** (`[adventures]`, live): `enabled` (default true), `channel_id` (Discord channel for
   the post cards, quoted; `""` = website only), `group_size` (default people for a group, 2–40; 5),
-  `open_days` (longest a goal stays open, 1–60; 14), `max_open_per_member` (1–50; 5), `tags` (the
+  `open_days` (longest a goal stays open, 1–60; 14), `max_open_per_member` (1–50; 5), `max_window_hours` (longest single time that works, 1–24; 12), `tags` (the
   preference choices) and `notify_poster` (DM the poster when someone offers help; default true).
 
 - **Profession help** (`[professions]`, live): `enabled`, `channel_id`, `post_days` (how long a post stays

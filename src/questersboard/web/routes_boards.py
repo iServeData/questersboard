@@ -85,6 +85,15 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
             out.append((start, end))
         return out
 
+    def _keep(form) -> dict:
+        """What the member typed, so a form with a problem comes back filled in."""
+        keys = ["kind", "character_id", "title", "body", "activity_type", "group_size", "timezone",
+                "profession", "recipe_name", "craft"]
+        keys += [f"{k}_{i}" for i in range(boards.MAX_WINDOWS) for k in ("date", "from", "to")]
+        out = {k: str(form.get(k) or "") for k in keys}
+        out["tags"] = list(form.getlist("tags"))
+        return out
+
     async def _create(request: Request, board: str):
         form, a = await post_guard(request)
         w = W(request)
@@ -98,7 +107,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
                 data["windows"] = _windows(form, tz)
             except Invalid as e:
                 resp = _page(request, board, form_error=str(e),
-                             form={k: str(form.get(k) or "") for k in ("kind", "title", "body")})
+                             form=_keep(form))
                 resp.status_code = 400
                 return resp
         elif data.get("kind") == "can_craft":
@@ -112,7 +121,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
                 pid = p.public_id
         except Invalid as e:
             resp = _page(request, board, form_error=str(e),
-                         form={k: str(form.get(k) or "") for k in ("kind", "title", "body")})
+                         form=_keep(form))
             resp.status_code = 400
             return resp
         return redirect(f"{mp}/board/{pid}")

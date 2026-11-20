@@ -27,17 +27,18 @@
     {% elif open_n >= sec.max_open_per_member %}<p class="caveat">You have {{ open_n }} open posts, the most you can have. Mark one done or remove it to post another.</p>
     {% else %}
     <form method="post" action="{{ mp }}/adventures" class="wq-form">{{ csrf_field() }}
-      <label>Character<select name="character_id" required>{% for c in chars %}<option value="{{ c.id }}">{{ c.name }} ({{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} {{ c.level }}{% endif %})</option>{% endfor %}</select></label>
-      <label>I'm<select name="kind">{% for k, l in {"need_help": "Looking for help", "offer_help": "Happy to help", "company": "Looking for company"}.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></label>
+      <label>Character<select name="character_id" required>{% for c in chars %}<option value="{{ c.id }}"{% if form.character_id == c.id|string %} selected{% endif %}>{{ c.name }} ({{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} {{ c.level }}{% endif %})</option>{% endfor %}</select></label>
+      <label>I'm<select name="kind">{% for k, l in {"need_help": "Looking for help", "offer_help": "Happy to help", "company": "Looking for company"}.items() %}<option value="{{ k }}"{% if form.kind == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
       <label>Goal<input name="title" required minlength="3" maxlength="120" value="{{ form.title }}" placeholder="For example: Wailing Caverns, first clear"></label>
-      <label>Activity<select name="activity_type">{% for k, l in activities.items() %}<option value="{{ k }}"{% if k == "dungeon" %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+      <label>Activity<select name="activity_type">{% for k, l in activities.items() %}<option value="{{ k }}"{% if k == (form.activity_type or "dungeon") %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
       <label>Details<textarea name="body" maxlength="500" rows="3" placeholder="What you'd like, how you like to play">{{ form.body }}</textarea></label>
       <fieldset class="ab-times"><legend>Times that work</legend>
-        {% for i in range(3) %}<div class="ab-time"><input type="date" name="date_{{ i }}" min="{{ today }}" max="{{ last_day }}" aria-label="Date {{ i + 1 }}"><input name="from_{{ i }}" inputmode="numeric" pattern="{{ time_pattern }}" placeholder="19:00" maxlength="5" aria-label="From"><span>to</span><input name="to_{{ i }}" inputmode="numeric" pattern="{{ time_pattern }}" placeholder="21:00" maxlength="5" aria-label="To"></div>{% endfor %}
-        <label>Time zone {{ tz_select("timezone", tz) }}</label>
+        {% for i in range(3) %}<div class="ab-time"><input type="date" name="date_{{ i }}" value="{{ form['date_%d' % i] }}" min="{{ today }}" max="{{ last_day }}" aria-label="Date {{ i + 1 }}"><input name="from_{{ i }}" value="{{ form['from_%d' % i] }}" inputmode="numeric" pattern="{{ time_pattern }}" placeholder="19:00" maxlength="5" aria-label="From"><span>to</span><input name="to_{{ i }}" value="{{ form['to_%d' % i] }}" inputmode="numeric" pattern="{{ time_pattern }}" placeholder="21:00" maxlength="5" aria-label="To"></div>{% endfor %}
+        <p class="note">Up to {{ sec.max_window_hours }} hours each. If the end is earlier than the start, it ends the next day.</p>
+        <label>Time zone {{ tz_select("timezone", form.timezone or tz) }}</label>
       </fieldset>
-      <label>People for a group<input name="group_size" type="number" min="2" max="40" value="{{ sec.group_size }}"></label>
-      <fieldset class="ab-prefs"><legend>Preferences</legend><div class="ab-tagbox">{% for t in sec.tags %}<label class="pb-check"><input type="checkbox" name="tags" value="{{ t }}"> {{ t }}</label>{% endfor %}</div></fieldset>
+      <label>People for a group<input name="group_size" type="number" min="2" max="40" value="{{ form.group_size or sec.group_size }}"></label>
+      <fieldset class="ab-prefs"><legend>Preferences</legend><div class="ab-tagbox">{% for t in sec.tags %}<label class="pb-check"><input type="checkbox" name="tags" value="{{ t }}"{% if t in (form.tags or []) %} checked{% endif %}> {{ t }}</label>{% endfor %}</div></fieldset>
       <div class="btns"><button class="btn" type="submit">Post goal</button></div>
     </form>
     {% endif %}

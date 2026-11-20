@@ -19,6 +19,10 @@ text = "Profession help, under Characters, lets you ask for a craft, offer recip
 area = "Events"
 kind = "improved"
 text = "Event moderators who aren't hosting an event now see its panel labelled Moderator tools instead of Host tools."
+[[release.change]]
+area = "Events"
+kind = "fixed"
+text = "If a goal can't be posted, the form now says which time is too long and keeps everything you typed."
 
 [[release]]
 date = "2026-11-15"

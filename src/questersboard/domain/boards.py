@@ -68,7 +68,7 @@ PLANNABLE = {"need_help", "company", "offer_help", "farm"}
 CLOSED_TEXT = {"done": "Marked done", "removed": "Removed", "expired": "Ran out of time", "evented": "Became an event",
                "recipe_gone": "Blizzard no longer shows this recipe", "character": "The character was removed"}
 MAX_WINDOWS = 3
-MAX_WINDOW_HOURS = 12
+MAX_WINDOW_HOURS = 12                 # default for [adventures] max_window_hours
 
 
 def section(cfg: Config, board: str) -> dict:
@@ -295,11 +295,14 @@ def create(s: Session, cfg: Config, actor: Actor, board: str, data: dict) -> Boa
         if len(wins) > MAX_WINDOWS:
             raise Invalid(f"Give up to {MAX_WINDOWS} times that work.")
         limit = t + timedelta(days=sec["open_days"])
+        most = int(sec.get("max_window_hours", MAX_WINDOW_HOURS))
         for a, b in wins:
             if b <= a:
                 raise Invalid("Each time that works needs to end after it starts.")
-            if b - a > timedelta(hours=MAX_WINDOW_HOURS):
-                raise Invalid(f"Each time that works can be up to {MAX_WINDOW_HOURS} hours.")
+            if b - a > timedelta(hours=most):
+                hrs = (b - a).total_seconds() / 3600
+                raise Invalid(f"{when_text(a, b, tz)} is {hrs:g} hours long; each time that works "
+                              f"can be up to {most} hours. An end earlier than the start means the next day.")
             if b <= t:
                 raise Invalid("That time has already passed.")
             if a > limit:
