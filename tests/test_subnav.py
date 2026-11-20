@@ -96,7 +96,7 @@ def test_guild_roster_in_characters_menu(seeded, tmp_path, monkeypatch):
     c.post(f"/wow/quester/characters/{cid}/sharing", data={"csrf": csrf(c), "share_guild": "guild"})
     chars = _section(_subnav(c.get("/wow/quester/").text), "characters")
     names = re.findall(r">([^<>]+)</a>", chars)
-    assert names[:2] == ["Mine", "Players"] and names[-1] == "Who can craft" and len(names) == 4
+    assert names[:2] == ["Mine", "Players"] and names[-2:] == ["Who can craft", "Profession help"] and len(names) == 5
     assert "/wow/quester/guilds/" in chars
 
 

@@ -194,6 +194,15 @@ review with `migrate up 0010:0011 --sql`, apply, then restart the web and bot se
 View Channel on each `[public_voice]` channel. `[page_art]` needs only a web restart, after its pictures
 are published on the site.
 
+Migration 0012 adds `board_posts` and `board_responses` (the Adventure Board and Profession help;
+app writes, worker closes posts that ran out and keeps their Discord cards). Apply it straight after
+`install.sh`: until it's applied, publishing an event and Refresh from Blizzard fail, and the worker
+logs a loop error every 30 s. Review with `migrate up 0011:0012 --sql`, apply with the step 6 migrate
+command, then restart the web, worker and bot services. Board cards in Discord are optional: create a
+channel for each board, give the bot View Channel, Send Messages, Embed Links and Read Message History
+there (members: View Channel and Read Message History only), and put its ID in `[adventures] channel_id`
+/ `[professions] channel_id` (live sections, no restart). Empty means website only.
+
 ## 8c. Hosts installed under the old name (wowquester)
 
 Hosts installed before the rename run `deploy/rename_host.sh` once, from the checkout, after a backup,

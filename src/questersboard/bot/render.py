@@ -187,3 +187,79 @@ def event_message(s: Session, cfg: Config, ev: Event, emojis: dict[str, str] | N
     else:
         components = [{"type": 1, "components": [link]}]
     return {"content": "", "embeds": [embed], "components": components}
+
+
+# --------------------------------------------------------------------------- board cards
+
+BOARD_COLOR = {"need_help": 0xC0392B, "offer_help": 0x2E8B57, "company": 0x3D7BD9, "need_crafted": 0xC0392B,
+               "can_craft": 0x2E8B57, "recipe": 0xC9A227, "farm": 0x3D7BD9}
+
+
+def bcid(action: str, post_id: int) -> str:
+    return f"wq:bp:{action}:{post_id}"
+
+
+def board_message(s: Session, cfg: Config, p, extra: dict | None = None) -> dict:
+    """The Discord card for an Adventure Board or profession help post. Counts only: nobody who pressed a
+    button is named. extra: facts the app worked out (crafters, skill), since the worker never reads
+    Blizzard profile data. Times are the poster's zone in 24-hour time, plus UTC."""
+    from ..domain import boards
+    from ..models import BoardResponse
+    extra = extra or {}
+    ch = s.get(Character, p.character_id) if p.character_id else None
+    try:
+        ed_name = cfg.edition(p.edition).name
+    except Exception:  # noqa: BLE001 - an edition removed from the config
+        ed_name = p.edition
+    middle = ACTIVITY.get(p.activity_type or "", "") if p.board == "adventure" else (p.profession or "")
+    author = " · ".join(x for x in (boards.KINDS[p.board][p.kind], middle, ed_name) if x)
+    who = boards.char_line(cfg, ch, extra.get("skill") or "") if ch else "A removed character"
+    desc = [f"Posted by {who}"]
+    if p.body:
+        desc.append(p.body[:1500])
+    counts = dict(s.execute(select(BoardResponse.kind, func.count()).where(BoardResponse.post_id == p.id)
+                            .group_by(BoardResponse.kind)).all())
+    fields = []
+    wins = boards.windows_of(p)
+    if wins:
+        fields.append({"name": "Works for", "value": "\n".join(boards.when_text(a, b, p.timezone) for a, b in wins)[:1024],
+                       "inline": False})
+    said = [boards.count_line(p.kind, k, counts[k]) for k in boards.RESPONSES.get(p.kind, {}) if counts.get(k)]
+    if said:
+        fields.append({"name": "So far", "value": ", ".join(said)[:1024], "inline": True})
+    if p.kind == "need_crafted" and "crafters" in extra:
+        n = int(extra["crafters"])
+        fields.append({"name": "Can make it", "value": f"{n} shared character{'s' if n != 1 else ''}", "inline": True})
+    if p.tags:
+        fields.append({"name": "Preferences", "value": ", ".join(p.tags)[:1024], "inline": True})
+    if p.state == "open":
+        fields.append({"name": "Open until", "value": boards.at_text(p.expires_at, p.timezone), "inline": False})
+    if p.group_size and p.state == "open":
+        people = 1 + counts.get("need", 0) + counts.get("help", 0)
+        desc.append(f"{min(people, p.group_size)} of {p.group_size} for a group. "
+                    "Pressing a button doesn't sign you up for anything.")
+    if p.board == "profession":
+        desc.append("Crafters arrange trades in game. QuestersBoard never handles gold or materials.")
+    base = cfg["community"]["public_base_url"].rstrip("/") + cfg["web"]["member_path"].rstrip("/")
+    link = {"type": 2, "style": 5, "label": "Open on QuestersBoard", "url": f"{base}/board/{p.public_id}"}
+    color = BOARD_COLOR.get(p.kind, 0xC9A227)
+    if p.state != "open":
+        color = 0x6B7280
+        ev = s.get(Event, p.event_id) if p.event_id else None
+        if p.closed_reason == "evented" and ev is not None:
+            desc.insert(0, f"**This became an event:** {ev.title}, "
+                           f"{boards.at_text(ev.start_at, ev.timezone)}. Everyone who answered was sent the link.")
+            link = {"type": 2, "style": 5, "label": "Open the event", "url": f"{base}/events/{ev.public_id}"}
+        else:
+            desc.insert(0, f"**Closed:** {boards.CLOSED_TEXT.get(p.closed_reason, 'Closed')}.")
+        row = [link]
+    else:
+        row = [{"type": 2, "style": 3 if i == 0 else 2, "label": label, "custom_id": bcid(k, p.id)}
+               for i, (k, label) in enumerate(boards.RESPONSES.get(p.kind, {}).items()) if k != "answer"]
+        if p.kind == "recipe":
+            link = dict(link, label="Answer on QuestersBoard")
+        row.append(link)
+    embed = {"author": {"name": author[:256]}, "title": p.title[:256], "description": "\n\n".join(desc)[:4000],
+             "color": color, "fields": fields[:25],
+             "footer": {"text": f"{boards.BOARD_LABEL[p.board]} · QuestersBoard post #{p.id}"}}
+    return {"content": "", "embeds": [embed], "components": [{"type": 1, "components": row[:5]}]}

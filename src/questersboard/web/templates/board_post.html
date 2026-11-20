@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field, tz_select with context %}
+{% from "_board.html" import post_card with context %}
+{% block content %}
+{% if not art %}{% block page_head %}<div class="section-head"><span class="label"><span class="num">//</span> <a href="{{ mp }}/{{ page }}">{{ board_label }}</a></span><h1>{{ p.title }}</h1></div>{% endblock %}{% endif %}
+<div class="pb-grid">
+<div class="pb-list">
+{{ post_card(v, detail=True) }}
+{% if p.kind == "recipe" %}
+<div class="panel" id="answer"><h2 class="sub">Answers</h2>
+  {% if not v.answers %}<p class="note">No answers yet.</p>{% endif %}
+  {% if "answer" in v.actions %}
+  <form method="post" action="{{ mp }}/board/{{ p.public_id }}/respond" class="wq-form">{{ csrf_field() }}<input type="hidden" name="kind" value="answer">
+    <label>{{ "Change your answer" if "answer" in v.mine else "Your answer" }}<textarea name="note" required minlength="3" maxlength="400" rows="3" placeholder="Where it comes from, what skill it needs"></textarea></label>
+    <div class="btns"><button class="btn" type="submit">Answer</button></div>
+  </form>{% endif %}
+</div>
+{% endif %}
+</div>
+<aside class="pb-side">
+{% if v.own %}
+  <div class="panel"><h2 class="sub">Your post</h2>
+    {% if p.state == "open" %}<p class="note">Open until {{ at_text(p.expires_at, p.timezone) }}.</p>
+    <div class="btns">
+      <form method="post" action="{{ mp }}/board/{{ p.public_id }}/done" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit">Mark done</button></form>
+      <form method="post" action="{{ mp }}/board/{{ p.public_id }}/extend" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit">Extend</button></form>
+      <form method="post" action="{{ mp }}/board/{{ p.public_id }}/remove" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit" data-confirm="Remove this post?">Remove</button></form>
+    </div>{% else %}<p class="note">Closed: {{ v.closed_text }}.</p>{% endif %}
+    {% if v.named %}<h3 class="sub">Who answered</h3><ul>{% for k, names in v.named.items() %}<li>{{ {"need": "Also want this", "help": "Can help", "can_make": "Can make it", "ask": "Asked"}.get(k, k) }}: {{ names|join(", ") }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% if v.can_plan %}
+  <div class="panel ab-form" id="plan"><h2 class="sub">{{ "Turn into an adventure" if p.kind == "farm" else "Turn into an event" }}</h2>
+    {% if v.event and v.event.state == "draft" %}<p class="note">You've started a draft from this post. <a href="{{ mp }}/events/{{ v.event.public_id }}/edit">Keep editing it</a>.</p>{% endif %}
+    <p class="note">This makes a draft event with the goal, details and group size filled in. When you publish it, everyone who answered is sent the link. Nobody is signed up for them.</p>
+    <form method="post" action="{{ mp }}/board/{{ p.public_id }}/plan" class="wq-form">{{ csrf_field() }}
+      <label>Date<input type="date" name="date" required value="{{ plan_date }}"></label>
+      <label>Start (24-hour)<input name="start_time" required inputmode="numeric" pattern="{{ time_pattern }}" maxlength="5" value="{{ plan_time }}"></label>
+      <label>Length in minutes<input type="number" name="minutes" min="15" max="720" value="{{ plan_minutes }}"></label>
+      <label>Time zone {{ tz_select("timezone", p.timezone) }}</label>
+      <div class="btns"><button class="btn" type="submit">Make the draft</button></div>
+    </form>
+  </div>
+  {% endif %}
+{% elif is_mod %}
+  <div class="panel"><h2 class="sub">Moderator tools</h2><p class="note">You can see this because you're an event moderator.</p>
+    <form method="post" action="{{ mp }}/board/{{ p.public_id }}/remove" class="wq-inline">{{ csrf_field() }}<button class="btn ghost" type="submit" data-confirm="Remove this post for everyone?">Remove post</button></form>
+  </div>
+{% endif %}
+  <div class="panel"><p class="note"><a href="{{ mp }}/{{ page }}">Back to {{ board_label }}</a></p></div>
+</aside>
+</div>
+{% endblock %}

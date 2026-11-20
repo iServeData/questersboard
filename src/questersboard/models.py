@@ -648,3 +648,48 @@ def _server_defaults() -> None:
 
 
 _server_defaults()
+
+
+# --------------------------------------------------------------------------- boards
+
+class BoardPost(Base):
+    """A post on the Adventure Board ([adventures]) or the profession help board ([professions]).
+    Members only. windows: up to three [start, end] UTC ISO pairs (Adventure Board)."""
+    __tablename__ = "board_posts"
+    __table_args__ = (Index("ix_board_posts_open", "board", "state", "expires_at"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    public_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
+    board: Mapped[str] = mapped_column(String(12), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), nullable=False, index=True)
+    character_id: Mapped[int | None] = mapped_column(ForeignKey("characters.id", ondelete="SET NULL"))
+    edition: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    body: Mapped[str] = mapped_column(String(600), nullable=False, default="", server_default="")
+    activity_type: Mapped[str | None] = mapped_column(String(24))
+    profession: Mapped[str | None] = mapped_column(String(40))
+    recipe_name: Mapped[str | None] = mapped_column(String(120))
+    tags: Mapped[list] = mapped_column(ARRAY(String(40)), nullable=False, default=list, server_default="{}")
+    windows: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC", server_default="UTC")
+    group_size: Mapped[int | None] = mapped_column(SmallInteger)
+    state: Mapped[str] = mapped_column(String(10), nullable=False, default="open", server_default="open")
+    closed_reason: Mapped[str] = mapped_column(String(40), nullable=False, default="", server_default="")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    event_id: Mapped[int | None] = mapped_column(ForeignKey("events.id", ondelete="SET NULL"))
+    discord_channel_id: Mapped[str | None] = mapped_column(String(22))
+    discord_message_id: Mapped[str | None] = mapped_column(String(22))
+    created_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = _now()
+
+
+class BoardResponse(Base):
+    """Someone answered a board post: need (me too / I'm in / interested), help, can_make, ask, answer."""
+    __tablename__ = "board_responses"
+    post_id: Mapped[int] = mapped_column(ForeignKey("board_posts.id", ondelete="CASCADE"), primary_key=True)
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), primary_key=True,
+                                           index=True)
+    kind: Mapped[str] = mapped_column(String(12), primary_key=True)
+    character_id: Mapped[int | None] = mapped_column(ForeignKey("characters.id", ondelete="SET NULL"))
+    note: Mapped[str] = mapped_column(String(400), nullable=False, default="", server_default="")
+    created_at: Mapped[datetime] = _now()

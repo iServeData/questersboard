@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
+{% from "_board.html" import post_card with context %}
+{% block content %}
+{% if not art %}{% block page_head %}<div class="section-head"><span class="label"><span class="num">//</span> Characters</span><h1>Profession help</h1></div>{% endblock %}{% endif %}
+<p class="note pb-intro">Ask for a craft, offer one you know, find a recipe, or find company to farm. Members only.</p>
+<form class="pb-bar wq-form" method="get" action="{{ mp }}/professions">
+  <div class="pb-chips">{% for k, lbl, href in chips %}<a class="pb-chip{% if f.kind == k %} on{% endif %}" href="{{ href }}">{{ lbl }}</a>{% endfor %}</div>
+  {% if f.kind %}<input type="hidden" name="kind" value="{{ f.kind }}">{% endif %}
+  <label>Profession<select name="profession"><option value="">Any</option>{% for n in sec.names %}<option{% if f.profession == n %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+  <label>Edition<select name="edition"><option value="">Any</option>{% for k, ed in editions.items() %}<option value="{{ k }}"{% if f.edition == k %} selected{% endif %}>{{ ed.name }}</option>{% endfor %}</select></label>
+  <label class="pb-check"><input type="checkbox" name="can_help" value="1"{% if f.can_help %} checked{% endif %}> Only posts I can help with</label>
+  <button class="btn ghost" type="submit">Show</button>
+</form>
+<div class="pb-grid">
+<div class="pb-list">
+{% for v in posts %}{{ post_card(v, back="professions") }}{% else %}
+<p class="note">Nothing here yet{% if f.kind or f.profession or f.edition or f.can_help %} with these filters{% endif %}.</p>
+{% endfor %}
+</div>
+<aside class="pb-side">
+  <div class="panel"><h2 class="sub">My posts</h2>
+    {% if mine %}<ul>{% for p in mine %}<li><span class="pb-mark"></span><a href="{{ mp }}/board/{{ p.public_id }}">{{ kinds[p.kind] }}: {{ p.title }}</a><span class="note">Open until {{ at_text(p.expires_at, p.timezone) }}</span>
+      <form method="post" action="{{ mp }}/board/{{ p.public_id }}/done" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="back" value="professions"><button class="linkish" type="submit">Mark done</button></form>
+      <form method="post" action="{{ mp }}/board/{{ p.public_id }}/extend" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="back" value="professions"><button class="linkish" type="submit">Extend</button></form>
+      <form method="post" action="{{ mp }}/board/{{ p.public_id }}/remove" class="wq-inline">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Remove this post?">Remove</button></form></li>{% endfor %}</ul>
+    {% else %}<p class="note">None open.</p>{% endif %}
+    <p class="note">{{ open_n }} of {{ sec.max_open_per_member }} open posts.</p>
+  </div>
+  <div class="panel ab-form" id="new">
+    <h2 class="sub">New post</h2>
+    {% if form_error %}<p class="caveat" role="alert">{{ form_error }}</p>{% endif %}
+    {% if not chars %}<p class="caveat">Add a character first.</p><a class="btn" href="{{ mp }}/characters">My characters</a>
+    {% elif open_n >= sec.max_open_per_member %}<p class="caveat">You have {{ open_n }} open posts, the most you can have. Mark one done or remove it to post another.</p>
+    {% else %}
+    <form method="post" action="{{ mp }}/professions" class="wq-form">{{ csrf_field() }}
+      <input type="hidden" name="kind" value="need_crafted">
+      <h3 class="sub">Need something crafted</h3>
+      <label>Character<select name="character_id" required>{% for c in chars %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+      <label>Item<input name="title" required minlength="3" maxlength="120" placeholder="For example: Heavy Armor Kit"></label>
+      <label>Profession (if you know it)<select name="profession"><option value="">Not sure</option>{% for n in sec.names %}<option>{{ n }}</option>{% endfor %}</select></label>
+      <label>Details<textarea name="body" maxlength="500" rows="2" placeholder="How many, what you can bring"></textarea></label>
+      <div class="btns"><button class="btn" type="submit">Post request</button></div>
+    </form>
+    <form method="post" action="{{ mp }}/professions" class="wq-form">{{ csrf_field() }}
+      <input type="hidden" name="kind" value="can_craft">
+      <h3 class="sub">Offer a craft</h3>
+      {% if craftable %}
+      <label>Recipe (from Blizzard)<select name="craft" required>{% for r in craftable %}<option value="{{ r.character_id }}:{{ r.name }}">{{ r.name }} · {{ r.character }}, {{ r.prof }}</option>{% endfor %}</select></label>
+      <label>Details<textarea name="body" maxlength="500" rows="2" placeholder="What to bring"></textarea></label>
+      <div class="btns"><button class="btn" type="submit">Offer it</button></div>
+      {% else %}<p class="note">Offers come from recipes on your characters' Blizzard profiles. Import Professions on a character page, then come back.</p>{% endif %}
+    </form>
+    <form method="post" action="{{ mp }}/professions" class="wq-form">{{ csrf_field() }}
+      <h3 class="sub">Ask or find company</h3>
+      <label>I'm<select name="kind"><option value="recipe">Looking for a recipe</option><option value="farm">Looking to farm together</option></select></label>
+      <label>Character<select name="character_id" required>{% for c in chars %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+      <label>Profession<select name="profession" required>{% for n in sec.names %}<option>{{ n }}</option>{% endfor %}</select></label>
+      <label>Title<input name="title" required minlength="3" maxlength="120" placeholder="Pattern: Guardian Belt, or Skinning 150 to 200"></label>
+      <label>Details<textarea name="body" maxlength="500" rows="2"></textarea></label>
+      <div class="btns"><button class="btn" type="submit">Post</button></div>
+    </form>
+    {% endif %}
+  </div>
+  {% if could_help %}<div class="panel"><h2 class="sub">You could help</h2><p class="note">Open requests for recipes your characters know.</p><ul>
+    {% for p, who, mine_chars in could_help %}<li><a href="{{ mp }}/board/{{ p.public_id }}">{{ who }} needs {{ p.title }}</a><span class="note">You know it: {{ mine_chars|join("; ") }}</span></li>{% endfor %}
+  </ul></div>{% endif %}
+  <div class="panel"><h2 class="sub">How it works</h2><p class="note">Crafters arrange trades with each other in game. QuestersBoard never handles gold or materials. Posts close by themselves after {{ sec.post_days }} days, and Can craft offers close if Blizzard no longer shows the recipe.</p></div>
+</aside>
+</div>
+{% endblock %}

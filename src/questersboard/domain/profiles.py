@@ -392,6 +392,9 @@ def import_profile(s: Session, cfg: Config, bz, actor: Actor, character_id: int,
     prof.shares = {g: shares.get(g, "private") for g in data}
     prof.fetched_at = now()
     audit.record(s, actor, "character.profile_import", "character", ch.id, groups=sorted(data))
+    s.flush()
+    from . import boards
+    boards.recheck_offers(s, ch.id)     # Can craft offers close if Blizzard no longer shows the recipe
     return prof
 
 
@@ -879,6 +882,8 @@ def remove_profile(s: Session, cfg: Config, actor: Actor, character_id: int) -> 
     n = s.execute(delete(CharacterProfile).where(CharacterProfile.character_id == ch.id)).rowcount
     if n:
         audit.record(s, actor, "character.profile_remove", "character", ch.id)
+        from . import boards
+        boards.recheck_offers(s, ch.id)
     return bool(n)
 
 
@@ -1085,6 +1090,8 @@ def import_new(s: Session, cfg: Config, bz, actor: Actor, character_ids: list[in
 def drop_for_character(s: Session, character_id: int) -> None:
     """Used when a character is archived or its identity changes: imported details no longer apply."""
     s.execute(delete(CharacterProfile).where(CharacterProfile.character_id == character_id))
+    from . import boards
+    boards.recheck_offers(s, character_id)
 
 
 def profiles_for(s: Session, member_id: int) -> dict[int, CharacterProfile]:

@@ -101,7 +101,8 @@
 
   {% if manager %}
   <div class="panel">
-    <h2 class="sub">Host tools</h2>
+    <h2 class="sub">{% if is_host %}Host tools{% else %}Moderator tools{% endif %}</h2>
+    {% if not is_host %}<p class="note">You can see this because you're an event moderator.</p>{% endif %}
     {% if ev.state == "draft" %}<p class="caveat"><strong>Draft:</strong> only hosts can see this event, and it isn't in Discord yet.
       {% if can('event_creator') %}{% if ev.publish_requested_at %}<strong>Sent for publishing{% if creator_name %} by {{ creator_name }}{% endif %}.</strong> Check the details and the time, then press <strong>Publish</strong>.{% else %}Press <strong>Publish</strong> to post its card to Discord and open signups.{% endif %}
       {% elif ev.publish_requested_at %}<strong>Sent for publishing.</strong> A moderator will check it and publish it; you'll get a Discord message when it's live. You can still edit it.

@@ -11,6 +11,8 @@
 {% set toc = toc + [
   ("joining", "Joining events", []), ("reminders", "Reminders and calendars", []),
   ("hosting", "Hosting an event", [])] %}
+{% set ad_on = cfg["adventures"]["enabled"] %}{% set pr_on = cfg["professions"]["enabled"] %}
+{% if ad_on or pr_on %}{% set toc = toc + [("boards", "Adventure Board and profession help", [])] %}{% endif %}
 {% if th.enabled %}{% set toc = toc + [("chat", "Event chat", [])] %}{% endif %}
 {% if vc.enabled %}{% set toc = toc + [("voice", "Event voice", vsubs)] %}{% endif %}
 {% set toc = toc + [("chronicle", "Chronicle stories", []), ("privacy", "Privacy and Remove me", []),
@@ -130,6 +132,18 @@
   </ul>
   {% endif %}
 
+  {% if ad_on or pr_on %}
+  <h2 class="sub" id="boards">Adventure Board and profession help</h2>
+  <ul>
+    {% if ad_on %}<li>On the <a href="{{ mp }}/adventures">Adventure Board</a>, post a goal before there's an event: something you need help with, something you're happy to help with, or company you're looking for. Add up to three times that work (24-hour time, in your time zone) and any preferences, such as Relaxed pace.</li>
+    <li>Others press <strong>I need this too</strong>, <strong>I can help</strong> or <strong>I'm in</strong>. Pressing one never signs anyone up. When enough people are in, press <strong>Turn into an event</strong>: it makes a draft event with the goal filled in, and when it's published everyone who answered is sent the link by direct message.</li>
+    <li>Goals close by themselves once their last time that works has passed, or after {{ cfg["adventures"]["open_days"] }} days.</li>{% endif %}
+    {% if pr_on %}<li>On <a href="{{ mp }}/professions">Profession help</a>, ask for something crafted, offer a craft, look for a recipe or find company to farm. Offers come only from recipes on your characters' Blizzard profiles, so a crafter's offer is always checked. If Blizzard stops showing the recipe, the offer closes.</li>
+    <li>When someone can make your item, you get a direct message with their character and skill. Trades happen in game; QuestersBoard never handles gold or materials. Posts close after {{ cfg["professions"]["post_days"] }} days unless you extend them.</li>{% endif %}
+    <li>You can have up to {{ cfg["adventures"]["max_open_per_member"] if ad_on else cfg["professions"]["max_open_per_member"] }} open posts on each board. Posts are for members only; the Discord cards show counts, not names. Event moderators can remove a post.</li>
+  </ul>
+  {% endif %}
+
   <h2 class="sub" id="chronicle">Chronicle stories</h2>
   <ul>
     <li>After an event, the host and everyone who took part are invited to write their own story about it. You don't need to be added as a co-author to write one.</li>
@@ -151,7 +165,7 @@
   <h2 class="sub" id="privacy">Privacy and Remove me</h2>
   <ul>
     <li>QuestersBoard keeps only what it needs to run events. The <a href="{{ mp }}/privacy">Privacy</a> page explains what that is and how long it's kept.</li>
-    <li>Under My settings, <a href="{{ mp }}/me/remove">Remove me</a> deletes your QuestersBoard profile, characters, imported character details and signups. It doesn't remove you from the Discord server or touch anything you've posted there.</li>
+    <li>Under My settings, <a href="{{ mp }}/me/remove">Remove me</a> deletes your QuestersBoard profile, characters, imported character details, signups, and board posts and answers. It doesn't remove you from the Discord server or touch anything you've posted there.</li>
   </ul>
 
   <h2 class="sub" id="limits">Good to know</h2>

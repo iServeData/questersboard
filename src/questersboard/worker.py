@@ -30,7 +30,7 @@ from .domain.chronicle import coauthor_ids
 from .domain.signups import event_requirement
 from .domain.timeutil import discord_ts, fmt_local, now
 from .integrations import discord_rest as dr
-from .models import ChronicleEntry, ConfigChange, Event, EventCohost, Member, Signup
+from .models import BoardPost, BoardResponse, Character, ChronicleEntry, ConfigChange, Event, EventCohost, Member, Signup
 from .secrets import SecretError, setup_logging
 
 log = logging.getLogger("questersboard.worker")
@@ -184,6 +184,91 @@ class Worker:
         mid = rest.post(channel, payload)
         s.execute(text("UPDATE events SET discord_message_id = :m, discord_channel_id = :c WHERE id = :id"),
                   {"m": mid, "c": channel, "id": ev.id})
+
+    # ------------------------------------------------------------------ Adventure Board / profession help
+    def job_discord_render_board_post(self, s: Session, p: dict) -> None:
+        """Post or edit a board post's card in its board's channel ([adventures] / [professions] channel_id).
+        Closed posts are edited to show why; a post that closed before its card went up is never posted."""
+        from .bot.render import board_message
+        from .domain import boards
+        post = s.get(BoardPost, p["post_id"])
+        if post is None or post.state == "removed":
+            return
+        channel = post.discord_channel_id or boards.section(self.cfg, post.board)["channel_id"]
+        if not channel:
+            log.info("board post %s: no channel configured; card skipped", post.id)
+            return
+        if post.state != "open" and not post.discord_message_id:
+            return
+        rest = self._need_rest()
+        payload = board_message(s, self.cfg, post, p)
+        if post.discord_message_id:
+            try:
+                rest.edit(post.discord_channel_id or channel, post.discord_message_id, payload)
+                return
+            except dr.Gone:
+                if post.state != "open":
+                    return
+                log.warning("board post %s: card was deleted; reposting", post.id)
+        mid = rest.post(channel, payload)
+        s.execute(text("UPDATE board_posts SET discord_message_id = :m, discord_channel_id = :c WHERE id = :id"),
+                  {"m": mid, "c": channel, "id": post.id})
+
+    def job_discord_delete_board_card(self, s: Session, p: dict) -> None:
+        self._need_rest().delete(p["channel_id"], p["message_id"])
+
+    def job_notify_board_response(self, s: Session, p: dict) -> None:
+        """Someone offered to help, can make it, asked or answered: tell the poster who, with the link."""
+        post = s.get(BoardPost, p["post_id"])
+        who = s.get(Member, p.get("member_id"))
+        if post is None or post.state != "open" or who is None or who.erased_at:
+            return
+        r = s.get(BoardResponse, (post.id, who.id, p.get("kind")))
+        if r is None:
+            return
+        ch = s.get(Character, r.character_id) if r.character_id else None
+        name = ch.name if ch else (who.display_name or "A member")
+        link = self._url("board", str(post.public_id))
+        mention = f"<@{who.discord_id}>"
+        if r.kind == "can_make":
+            skill = f" ({p['skill']}, Blizzard-checked)" if p.get("skill") else " (Blizzard-checked)"
+            msg = (f"{name}{skill} can make your **{post.title}**. Message {mention} on Discord or whisper "
+                   f"{name} in game to set up the trade. When you're done, mark the post done here: {link}")
+        elif r.kind == "help":
+            msg = f"{name} ({mention}) can help with your goal **{post.title}**. See who's in, and plan it: {link}"
+        elif r.kind == "ask":
+            msg = (f"{name} ({mention}) would like your help with **{post.title}**. Message them on Discord or "
+                   f"whisper {name} in game. Your post: {link}")
+        else:
+            msg = f"{name} answered your question **{post.title}**: {r.note[:600]}\n{link}"
+        self._dm(s, [post.member_id], f"board:{post.id}:{r.kind}", who.id, msg)
+
+    def job_notify_board_event(self, s: Session, p: dict) -> None:
+        """A board post became a published event: send everyone who answered the link. Nobody is signed up
+        for them; they join from the event like anyone else."""
+        from .domain import boards
+        post, ev = s.get(BoardPost, p["post_id"]), s.get(Event, p["event_id"])
+        if post is None or ev is None or ev.state not in ("scheduled", "in_progress"):
+            return
+        people = set(boards.responders(s, post)) - {ev.creator_id}
+        host = s.get(Character, ev.host_character_id) if ev.host_character_id else None
+        self._dm(s, people, f"board-event:{ev.id}", 1,
+                 f"The {boards.BOARD_LABEL[post.board]} post you answered, **{post.title}**, is now an event: "
+                 f"**{ev.title}**, {fmt_local(ev.start_at, ev.timezone)} ({ev.start_at.astimezone(UTC).strftime('%H:%M')} UTC)"
+                 + (f", hosted by {host.name}" if host else "") +
+                 f". You aren't signed up; join here if you'd like to come: {self._url('events', str(ev.public_id))}")
+
+    def scan_boards(self) -> int:
+        """Close board posts that ran out of time (their last time window passed, or open_days /
+        post_days) and update their cards."""
+        with self.db.tx() as s:
+            rows = s.execute(text(
+                "UPDATE board_posts SET state = 'closed', closed_reason = 'expired', updated_at = now() "
+                "WHERE state = 'open' AND expires_at <= now() RETURNING id, discord_message_id")).all()
+            for pid, mid in rows:
+                if mid:
+                    outbox.enqueue(s, "discord.render_board_post", str(pid), {"post_id": pid})
+            return len(rows)
 
     # ------------------------------------------------------------------ event chat threads
     def job_discord_sync_thread(self, s: Session, p: dict) -> None:
@@ -898,6 +983,7 @@ class Worker:
                     self.scan_overruns()
                     self.scan_unstarted()
                     self.scan_voice()
+                    self.scan_boards()          # last: until migration 0012 is applied it can only fail
                     last_scan = t
                 if t - last_house > 3600:
                     self.housekeeping()

@@ -5,6 +5,22 @@
 #   [[release.change]]  area = one of AREAS below, kind = "new" | "improved" | "fixed", text = one sentence
 
 [[release]]
+date = "2026-11-20"
+title = "The Adventure Board and Profession help"
+[[release.change]]
+area = "Events"
+kind = "new"
+text = "The Adventure Board, under Quests, is for goals before there's an event: say what you need help with, offer help or look for company, and turn it into an event when enough people are in."
+[[release.change]]
+area = "Guild"
+kind = "new"
+text = "Profession help, under Characters, lets you ask for a craft, offer recipes your characters know from Blizzard, look for a recipe or find company to farm."
+[[release.change]]
+area = "Events"
+kind = "improved"
+text = "Event moderators who aren't hosting an event now see its panel labelled Moderator tools instead of Host tools."
+
+[[release]]
 date = "2026-11-15"
 title = "A new picture every day, and who's in voice on the WoW page"
 [[release.change]]

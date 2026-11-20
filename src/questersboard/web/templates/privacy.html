@@ -27,6 +27,7 @@
     <li><strong>Events.</strong> Events you plan, co-host, sign up for or withdraw from, and attendance that an organiser records.</li>
     <li><strong>Chronicle stories.</strong> Story drafts, their revisions and review decisions.{% if cfg["solo_stories"]["enabled"] %} For a solo adventure, also the character, day and kind of adventure you chose, kept as a private record that is never listed or posted.{% endif %}</li>
     {% if cfg["solo_stories"]["enabled"] and cfg["solo_stories"]["join_me"] %}<li><strong>Join me next time.</strong> If you press it on someone's solo story, we keep that you asked. The author gets a DM with your Discord name and sees you on their list, and you get a DM if they plan an event from the story. Nobody else sees it, and you can take it back on the same page.</li>{% endif %}
+    {% if (cfg["adventures"]["enabled"] or cfg["professions"]["enabled"]) %}<li><strong>Board posts.</strong> Posts you make on the Adventure Board or Profession help (the character, what you wrote, times that work, preferences, profession or recipe) and the buttons you press on other people's posts, with any answer you write. Members can see posts and how many people pressed each button; names are shown only for offers of help and answers, and the poster sees everyone who answered. The Discord cards show counts, not names. When you press a button that offers help, the poster gets a direct message with your character and Discord name.</li>{% endif %}
     <li><strong>Screenshots.</strong> Images you upload to a story (PNG, JPEG or WebP, up to {{ "%g" % (up.max_bytes / 1000000) }} MB and {{ up.max_per_entry }} per story). We re-encode every image, which removes hidden metadata such as camera details and location.</li>
     <li><strong>A login cookie.</strong> One cookie keeps you logged in for up to {{ cfg["web"]["session_hours"] }} hours. It is only used for this site, it isn't readable by page scripts, and we store only a scrambled (hashed) copy of it.</li>
     <li><strong>Short-lived technical records.</strong> To stop abuse we count requests per minute, which can briefly involve your IP address. A security log records actions such as creating, approving or removing things, and who did them.</li>
@@ -62,6 +63,7 @@
     <li>Encrypted backups: {{ lg.backup_keep_days }} days.</li>
     <li>Published Chronicle stories stay up until they are unpublished.</li>
     {% if cfg["solo_stories"]["enabled"] and cfg["solo_stories"]["join_me"] %}<li>Join me next time requests: until you take them back, the story is deleted, or you use <a href="#remove-me">Remove me</a>.</li>{% endif %}
+    {% if (cfg["adventures"]["enabled"] or cfg["professions"]["enabled"]) %}<li>Board posts: until you remove them; closed posts stay on their page until you remove them or use <a href="#remove-me">Remove me</a>. Answers: until you take them back, the post is removed, or you use Remove me.</li>{% endif %}
     <li>Your Discord identity, characters and event history: for as long as you use QuestersBoard, or until you use <a href="#remove-me">Remove me</a>.</li>
   </ul>
 
@@ -69,7 +71,7 @@
   <ul>
     <li>Remove your characters and withdraw from events at any time.</li>
     <li>Turn Chronicle naming off for any event, or stop being named in a published story.</li>
-    <li id="remove-me"><strong>Remove me.</strong> Under My settings &rarr; <a href="{{ mp }}/me/remove">Remove me</a> you can delete your QuestersBoard profile yourself. It shows exactly what will happen and asks you to type "remove me" first. It withdraws you from every event, cancels upcoming events you host (telling the people signed up), deletes your characters, replaces your names in Chronicle stories with a neutral description such as "a healer", and disconnects your Discord login. It takes effect straight away and can't be undone. The security log ages out after {{ ret.audit_days }} days and backups after {{ lg.backup_keep_days }} days.</li>
+    <li id="remove-me"><strong>Remove me.</strong> Under My settings &rarr; <a href="{{ mp }}/me/remove">Remove me</a> you can delete your QuestersBoard profile yourself. It shows exactly what will happen and asks you to type "remove me" first. It withdraws you from every event, cancels upcoming events you host (telling the people signed up), deletes your characters and your board posts and answers, replaces your names in Chronicle stories with a neutral description such as "a healer", and disconnects your Discord login. It takes effect straight away and can't be undone. The security log ages out after {{ ret.audit_days }} days and backups after {{ lg.backup_keep_days }} days.</li>
     <li>If you can no longer log in (for example, you've left the Discord), ask an organiser and they'll do the same removal for you.</li>
     <li>Ask for a copy of what we hold about you.</li>
   </ul>
@@ -80,6 +82,7 @@
     {% if cfg["blizzard"]["enabled"] and cfg["blizzard"].get("auto_refresh_hours", 4) %}<li><strong>November 2026.</strong> Characters are refreshed from Blizzard automatically every {{ cfg["blizzard"].get("auto_refresh_hours", 4) }} hour{{ "" if cfg["blizzard"].get("auto_refresh_hours", 4) == 1 else "s" }} with your existing choices, and a character Blizzard no longer has loses what came from Blizzard. Nothing new is collected and nothing is shared more widely.</li>{% endif %}
     {% if cfg["item_links"]["enabled"] %}<li><strong>November 2026.</strong> Item cards: writing an item name in [square brackets] in the chosen Discord channels shows that item's details. Only the item names and a link to the message are kept, never the message itself.</li>{% endif %}
     {% if cfg["solo_stories"]["enabled"] %}<li><strong>November 2026.</strong> Solo adventures: you can write a Chronicle story about something you did on your own. It follows the same review and naming rules as event stories; your character is named only if you tick that box.{% if cfg["solo_stories"]["join_me"] %} Readers can press Join me next time, which tells the author their Discord name.{% endif %}</li>{% endif %}
+    {% if (cfg["adventures"]["enabled"] or cfg["professions"]["enabled"]) %}<li><strong>November 2026.</strong> The Adventure Board and Profession help: members can post goals, crafts they need or offer, recipe questions and farming plans, and answer other people's posts. Crafting offers use the recipes already on your imported Professions; nothing new is collected from Blizzard.</li>{% endif %}
     <li>Earlier changes that mattered were announced in the Discord.</li>
   </ul>
 

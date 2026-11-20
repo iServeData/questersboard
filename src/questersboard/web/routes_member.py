@@ -471,6 +471,7 @@ def router(cfg: Config) -> APIRouter:
             ev = ev_by_public(s, public_id)
             cohosts = scheduling.cohost_ids(s, ev.id)
             manager = a is not None and permissions.is_event_manager(w.cfg, a, ev.creator_id, cohosts)
+            is_host = a is not None and a.member_id is not None and (a.member_id == ev.creator_id or a.member_id in cohosts)
             if ev.state == "draft" and not manager:
                 raise NotFound("Event not found.")
             if a is None and not ev.public_listing:
@@ -502,7 +503,7 @@ def router(cfg: Config) -> APIRouter:
             owner = s.get(Member, ev.creator_id) if ev.state == "draft" and ev.creator_id != (a and a.member_id) else None
             creator_name = (owner.display_name or owner.username) if owner else ""
             ctx = {"title": ev.title, "ev": ev, "rows": rows, "creator_name": creator_name, "mine": mine, "fit": fit, "misfits": misfits,
-                   "requirement": signups.event_requirement(w.cfg, ev), "manager": manager,
+                   "requirement": signups.event_requirement(w.cfg, ev), "manager": manager, "is_host": is_host,
                    "recognition_default": bool(me and me.recognition_default),
                    "entry": entry, "conflicts": conflicts, "attendance": attendance,
                      "my_story": my_story, "can_story": can_story, "stories": stories,
@@ -1474,6 +1475,8 @@ def router(cfg: Config) -> APIRouter:
         return JSONResponse({"items": items, "api_status": status,
                              "free_text": True})   # always allowed: catalog gaps never block planning
 
+    from . import routes_boards
+    routes_boards.add(r, mp, W, session_or_login, post_guard, render, _redirect, _local_dt)
     return r
 
 
@@ -1508,6 +1511,9 @@ _PREVIEW_PAGES = (  # (path prefix after the member path, title, what the page i
                                  "level and item level. Visible only to verified guild members."),
     ("/players", "Shared characters", "Characters whose owners shared their details with all members."),
     ("/events", "Events", "Join guild events with the character and role you're bringing."),
+    ("/adventures", "Adventure Board", "Post what you want to do in game and find members who want to do it too."),
+    ("/professions", "Profession help", "Ask for crafts, offer recipes you know and find company to farm."),
+    ("/board/", "Board post", "A post on the members' Adventure Board or profession help board."),
 )
 
 

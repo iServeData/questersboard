@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field, tz_select with context %}
+{% from "_board.html" import post_card with context %}
+{% block content %}
+{% if not art %}{% block page_head %}<div class="section-head"><span class="label"><span class="num">//</span> Quests</span><h1>Adventure Board</h1></div>{% endblock %}{% endif %}
+<p class="note pb-intro">Post what you want to do, or offer to help. When enough people are in, the poster can turn it into an event. Members only.</p>
+<form class="pb-bar wq-form" method="get" action="{{ mp }}/adventures">
+  <div class="pb-chips">{% for k, lbl, href in chips %}<a class="pb-chip{% if f.kind == k %} on{% endif %}" href="{{ href }}">{{ lbl }}</a>{% endfor %}</div>
+  {% if f.kind %}<input type="hidden" name="kind" value="{{ f.kind }}">{% endif %}
+  <label>Activity<select name="activity"><option value="">Any</option>{% for k, l in activities.items() %}<option value="{{ k }}"{% if f.activity == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+  <label>Edition<select name="edition"><option value="">Any</option>{% for k, ed in editions.items() %}<option value="{{ k }}"{% if f.edition == k %} selected{% endif %}>{{ ed.name }}</option>{% endfor %}</select></label>
+  <label>Preference<select name="tag"><option value="">Any</option>{% for t in sec.tags %}<option{% if f.tag == t %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+  <label class="pb-check"><input type="checkbox" name="fits" value="1"{% if f.fits %} checked{% endif %}> Fits my characters</label>
+  <button class="btn ghost" type="submit">Show</button>
+</form>
+<div class="pb-grid">
+<div class="pb-list">
+{% for v in posts %}{{ post_card(v, back="adventures") }}{% else %}
+<p class="note">Nothing here yet{% if f.kind or f.activity or f.edition or f.tag or f.fits %} with these filters{% endif %}. Post a goal and see who's in.</p>
+{% endfor %}
+</div>
+<aside class="pb-side">
+  <div class="panel ab-form" id="new">
+    <h2 class="sub">Post a goal</h2>
+    {% if form_error %}<p class="caveat" role="alert">{{ form_error }}</p>{% endif %}
+    {% if not chars %}<p class="caveat">Add a character first.</p><a class="btn" href="{{ mp }}/characters">My characters</a>
+    {% elif open_n >= sec.max_open_per_member %}<p class="caveat">You have {{ open_n }} open posts, the most you can have. Mark one done or remove it to post another.</p>
+    {% else %}
+    <form method="post" action="{{ mp }}/adventures" class="wq-form">{{ csrf_field() }}
+      <label>Character<select name="character_id" required>{% for c in chars %}<option value="{{ c.id }}">{{ c.name }} ({{ c.race_key.replace('_',' ')|title }} {{ c.class_key.replace('_',' ')|title }}{% if c.level %} {{ c.level }}{% endif %})</option>{% endfor %}</select></label>
+      <label>I'm<select name="kind">{% for k, l in {"need_help": "Looking for help", "offer_help": "Happy to help", "company": "Looking for company"}.items() %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></label>
+      <label>Goal<input name="title" required minlength="3" maxlength="120" value="{{ form.title }}" placeholder="For example: Wailing Caverns, first clear"></label>
+      <label>Activity<select name="activity_type">{% for k, l in activities.items() %}<option value="{{ k }}"{% if k == "dungeon" %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+      <label>Details<textarea name="body" maxlength="500" rows="3" placeholder="What you'd like, how you like to play">{{ form.body }}</textarea></label>
+      <fieldset class="ab-times"><legend>Times that work</legend>
+        {% for i in range(3) %}<div class="ab-time"><input type="date" name="date_{{ i }}" min="{{ today }}" max="{{ last_day }}" aria-label="Date {{ i + 1 }}"><input name="from_{{ i }}" inputmode="numeric" pattern="{{ time_pattern }}" placeholder="19:00" maxlength="5" aria-label="From"><span>to</span><input name="to_{{ i }}" inputmode="numeric" pattern="{{ time_pattern }}" placeholder="21:00" maxlength="5" aria-label="To"></div>{% endfor %}
+        <label>Time zone {{ tz_select("timezone", tz) }}</label>
+      </fieldset>
+      <label>People for a group<input name="group_size" type="number" min="2" max="40" value="{{ sec.group_size }}"></label>
+      <fieldset class="ab-prefs"><legend>Preferences</legend><div class="ab-tagbox">{% for t in sec.tags %}<label class="pb-check"><input type="checkbox" name="tags" value="{{ t }}"> {{ t }}</label>{% endfor %}</div></fieldset>
+      <div class="btns"><button class="btn" type="submit">Post goal</button></div>
+    </form>
+    {% endif %}
+  </div>
+  <div class="panel"><h2 class="sub">My goals</h2>
+    {% if mine %}<ul>{% for p in mine %}<li><a href="{{ mp }}/board/{{ p.public_id }}">{{ p.title }}</a><span class="note">Open until {{ at_text(p.expires_at, p.timezone) }}</span>
+      <form method="post" action="{{ mp }}/board/{{ p.public_id }}/done" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="back" value="adventures"><button class="linkish" type="submit">Mark done</button></form>
+      <form method="post" action="{{ mp }}/board/{{ p.public_id }}/remove" class="wq-inline">{{ csrf_field() }}<button class="linkish" type="submit" data-confirm="Remove this post?">Remove</button></form></li>{% endfor %}</ul>
+    {% else %}<p class="note">None open.</p>{% endif %}
+    <p class="note">{{ open_n }} of {{ sec.max_open_per_member }} open posts.</p>
+  </div>
+  <div class="panel"><h2 class="sub">How it works</h2><p class="note">Post what you want to do before there's an event. When enough people are in, turn it into an event; everyone who answered is sent the link, and nobody is signed up for them. Goals close by themselves after their last time that works passes, or after {{ sec.open_days }} days.</p></div>
+</aside>
+</div>
+{% endblock %}

@@ -29,6 +29,7 @@ from ..models import Event, Member, Signup
 from ..secrets import SecretError, get_secret, setup_logging
 
 log = logging.getLogger("questersboard.bot")
+BCID = r"wq:bp:(?P<action>need|help|can_make|ask):(?P<post_id>\d+)"
 CID = r"wq:ev:(?P<action>join|tentative|leave|manage|start|end|endyes|voice|reopen|support|supportleave):(?P<event_id>\d+)"
 
 
@@ -375,6 +376,47 @@ class EventButton(discord.ui.DynamicItem[discord.ui.Button], template=CID):
             await guarded(inter, join_voice(inter, self.event_id))
         else:
             await guarded(inter, organizer_action(inter, self.action, self.event_id))
+
+
+BOARD_REPLY = {"need": "Noted: you're on the list.", "help": "Thanks. The poster has been told you can help.",
+               "can_make": "Thanks. The poster has been told you can make it.",
+               "ask": "The poster has been told you'd like their help."}
+
+
+def _board_press(s, cfg: Config, actor: Actor, post_id: int, action: str) -> str:
+    """Press = say it; press again = take it back. Returns the ephemeral reply."""
+    from ..domain import boards
+    from ..models import BoardPost, BoardResponse
+    p = s.get(BoardPost, post_id)
+    if p is None or p.state == "removed":
+        return "This post was removed."
+    actor = roster.ensure_member(s, actor)
+    if s.get(BoardResponse, (p.id, actor.member_id, action)) is not None:
+        boards.respond(s, cfg, actor, str(p.public_id), action, want=False)
+        return "Taken back. Press it again any time."
+    boards.respond(s, cfg, actor, str(p.public_id), action)
+    return BOARD_REPLY.get(action, "Done.") + " Pressing it again takes it back. Nothing signs you up for an event."
+
+
+class BoardButton(discord.ui.DynamicItem[discord.ui.Button], template=BCID):
+    """Persistent buttons on Adventure Board and profession help cards: "wq:bp:<action>:<post_id>"."""
+
+    def __init__(self, action: str, post_id: int):
+        super().__init__(discord.ui.Button(custom_id=f"wq:bp:{action}:{post_id}", label=action.title()))
+        self.action, self.post_id = action, post_id
+
+    @classmethod
+    async def from_custom_id(cls, inter, item, match: re.Match):
+        return cls(match["action"], int(match["post_id"]))
+
+    async def callback(self, inter: discord.Interaction):
+        cfg = Ctx.cfg()
+
+        async def go():
+            actor = await build_actor(inter, "button")
+            permissions.require_member(cfg, actor)
+            await reply(inter, await run_tx(_board_press, cfg, actor, self.post_id, self.action))
+        await guarded(inter, go())
 
 
 # --------------------------------------------------------------------------- modals
@@ -824,7 +866,7 @@ class Bot(discord.Client):
             log.warning("item card removal queueing failed", exc_info=True)
 
     async def setup_hook(self):
-        self.add_dynamic_items(EventButton)
+        self.add_dynamic_items(EventButton, BoardButton)
 
         async def reload_loop():
             while True:

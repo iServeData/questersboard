@@ -295,6 +295,8 @@ def remove_character(s: Session, cfg: Config, actor: Actor, character_id: int) -
     if used:
         archive_character(s, cfg, actor, character_id)
         return "archived"
+    from . import boards
+    boards.recheck_offers(s, ch.id, gone=True)
     s.delete(ch)
     audit.record(s, actor, "character.delete", "character", character_id)
     return "deleted"

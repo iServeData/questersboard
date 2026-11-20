@@ -189,6 +189,49 @@ def seed(db: Database, cfg: Config) -> None:
         if hasattr(m, "now"):
             from questersboard.domain import timeutil
             m.now = timeutil.now
+    seed_boards(db, cfg, org, members, mychar.id, cids, real_now)
+
+
+def seed_boards(db: Database, cfg: Config, org: Actor, members: list, mychar: int, cids: list, real_now) -> None:
+    """FIXTURE posts on the Adventure Board and Profession help, with FIXTURE Blizzard profession data."""
+    from questersboard.domain import boards
+    from questersboard.models import CharacterProfile
+    hz = "America/Los_Angeles"
+    day = (real_now + timedelta(days=2)).astimezone(timezone(timedelta(hours=-8))).replace(hour=19) \
+        .astimezone(timezone.utc)
+    lw = {"name": "Leatherworking", "skill": 165, "recipes": [{"name": "Heavy Armor Kit", "id": 1},
+                                                             {"name": "Guardian Belt", "id": 2}]}
+    with db.tx() as s:
+        for cid, prof in ((cids[0], lw), (mychar, {"name": "Leatherworking", "skill": 120,
+                                                    "recipes": [{"name": "Heavy Armor Kit", "id": 1}]})):
+            s.execute(text("update characters set verification='ownership_verified' where id=:i"), {"i": cid})
+            ch = s.execute(text("select member_id, edition, region from characters where id=:i"), {"i": cid}).one()
+            s.add(CharacterProfile(character_id=cid, member_id=ch[0], edition=ch[1], region=ch[2],
+                                   groups={"professions": [prof]}, shares={"professions": "members"}))
+        s.flush()
+        a = boards.create(s, cfg, members[1], "adventure", dict(
+            kind="need_help", character_id=cids[1], title="Wailing Caverns, first clear", activity_type="dungeon",
+            body="FIXTURE: never been inside. Happy to go slow and learn the pulls.", timezone=hz,
+            windows=[(day, day + timedelta(hours=2)), (day + timedelta(days=1), day + timedelta(days=1, hours=3))],
+            tags=["First-timers welcome", "Explanations wanted"]))
+        boards.respond(s, cfg, members[2], str(a.public_id), "need")
+        boards.respond(s, cfg, members[3], str(a.public_id), "help")
+        boards.create(s, cfg, members[4], "adventure", dict(
+            kind="company", character_id=cids[4], title="Questing in the Barrens, levels 14 to 18",
+            activity_type="quest", body="FIXTURE: chatty questing, voice optional.", timezone=hz,
+            windows=[(day + timedelta(hours=1), day + timedelta(hours=3))], tags=["Social", "Relaxed pace"]))
+        boards.create(s, cfg, org, "adventure", dict(
+            kind="offer_help", character_id=mychar, title="Happy to run Ragefire Chasm for anyone new",
+            activity_type="dungeon", timezone=hz, tags=["Explanations provided"]))
+        boards.create(s, cfg, members[2], "profession", dict(
+            kind="need_crafted", character_id=cids[2], title="Heavy Armor Kit", body="FIXTURE: two please, I have leather."))
+        boards.create(s, cfg, members[0], "profession", dict(kind="can_craft", character_id=cids[0],
+                                                              recipe_name="Guardian Belt", body="Bring 4 heavy leather."))
+        q = boards.create(s, cfg, members[5], "profession", dict(
+            kind="recipe", character_id=cids[5], profession="Leatherworking", title="Pattern: Barbaric Gloves"))
+        boards.respond(s, cfg, members[0], str(q.public_id), "answer", note="FIXTURE: sold by the leatherworking supplier in the Crossroads.")
+        boards.create(s, cfg, members[3], "profession", dict(
+            kind="farm", character_id=cids[3], profession="Skinning", title="Skinning 150 to 200 in the Barrens"))
 
 
 def reset(admin_url: str) -> None:

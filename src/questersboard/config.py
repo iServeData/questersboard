@@ -40,7 +40,7 @@ EMOJI_NAME = re.compile(r"^[A-Za-z0-9_]{2,32}$")
 COVER_NAME = re.compile(r"^[A-Za-z0-9_-]{1,60}\.(webp|png|jpg|jpeg)$")
 
 LIVE_SECTIONS = ("roles", "publishing", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status",
-                 "event_posts", "solo_stories", "public_voice")
+                 "event_posts", "solo_stories", "public_voice", "adventures", "professions")
 API_STATUSES = ("verified", "unverified", "unsupported")
 API_CAPS = ("reference", "character", "quests", "locations", "ownership")
 
@@ -239,6 +239,64 @@ def _snowflakes(v: Any, where: str) -> list[str]:
     if not isinstance(v, list):
         raise ConfigError(f"{where} must be a list of quoted Discord IDs")
     return [_snowflake(x, f"{where}[]", allow_empty=False) for x in v]
+
+
+DEFAULT_BOARD_TAGS = ["First-timers welcome", "Explanations wanted", "Explanations provided", "Relaxed pace",
+                      "Short session", "Break-friendly", "Listening-only voice is fine", "Roleplay welcome",
+                      "Social", "No spoilers"]
+DEFAULT_PROFESSIONS = ["Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Herbalism", "Inscription",
+                       "Jewelcrafting", "Leatherworking", "Mining", "Skinning", "Tailoring", "Cooking", "Fishing",
+                       "First Aid"]
+
+
+def _whole(sec: dict, key: str, dflt: int, lo: int, hi: int, where: str) -> int:
+    v = sec.setdefault(key, dflt)
+    if not isinstance(v, int) or isinstance(v, bool) or not lo <= v <= hi:
+        raise ConfigError(f"[{where}] {key} must be a whole number from {lo} to {hi}")
+    return v
+
+
+def _names(sec: dict, key: str, dflt: list[str], where: str, most: int = 40) -> list[str]:
+    v = sec.setdefault(key, list(dflt))
+    if (not isinstance(v, list) or len(v) > most
+            or any(not isinstance(x, str) or not 1 <= len(x.strip()) <= 40 for x in v)):
+        raise ConfigError(f"[{where}] {key} must be a list of up to {most} names, each 1 to 40 characters")
+    out: list[str] = []
+    for x in v:
+        if x.strip().casefold() not in {y.casefold() for y in out}:
+            out.append(x.strip())
+    sec[key] = out
+    return out
+
+
+def _boards(r: dict) -> None:
+    """[adventures] the Adventure Board and [professions] the profession help board. channel_id: where
+    each board's Discord cards go ("" = website only)."""
+    ad = r.setdefault("adventures", {})
+    for k, dflt in (("enabled", True), ("notify_poster", True)):
+        if not isinstance(ad.setdefault(k, dflt), bool):
+            raise ConfigError(f"[adventures] {k} must be true or false")
+    ad["channel_id"] = _snowflake(ad.setdefault("channel_id", ""), "[adventures] channel_id")
+    _whole(ad, "group_size", 5, 2, 40, "adventures")
+    _whole(ad, "open_days", 14, 1, 60, "adventures")
+    _whole(ad, "max_open_per_member", 5, 1, 50, "adventures")
+    _names(ad, "tags", DEFAULT_BOARD_TAGS, "adventures")
+    unknown = set(ad) - {"enabled", "notify_poster", "channel_id", "group_size", "open_days",
+                         "max_open_per_member", "tags"}
+    if unknown:
+        raise ConfigError(f"[adventures] unknown setting {sorted(unknown)[0]!r}")
+    pr = r.setdefault("professions", {})
+    for k, dflt in (("enabled", True), ("notify_poster", True)):
+        if not isinstance(pr.setdefault(k, dflt), bool):
+            raise ConfigError(f"[professions] {k} must be true or false")
+    pr["channel_id"] = _snowflake(pr.setdefault("channel_id", ""), "[professions] channel_id")
+    _whole(pr, "post_days", 7, 1, 60, "professions")
+    _whole(pr, "max_open_per_member", 5, 1, 50, "professions")
+    if not _names(pr, "names", DEFAULT_PROFESSIONS, "professions"):
+        raise ConfigError("[professions] names must list at least one profession")
+    unknown = set(pr) - {"enabled", "notify_poster", "channel_id", "post_days", "max_open_per_member", "names"}
+    if unknown:
+        raise ConfigError(f"[professions] unknown setting {sorted(unknown)[0]!r}")
 
 
 def _positive(v: Any, where: str, minimum: int = 1) -> int:
@@ -652,6 +710,8 @@ def validate(raw: dict[str, Any]) -> dict[str, Any]:
     unknown = set(so) - {"enabled", "join_me", "in_feeds", "role_ids", "per_week"}
     if unknown:
         raise ConfigError(f"[solo_stories] unknown setting {sorted(unknown)[0]!r}")
+
+    _boards(r)
 
     # Who may publish events. open_to_all: every member may, except during probation (newer to the server
     # than probation_days), when their drafts go to the moderators. The event_creator role always may.

@@ -112,6 +112,33 @@ join_me = true                                # "Join me next time" on each solo
 in_feeds = false                              # also list solo stories in the feeds and the site's latest-stories
                                               # widget (false = event stories only there)
 
+[adventures]                                  # [live] Adventure Board: members post what they want to do
+enabled = true                                # (a goal), offer to help, or look for company. The poster can
+                                              # turn a post into a draft event. Members only, never public.
+channel_id = ""                               # Discord channel for the board's cards, e.g. #adventure-board
+                                              # ("" = website only). The bot needs View Channel, Send
+                                              # Messages, Embed Links and Read Message History there;
+                                              # members only need to view and read it.
+group_size = 5                                # people a goal looks for when the poster doesn't say
+open_days = 14                                # a post closes after its last time window, or this many days
+max_open_per_member = 5                       # open posts each member can have on this board
+notify_poster = true                          # message the poster when someone offers to help or asks
+tags = ["First-timers welcome", "Explanations wanted", "Explanations provided", "Relaxed pace",
+        "Short session", "Break-friendly", "Listening-only voice is fine", "Roleplay welcome",
+        "Social", "No spoilers"]              # preference tags a post can carry
+
+[professions]                                 # [live] Profession help board: need something crafted, offer
+enabled = true                                # a recipe your character knows (checked against Blizzard),
+                                              # ask where a recipe comes from, or find company to farm.
+channel_id = ""                               # Discord channel for its cards, e.g. #profession-help
+                                              # ("" = website only); same bot permissions as above
+post_days = 7                                 # posts close after this many days (the poster can extend)
+max_open_per_member = 5                       # open posts each member can have on this board
+notify_poster = true                          # message the poster when someone can make it, asks or answers
+names = ["Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Herbalism", "Inscription",
+         "Jewelcrafting", "Leatherworking", "Mining", "Skinning", "Tailoring", "Cooking", "Fishing",
+         "First Aid"]                         # professions offered in the forms and filters
+
 [uploads]                                     # restart
 storage_dir = "/var/lib/questersboard/uploads"
 max_bytes = 5_000_000

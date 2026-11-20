@@ -530,6 +530,8 @@ def publish(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:
     if src is not None:
         # planned from a solo story: tell everyone who pressed Join me next time
         outbox.enqueue(s, "notify.join_me_event", f"joinme-event:{ev.id}", {"event_id": ev.id, "entry_id": src[0].id})
+    from . import boards
+    boards.on_publish(s, ev)          # planned from a board post: it closes and everyone who answered is told
     if ev.creator_id != actor.member_id:
         # a moderator published someone's draft: tell the owner it's live
         outbox.enqueue(s, "notify.draft_published", f"published:{ev.id}",

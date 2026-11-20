@@ -9,6 +9,7 @@ What happens, in one transaction:
   ("a healer"); screenshots of those events go back to review because a name plate might show;
 * characters never used in an event are deleted; used ones are blanked to "(removed)" and
   archived so other people's event history still adds up;
+* their Adventure Board and profession help posts (with the posts' Discord cards) and answers are deleted;
 * calendar links, the Battle.net link, reminders and every login session are deleted;
 * the member row is unlinked from Discord (the Discord ID and display name are wiped), so the
   same Discord account logging in later starts a brand-new, empty profile.
@@ -171,6 +172,10 @@ def erase(s: Session, cfg: Config, member_id: int, source: str = "web") -> dict:
     # "Join me next time" on other people's solo stories
     from ..models import ChronicleInterest
     s.execute(delete(ChronicleInterest).where(ChronicleInterest.member_id == member_id))
+
+    # Adventure Board and profession help: their posts (and the posts' Discord cards) and their answers
+    from . import boards
+    receipt["board_posts"] = boards.erase_member(s, member_id)
 
     # 4. characters (imported Blizzard details go first, whatever happens to the character)
     receipt["character_details"] = s.execute(delete(CharacterProfile)

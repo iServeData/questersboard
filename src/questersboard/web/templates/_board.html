@@ -1,0 +1,46 @@
+{#- One Adventure Board or profession help post, as a card. v: domain.boards.PostView. -#}
+{% macro post_card(v, back="", detail=False) -%}
+{%- set p = v.p -%}
+{%- set cls = {"need_help": "help", "offer_help": "offer", "company": "co", "need_crafted": "", "can_craft": "can", "recipe": "rec", "farm": "farm"}[p.kind] -%}
+<article class="pb-post {{ cls }}{% if p.closed_reason == 'evented' %} ev{% endif %}" id="post-{{ p.public_id }}">
+  <div class="pb-top"><span class="pb-type">{% if p.closed_reason == "evented" %}Became an event{% else %}{{ v.kind_label }}{% endif %}</span>
+    {%- if v.own %}<span class="pb-badge member">Your post</span>{% elif p.kind == "can_craft" and p.state == "open" %}<span class="pb-badge">Blizzard-checked</span>{% elif p.kind == "recipe" %}<span class="pb-badge member">Member question</span>{% endif %}</div>
+  <div class="pb-main">
+    {%- if v.icon %}<img class="wq-icon{% if p.kind != 'can_craft' %} c{% endif %}" src="{{ mp }}{{ v.icon }}" alt="" width="44" height="44" loading="lazy">
+    {%- elif v.character %}<img class="wq-icon c pb-sil" src="{{ mp }}/static/silhouettes/{{ silhouette(v.character.race_key) }}.svg?v={{ static_v }}" alt="" width="44" height="44">{% endif %}
+    <div><p class="pb-title {{ 'u' if p.kind == 'can_craft' else 'w' }}">{% if detail %}{{ p.title }}{% else %}<a href="{{ mp }}/board/{{ p.public_id }}">{{ p.title }}</a>{% endif %}</p><p class="pb-who">{{ v.who }}</p></div>
+  </div>
+  {%- if p.body %}<p class="pb-text">{{ p.body }}</p>{% endif %}
+  {%- if p.tags %}<div class="ab-tags">{% for t in p.tags %}<span class="ab-tag">{{ t }}</span>{% endfor %}</div>{% endif %}
+  {%- if v.windows %}<div class="ab-when"><b>{{ "Free" if p.kind == "offer_help" else "Works for me" }}:</b> {{ v.windows|join(" · ") }}</div>{% endif %}
+  <div class="pb-meta"><span>Posted {{ at_text(p.created_at, p.timezone) }}</span>
+    {%- if p.state == "open" %}<span>Open until {{ at_text(p.expires_at, p.timezone) }}</span>{% endif %}
+    {%- if p.kind == "need_crafted" %}<span>{{ v.crafters }} shared character{{ "" if v.crafters == 1 else "s" }} you can see know{{ "s" if v.crafters == 1 else "" }} this recipe</span>{% endif %}</div>
+  {%- if v.count_text %}<div class="ab-people">
+    {%- for t in v.count_text %}<span>{{ t }}</span>{% endfor %}
+  </div>{% endif %}
+  {%- for k, names in v.named.items() %}<p class="pb-names">{{ {"need": "Also want this", "help": "Can help", "can_make": "Can make it", "ask": "Asked"}.get(k, k) }}: {{ names|join(", ") }}</p>{% endfor %}
+  {%- if p.group_size and p.state == "open" %}
+  <progress class="ab-meter{% if v.ready %} full{% endif %}" max="{{ p.group_size }}" value="{{ [v.people, p.group_size]|min }}">{{ v.people }} of {{ p.group_size }}</progress>
+  {%- if v.ready %}<p class="ab-ready">Enough people{% if v.own %}. You can turn this into an event{% endif %}.</p>{% else %}<p class="ab-wait">{{ v.people }} of {{ p.group_size }} for a group. The poster can turn it into an event at any time.</p>{% endif %}
+  {%- endif %}
+  {%- if v.answers %}{% for name, note in (v.answers if detail else v.answers[-1:]) %}<div class="pb-reply"><b>{{ name }}:</b> {{ note }} <span class="note">member note</span></div>{% endfor %}{% endif %}
+  {%- if p.closed_reason == "evented" and v.event %}<div class="ab-event">Planned for {{ at_text(v.event.start_at, v.event.timezone) }}. Everyone who answered was sent the link; nobody was signed up for them.</div>
+  {%- elif v.closed_text %}<p class="caveat">Closed: {{ v.closed_text }}.</p>{% endif %}
+  <div class="pb-actions">
+    {%- if p.closed_reason == "evented" and v.event %}<a class="btn ghost" href="{{ mp }}/events/{{ v.event.public_id }}">Open the event</a>{% endif %}
+    {%- for k, label in v.actions.items() %}
+      {%- if k == "answer" %}{% if not detail %}<a class="btn ghost" href="{{ mp }}/board/{{ p.public_id }}#answer">Answer</a>{% endif %}
+      {%- elif k == "can_make" and not v.can_make_with and k not in v.mine %}
+      {%- else %}
+      <form method="post" action="{{ mp }}/board/{{ p.public_id }}/respond" class="wq-inline">{{ csrf_field() }}<input type="hidden" name="kind" value="{{ k }}">{% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}
+        {%- if k in v.mine %}<input type="hidden" name="want" value="0"><button class="btn ghost" type="submit">Take back: {{ label }}</button>
+        {%- else %}<button class="btn{% if not loop.first %} ghost{% endif %}" type="submit">{% if k == "ask" and v.character %}Ask {{ v.character.name }}{% else %}{{ label }}{% endif %}</button>{% endif %}</form>
+      {%- endif %}
+    {%- endfor %}
+    {%- if v.can_plan %}<a class="btn" href="{{ mp }}/board/{{ p.public_id }}#plan">{{ "Turn into an adventure" if p.kind == "farm" else "Turn into an event" }}</a>{% endif %}
+    {%- if v.own and not detail %}<a class="btn ghost" href="{{ mp }}/board/{{ p.public_id }}">Manage</a>{% endif %}
+  </div>
+  {%- if detail and p.kind == "need_crafted" and v.actions and not v.can_make_with %}<p class="note">I can make this shows when one of your characters' Blizzard profiles has the recipe.</p>{% endif %}
+</article>
+{%- endmacro %}
