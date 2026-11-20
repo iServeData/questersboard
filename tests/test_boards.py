@@ -339,6 +339,11 @@ def test_craft_posts_carry_item_details(seeded, cfg):
         prof.groups = {"professions": [{"name": "Leatherworking", "skill": 165, "recipes": [{"name": RECIPE}]}]}
         s.flush()
         assert "item" not in boards.card_extra(s, p)
+        # a refresh that still shows the recipe updates the open offer's card
+        p.discord_channel_id = fake_id(880)
+        s.execute(text("delete from outbox where kind = 'discord.render_board_post'"))
+        assert boards.recheck_offers(s, c.id) == 0 and p.state == "open"
+        assert [j.payload["post_id"] for j in _jobs(s, "discord.render_board_post")] == [p.id]
 
 
 def test_removed_character_closes_offers(seeded, cfg):

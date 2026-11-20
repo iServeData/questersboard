@@ -549,7 +549,8 @@ def on_publish(s: Session, ev: Event) -> None:
 
 def recheck_offers(s: Session, character_id: int, gone: bool = False) -> int:
     """Can craft offers from this character close when its Blizzard profile no longer shows the recipe
-    (refresh, removed details, archived or deleted character). Runs in the same transaction."""
+    (refresh, removed details, archived or deleted character); open ones get their Discord card
+    updated with the refreshed details. Runs in the same transaction. Returns how many closed."""
     n = 0
     for p in s.scalars(select(BoardPost).where(BoardPost.character_id == character_id, BoardPost.state == "open")):
         if gone:
@@ -557,7 +558,11 @@ def recheck_offers(s: Session, character_id: int, gone: bool = False) -> int:
                 p.state, p.closed_reason = "closed", "character"
             else:
                 continue
-        elif p.kind != "can_craft" or known_recipe(s, character_id, p.recipe_name or p.title) is not None:
+        elif p.kind != "can_craft":
+            continue
+        elif known_recipe(s, character_id, p.recipe_name or p.title) is not None:
+            if p.discord_channel_id:
+                request_render(s, p)            # the card picks up refreshed details (skill, reagents, tooltip)
             continue
         else:
             p.state, p.closed_reason = "closed", "recipe_gone"
