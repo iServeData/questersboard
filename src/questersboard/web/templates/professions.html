@@ -31,7 +31,10 @@
   {{ dialog_head("offer", "Offer a craft") }}{{ gate() }}
   {% if can_post %}{% if craftable %}<form method="post" action="{{ mp }}/professions" class="wq-form ab-form ab-grid">{{ csrf_field() }}
     <input type="hidden" name="kind" value="can_craft">
-    <label class="ab-wide">Recipe (from Blizzard)<select name="craft" required{{ mark("offer", "craft") }}>{% for r in craftable %}{% set v = r.character_id|string ~ ":" ~ r.name %}<option value="{{ v }}"{% if val("offer", "craft") == v %} selected{% endif %}>{{ r.name }} · {{ r.character }}, {{ r.prof }}</option>{% endfor %}</select></label>
+    {% set crafters = craftable|groupby("character_id")|sort(attribute="list.0.character") %}
+    {% set picked = val("offer", "craft_character")|string %}
+    <label class="ab-wide">Character<select name="craft_character" required data-craft-character{{ mark("offer", "craft_character") }}>{% for cid, rs in crafters %}<option value="{{ cid }}"{% if picked == cid|string %} selected{% endif %}>{{ rs[0].character }} ({{ rs|map(attribute="prof")|unique|join(", ") }})</option>{% endfor %}</select></label>
+    <label class="ab-wide">Item they can craft<select name="craft" required data-craft-recipe{{ mark("offer", "craft") }}>{% for cid, rs in crafters %}<optgroup label="{{ rs[0].character }}" data-character="{{ cid }}">{% for r in rs|sort(attribute="name")|sort(attribute="prof") %}{% set v = cid|string ~ ":" ~ r.name %}<option value="{{ v }}"{% if val("offer", "craft") == v %} selected{% endif %}>{{ r.name }} · {{ r.prof }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
     <label class="ab-wide">Details<textarea name="body" maxlength="500" rows="3" placeholder="What to bring"{{ mark("offer", "body") }}>{{ val("offer", "body") }}</textarea></label>
     <div class="btns ab-wide"><button class="btn" type="submit">Offer it</button></div>
   </form>

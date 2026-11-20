@@ -512,6 +512,25 @@
       });
     });
   });
+  // Offer a craft: the item list shows only what the chosen character can craft. The full list is kept
+  // and rebuilt, because Safari ignores hidden options. Without this script both lists show everything.
+  document.querySelectorAll("select[data-craft-character]").forEach(function (who) {
+    var list = who.form && who.form.querySelector("select[data-craft-recipe]");
+    if (!list) return;
+    var groups = Array.prototype.map.call(list.querySelectorAll("optgroup"), function (g) { return g.cloneNode(true); });
+    var sync = function () {
+      var keep = list.value;
+      while (list.firstChild) list.removeChild(list.firstChild);
+      groups.forEach(function (g) {
+        if (g.getAttribute("data-character") !== who.value) return;
+        Array.prototype.forEach.call(g.children, function (o) { list.appendChild(o.cloneNode(true)); });
+      });
+      list.value = keep;
+      if (list.selectedIndex < 0) list.selectedIndex = 0;
+    };
+    who.addEventListener("change", sync);
+    sync();
+  });
   // Pill tabs over a character's details: show one tab's sections at a time. Without this script the
   // tab bar stays hidden and every section shows. On a single character's page the tab follows #hash.
   var tabBars = document.querySelectorAll("[data-tabs]");

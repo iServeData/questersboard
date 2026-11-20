@@ -94,7 +94,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
     def _keep(form) -> dict:
         """What the member typed, so a form with a problem comes back filled in."""
         keys = ["kind", "character_id", "title", "body", "activity_type", "group_size", "timezone",
-                "profession", "recipe_name", "craft"]
+                "profession", "recipe_name", "craft", "craft_character"]
         keys += [f"{k}_{i}" for i in range(boards.MAX_WINDOWS) for k in ("date", "from", "to")]
         out = {k: str(form.get(k) or "") for k in keys}
         out["tags"] = list(form.getlist("tags"))
@@ -120,6 +120,12 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
             cid, _, name = str(form.get("craft") or "").partition(":")
             if cid.isdigit():
                 data["character_id"], data["recipe_name"] = int(cid), name
+            picked = str(form.get("craft_character") or "")
+            if picked and picked != cid:                  # without the page script both lists show everything
+                resp = _page(request, board, form_error="Pick an item the character you chose can craft.",
+                             form=_keep(form), bad="craft")
+                resp.status_code = 400
+                return resp
         try:
             with w.db.tx() as s:
                 p = boards.create(s, w.cfg, a, board, data)

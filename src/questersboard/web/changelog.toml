@@ -23,6 +23,10 @@ text = "Event moderators who aren't hosting an event now see its panel labelled 
 area = "Events"
 kind = "improved"
 text = "The new-post forms on both boards open from buttons at the top of the page. If a post can't be sent, the form stays open with everything you typed, and the field to fix is outlined in red."
+[[release.change]]
+area = "Guild"
+kind = "improved"
+text = "Offer a craft asks for the character first, then lists only the items that character can craft."
 
 [[release]]
 date = "2026-11-15"

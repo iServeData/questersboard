@@ -457,8 +457,16 @@ def test_web_profession_pages(seeded, tmp_path):
     h = tw.login(a, 41)
     page = h.get("/wow/quester/professions").text
     assert RECIPE in page and f'value="{c.id}:{RECIPE}"' in page
+    assert 'name="craft_character"' in page and f'<optgroup label="{c.name}" data-character="{c.id}">' in page
+    # a character and an item from someone else's list don't go together (only possible without the script)
     r = h.post("/wow/quester/professions", data={"csrf": tw.csrf(h, "/wow/quester/professions"),
-                                                 "kind": "can_craft", "craft": f"{c.id}:{RECIPE}", "body": ""})
+                                                 "kind": "can_craft", "craft_character": str(c.id + 999),
+                                                 "craft": f"{c.id}:{RECIPE}", "body": "Bring mats"})
+    assert r.status_code == 400 and "the character you chose can craft" in r.text
+    assert 'data-craft-recipe class="is-bad"' in r.text and ">Bring mats<" in r.text
+    r = h.post("/wow/quester/professions", data={"csrf": tw.csrf(h, "/wow/quester/professions"),
+                                                 "kind": "can_craft", "craft_character": str(c.id),
+                                                 "craft": f"{c.id}:{RECIPE}", "body": ""})
     assert r.status_code == 303, r.text
     p = tw.login(a, 40)
     with seeded.tx() as s:
