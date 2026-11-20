@@ -21,8 +21,8 @@ kind = "improved"
 text = "Event moderators who aren't hosting an event now see its panel labelled Moderator tools instead of Host tools."
 [[release.change]]
 area = "Events"
-kind = "fixed"
-text = "If a goal can't be posted, the form now says which time is too long and keeps everything you typed."
+kind = "improved"
+text = "The new-post forms on both boards open from buttons at the top of the page. If a post can't be sent, the form stays open with everything you typed, and the field to fix is outlined in red."
 
 [[release]]
 date = "2026-11-15"

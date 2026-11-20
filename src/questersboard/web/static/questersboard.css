@@ -814,3 +814,16 @@ progress.ab-meter.full::-moz-progress-bar{background:#2e8b57}
 .ab-tagbox{display:flex;flex-wrap:wrap;gap:4px 14px}
 .ab-tagbox .pb-check{margin:2px 0!important;display:inline-flex!important}
 .ab-prefs .pb-check{font-size:.85rem!important}
+
+/* Board new-post dialogs */
+.pb-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px;margin-bottom:14px}
+.pb-top .pb-intro{margin:0;flex:1 1 380px}
+.pb-top .btns{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+.ab-dialog{width:min(720px,94vw)}
+.ab-dialog h2.sub{margin:0 44px 10px 0}
+.ab-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.ab-grid .ab-wide{grid-column:1 / -1}
+.ab-grid label{margin:6px 0}
+@media (max-width:600px){.ab-grid{grid-template-columns:1fr}.ab-dialog.is-modal{width:100vw;max-width:100vw;max-height:100dvh;height:100dvh;margin:0;border:0}}
+.wq-form .is-bad,.wq-form .is-bad:focus{border-color:#e5484d!important;box-shadow:0 0 0 1px #e5484d}
+@media (min-width:601px){.ab-dialog .ab-time{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto minmax(0,1fr);margin:6px 0}.ab-dialog .ab-time input[type=date]{grid-column:auto}}

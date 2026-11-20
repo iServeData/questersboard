@@ -413,6 +413,11 @@ def test_web_adventure_board_flow(seeded, tmp_path):
     for frag in ('value="Fixture long day"', ">Keep me<", f'value="{day}"', 'value="21:00"', 'value="19:00"',
                  'value="7"', 'value="Social" checked', 'value="company" selected', 'value="quest" selected'):
         assert frag in bad.text, frag
+    assert 'id="goal-dialog" aria-labelledby="goal-dialog-title" data-board-dialog open' in bad.text
+    assert bad.text.count('aria-invalid="true"') == 3          # the date, from and to of that row
+    assert 'name="title" required minlength="3" maxlength="120" value="Fixture long day"' in bad.text
+    assert 'data-board-dialog>' in c.get("/wow/quester/adventures").text          # closed until asked
+    assert 'data-board-dialog open' in c.get("/wow/quester/adventures?new=1").text
     r = c.post("/wow/quester/adventures", data={
         "csrf": tok, "character_id": cid, "kind": "need_help", "title": "Fixture Keep, all bosses",
         "activity_type": "dungeon", "body": "Slow and steady", "date_0": day, "from_0": "19:00", "to_0": "21:30",
@@ -465,6 +470,15 @@ def test_web_profession_pages(seeded, tmp_path):
     bad = p.post("/wow/quester/professions", data={"csrf": tw.csrf(p, "/wow/quester/professions"),
                                                    "kind": "farm", "character_id": mine, "title": "x"})
     assert bad.status_code == 400 and "Pick the profession" in bad.text
+    # the Recipe or farming dialog comes back open, filled in, with the profession marked
+    assert 'id="prof-ask" aria-labelledby="prof-ask-title" data-board-dialog open' in bad.text
+    assert 'id="prof-need" aria-labelledby="prof-need-title" data-board-dialog>' in bad.text
+    assert 'value="farm" selected' in bad.text and 'value="x"' in bad.text
+    assert 'name="profession" required class="is-bad" aria-invalid="true"' in bad.text
+    assert bad.text.count('aria-invalid="true"') == 1
+    page = p.get("/wow/quester/professions?new=offer").text
+    assert 'id="prof-offer" aria-labelledby="prof-offer-title" data-board-dialog open' in page
+    assert 'data-open-dialog="prof-need"' in page and 'aria-invalid' not in page
 
 
 def test_web_boards_off_and_signed_out(seeded, tmp_path):

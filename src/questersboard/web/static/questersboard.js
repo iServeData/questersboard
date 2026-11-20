@@ -474,6 +474,44 @@
       }
     });
   }
+  // Adventure Board and Profession help: each new-post form is a dialog opened from the buttons at the
+  // top. Without this script the buttons are links (?new=...) and the page shows that form in place.
+  // A form sent back with a problem arrives open; it reopens as a dialog with the problem field focused.
+  document.querySelectorAll("dialog[data-board-dialog]").forEach(function (d) {
+    if (typeof d.showModal !== "function") return;
+    var show = function () {
+      if (!d.open) d.showModal();
+      var f = d.querySelector("[aria-invalid=true]");      // otherwise the browser focuses Close
+      if (f) f.focus();
+    };
+    if (d.hasAttribute("open")) { d.removeAttribute("open"); d.classList.add("is-modal"); show(); }
+    document.querySelectorAll('[data-open-dialog="' + d.id + '"]').forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        d.classList.add("is-modal");
+        show();
+      });
+    });
+    d.querySelectorAll("[data-close-dialog]").forEach(function (b) {
+      b.addEventListener("click", function (e) { e.preventDefault(); d.close(); });
+    });
+    // Clicking the dimmed area outside closes it; what was typed stays for next time.
+    var downOutside = false;
+    d.addEventListener("pointerdown", function (e) { downOutside = e.target === d; });
+    d.addEventListener("click", function (e) { if (downOutside && e.target === d) d.close(); downOutside = false; });
+    d.addEventListener("close", function () {
+      if (/[?&]new=/.test(location.search) && history.replaceState) history.replaceState(null, "", location.pathname);
+    });
+    // The marked field (or time row) stops being marked once it's changed.
+    d.querySelectorAll("[aria-invalid=true]").forEach(function (f) {
+      f.addEventListener("input", function () {
+        d.querySelectorAll("[aria-invalid=true]").forEach(function (g) {   // one field, or one time row
+          g.removeAttribute("aria-invalid"); g.classList.remove("is-bad");
+        });
+      });
+    });
+  });
   // Pill tabs over a character's details: show one tab's sections at a time. Without this script the
   // tab bar stays hidden and every section shows. On a single character's page the tab follows #hash.
   var tabBars = document.querySelectorAll("[data-tabs]");

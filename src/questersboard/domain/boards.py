@@ -237,7 +237,7 @@ def _delete_card(s: Session, p: BoardPost) -> None:
 def _own_character(s: Session, actor: Actor, character_id: int) -> Character:
     ch = s.get(Character, int(character_id or 0))
     if ch is None or ch.member_id != actor.member_id or ch.archived_at is not None:
-        raise Invalid("Pick one of your own characters.")
+        raise Invalid("Pick one of your own characters.", field="character_id")
     return ch
 
 
@@ -246,10 +246,10 @@ def open_count(s: Session, member_id: int, board: str) -> int:
         BoardPost.member_id == member_id, BoardPost.board == board, BoardPost.state == "open")) or 0
 
 
-def _text(v, lo: int, hi: int, what: str) -> str:
+def _text(v, lo: int, hi: int, what: str, field: str = "title") -> str:
     t = " ".join(str(v or "").split())
     if not lo <= len(t) <= hi:
-        raise Invalid(f"{what} must be {lo} to {hi} characters." if lo else f"{what} can be up to {hi} characters.")
+        raise Invalid(f"{what} must be {lo} to {hi} characters." if lo else f"{what} can be up to {hi} characters.", field=field)
     return t
 
 
@@ -269,7 +269,7 @@ def create(s: Session, cfg: Config, actor: Actor, board: str, data: dict) -> Boa
                       "Mark one done or remove it first.")
     body = " ".join(str(data.get("body") or "").split())[:600]
     if len(str(data.get("body") or "").strip()) > 500:
-        raise Invalid("The details can be up to 500 characters.")
+        raise Invalid("The details can be up to 500 characters.", field="body")
     tz = str(data.get("timezone") or cfg["community"]["default_timezone"])
     p = BoardPost(board=board, kind=kind, member_id=actor.member_id, character_id=ch.id, edition=ch.edition,
                   body=body, timezone=tz, tags=[], windows=[])
@@ -279,7 +279,7 @@ def create(s: Session, cfg: Config, actor: Actor, board: str, data: dict) -> Boa
         from .events import ACTIVITY_TYPES
         act = str(data.get("activity_type") or "quest")
         if act not in ACTIVITY_TYPES:
-            raise Invalid("Pick an activity.")
+            raise Invalid("Pick an activity.", field="activity_type")
         p.activity_type = act
         allowed = {x.casefold(): x for x in sec["tags"]}
         p.tags = [allowed[x.casefold()] for x in dict.fromkeys(data.get("tags") or []) if x.casefold() in allowed][:6]
@@ -287,29 +287,32 @@ def create(s: Session, cfg: Config, actor: Actor, board: str, data: dict) -> Boa
         try:
             gs = int(gs)
         except (TypeError, ValueError):
-            raise Invalid("Group size must be a number.") from None
+            raise Invalid("Group size must be a number.", field="group_size") from None
         if not 2 <= gs <= 40:
-            raise Invalid("Group size must be from 2 to 40.")
+            raise Invalid("Group size must be from 2 to 40.", field="group_size")
         p.group_size = gs
-        wins = [(a, b) for a, b in (data.get("windows") or []) if a and b]
+        # each window is (start, end) or (start, end, slot); slot is the form row, for marking it
+        wins = [(w[0], w[1], w[2] if len(w) > 2 else i) for i, w in enumerate(data.get("windows") or [])
+                if w[0] and w[1]]
         if len(wins) > MAX_WINDOWS:
             raise Invalid(f"Give up to {MAX_WINDOWS} times that work.")
         limit = t + timedelta(days=sec["open_days"])
         most = int(sec.get("max_window_hours", MAX_WINDOW_HOURS))
-        for a, b in wins:
+        for a, b, slot in wins:
+            bad = {"field": f"time_{slot}"}
             if b <= a:
-                raise Invalid("Each time that works needs to end after it starts.")
+                raise Invalid("Each time that works needs to end after it starts.", **bad)
             if b - a > timedelta(hours=most):
                 hrs = (b - a).total_seconds() / 3600
                 raise Invalid(f"{when_text(a, b, tz)} is {hrs:g} hours long; each time that works "
-                              f"can be up to {most} hours. An end earlier than the start means the next day.")
+                              f"can be up to {most} hours. An end earlier than the start means the next day.", **bad)
             if b <= t:
-                raise Invalid("That time has already passed.")
+                raise Invalid("That time has already passed.", **bad)
             if a > limit:
-                raise Invalid(f"Times that work must be within the next {sec['open_days']} days.")
+                raise Invalid(f"Times that work must be within the next {sec['open_days']} days.", **bad)
         wins.sort()
-        p.windows = [[a.astimezone(UTC).isoformat(), b.astimezone(UTC).isoformat()] for a, b in wins]
-        p.expires_at = min(max(b for _, b in wins), limit) if wins else limit
+        p.windows = [[a.astimezone(UTC).isoformat(), b.astimezone(UTC).isoformat()] for a, b, _s in wins]
+        p.expires_at = min(max(b for _a, b, _s in wins), limit) if wins else limit
     else:
         names = {x.casefold(): x for x in sec["names"]}
         prof = str(data.get("profession") or "").strip()
@@ -317,15 +320,15 @@ def create(s: Session, cfg: Config, actor: Actor, board: str, data: dict) -> Boa
             got = known_recipe(s, ch.id, str(data.get("recipe_name") or data.get("title") or ""))
             if got is None:
                 raise Invalid(f"{ch.name}'s Blizzard profile doesn't show that recipe. Pick it from the list, or "
-                              "press Refresh from Blizzard on the character page if they learned it recently.")
+                              "press Refresh from Blizzard on the character page if they learned it recently.", field="craft")
             p.title = p.recipe_name = got["name"][:120]
             p.profession = got["prof"][:40]
         else:
             if prof and prof.casefold() not in names:
-                raise Invalid("Pick a profession from the list.")
+                raise Invalid("Pick a profession from the list.", field="profession")
             p.profession = names.get(prof.casefold()) if prof else None
             if kind in ("recipe", "farm") and not p.profession:
-                raise Invalid("Pick the profession.")
+                raise Invalid("Pick the profession.", field="profession")
             p.title = _text(data.get("title") or data.get("recipe_name"), 3, 120,
                             "The item" if kind == "need_crafted" else "The title")
             if kind == "need_crafted":

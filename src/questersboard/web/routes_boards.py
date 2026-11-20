@@ -30,7 +30,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
                 else ("kind", "profession", "edition", "can_help"))
         return {k: request.query_params.get(k, "") for k in keys}
 
-    def _page(request: Request, board: str, form_error: str = "", form: dict | None = None):
+    def _page(request: Request, board: str, form_error: str = "", form: dict | None = None, bad: str = ""):
         sess, a = session_or_login(request)
         w = W(request)
         with w.db.tx() as s:
@@ -51,7 +51,9 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
                    "kinds": boards.KINDS[board], "chips": [(k, lbl, "?" + urlencode({**keep, **({"kind": k} if k else {})}))
                                                           for k, lbl in chips],
                    "mine": boards.my_posts(s, a, board), "open_n": boards.open_count(s, a.member_id, board),
-                   "sec": sec, "editions": w.cfg.editions, "tz": tz, "form_error": form_error, "form": form or {},
+                   "sec": sec, "editions": w.cfg.editions, "tz": tz, "form_error": form_error, "form": form or {}, "bad": bad,
+                   "open_form": bool(form_error) or request.query_params.get("new", "") in ("1", "need_crafted", "can_craft", "ask"),
+                   "new_q": request.query_params.get("new", ""),
                    "at_text": boards.at_text, "time_pattern": TIME_PATTERN,
                    "today": as_local(now(), tz).date().isoformat(),
                    "last_day": as_local(now() + timedelta(days=sec.get("open_days", 14)), tz).date().isoformat()}
@@ -77,12 +79,16 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
             if not (d or a or b):
                 continue
             if not (d and a and b):
-                raise Invalid("For each time that works, give the date, a start and an end (24-hour, like 19:00).")
-            start = local_dt(d, a, tz)
-            end = local_dt(d, b, tz)
+                raise Invalid("For each time that works, give the date, a start and an end (24-hour, like 19:00).",
+                              field=f"time_{i}")
+            try:
+                start = local_dt(d, a, tz)
+                end = local_dt(d, b, tz)
+            except Invalid as e:
+                raise Invalid(e.message, field=f"time_{i}") from None
             if end <= start:
                 end += timedelta(days=1)          # 22:00 to 01:00 runs past midnight
-            out.append((start, end))
+            out.append((start, end, i))
         return out
 
     def _keep(form) -> dict:
@@ -106,8 +112,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
             try:
                 data["windows"] = _windows(form, tz)
             except Invalid as e:
-                resp = _page(request, board, form_error=str(e),
-                             form=_keep(form))
+                resp = _page(request, board, form_error=str(e), form=_keep(form), bad=e.detail.get("field", ""))
                 resp.status_code = 400
                 return resp
         elif data.get("kind") == "can_craft":
@@ -120,8 +125,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
                 p = boards.create(s, w.cfg, a, board, data)
                 pid = p.public_id
         except Invalid as e:
-            resp = _page(request, board, form_error=str(e),
-                         form=_keep(form))
+            resp = _page(request, board, form_error=str(e), form=_keep(form), bad=e.detail.get("field", ""))
             resp.status_code = 400
             return resp
         return redirect(f"{mp}/board/{pid}")
