@@ -18,7 +18,7 @@ text = "A goal's times are shown as a list, and the poster sees who's in labelle
 [[release.change]]
 area = "Guild"
 kind = "improved"
-text = "Every dropdown is now in A to Z order, with choices like Any or None first."
+text = "Every dropdown is now in A to Z order, with choices like Any or None first. Difficulty goes from hardest to easiest, and the QuestersBoard menu and its lists are A to Z."
 [[release.change]]
 area = "Guild"
 kind = "improved"

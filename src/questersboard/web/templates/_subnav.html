@@ -37,8 +37,8 @@
   {%- endif %}
   {% if b.subnav_label %}<span class="sub-label">{% if b.subnav_label_url %}<a href="{{ b.subnav_label_url }}">{{ b.subnav_label }}</a>{% else %}{{ b.subnav_label }}{% endif %}</span>{% endif %}
   <ul class="wq-dd" data-subnav>
-    {%- for key, label, items in sections %}
-    {%- set links = items[:2] + guilds + items[2:] if key == "characters" else items %}
+    {%- for key, label, items in sections|alpha(1) %}
+    {%- set links = (items|alpha(1)) + ((guilds|alpha(1)) if key == "characters" else []) %}
     <li><button type="button" class="wq-dd-btn{% if key == cur %} is-cur{% endif %}" aria-expanded="false" aria-controls="wq-dd-{{ key }}">{{ label }}{% if key == cur %}<span class="sr-only"> (current section)</span>{% endif %}</button>
       <div class="wq-dd-panel" id="wq-dd-{{ key }}"><ul>
         {%- for url, text in links %}<li><a href="{{ url }}"{% if url == path %} aria-current="page"{% endif %}>{{ text }}</a></li>{% endfor -%}

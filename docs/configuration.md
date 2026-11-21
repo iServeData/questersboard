@@ -102,8 +102,8 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   marked unverified: after adding an edition run `questersboard-admin seed-catalog`. Editions load at restart.
   Retail uses `catalog = "retail"` (packaged race/class seed, unverified); a Blizzard import adds
   dungeons and raids once the API is enabled.
-- **Difficulties** (`[[editions]] difficulties`): the event form's Difficulty list per edition, e.g.
-  Retail `["Normal", "Heroic", "Mythic", "Mythic+", "Raid Finder"]`. `[]` hides the choice for editions
+- **Difficulties** (`[[editions]] difficulties`): the event form's Difficulty list per edition, shown in the order written (hardest first), e.g.
+  Retail `["Mythic+", "Mythic", "Heroic", "Normal", "Raid Finder"]`. `[]` hides the choice for editions
   with a single difficulty (WoW: Forever, Classic Era); saving an event there clears an old value.
   Optional; when the key is missing the list is Normal only. Loads at restart. When a
   Blizzard import has read an instance's modes, the form marks the ones that instance doesn't offer.

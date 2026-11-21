@@ -12,6 +12,8 @@
   numbers in number order (`questersboard.sorting`, the `alpha` template filter). Any / None / Not set
   stay first; defaults (first edition, first host character) are unchanged. `tests/test_sorting.py`
   fails if a new `<select>` loop isn't sorted.
+  Exceptions: Difficulty keeps the config order (hardest first in the example); the QuestersBoard
+  submenu sections and their links (guild links included) are A to Z.
 - **Edit a board post.** The poster can change an open post's details (both boards) and, on a Can craft
   offer, the fee, from the post's page (`POST /board/<id>/edit`). The Discord card is re-rendered in place;
   nobody is notified. Title, character, recipe and times stay as posted. No migration.

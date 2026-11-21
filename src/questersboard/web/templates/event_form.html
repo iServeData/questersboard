@@ -35,7 +35,7 @@
     <span data-for-edition="{{ k }}" hidden><input type="hidden" name="difficulty" value=""></span>
     {% else %}
     <label data-for-edition="{{ k }}">Difficulty <span class="note">(optional)</span>
-      <select name="difficulty"><option value="">Not set</option>{% for d in ed.difficulties|alpha %}<option value="{{ d }}"{% if editing and ev.difficulty == d %} selected{% endif %}>{{ d }}</option>{% endfor %}</select></label>
+      <select name="difficulty"><option value="">Not set</option>{% for d in ed.difficulties %}<option value="{{ d }}"{% if editing and ev.difficulty == d %} selected{% endif %}>{{ d }}</option>{% endfor %}</select></label>
     {% endif %}
     {% endfor %}
     <div class="wq-row">

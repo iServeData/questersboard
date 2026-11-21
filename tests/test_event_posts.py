@@ -89,7 +89,7 @@ def test_new_fields_saved_and_validated(seeded, cfg):
 
 def test_difficulties_and_colours_are_config(tmp_path):
     cfg = make_cfg(tmp_path)
-    assert cfg.edition("retail").difficulties[:3] == ("Normal", "Heroic", "Mythic")
+    assert cfg.edition("retail").difficulties[:3] == ("Mythic+", "Mythic", "Heroic")   # hardest first
     assert cfg["event_posts"]["faction_colors"]["horde"] == "#C41E3A"
     assert cfg["event_threads"]["enabled"] is False
     with pytest.raises(ConfigError):
@@ -297,7 +297,7 @@ def test_example_difficulty_lists_per_edition(tmp_path):
     cfg = make_cfg(tmp_path)          # the shipped example config
     assert cfg.edition("forever").difficulties == ()
     assert cfg.edition("classic_era").difficulties == ()
-    assert cfg.edition("classic_anniversary").difficulties == ("Normal", "Heroic")
+    assert cfg.edition("classic_anniversary").difficulties == ("Heroic", "Normal")
     assert "Challenge Mode" in cfg.edition("mists_classic").difficulties
     assert "Mythic+" in cfg.edition("retail").difficulties
     for bad in (["Normal", "normal"], [""], ["x" * 33], "Normal"):

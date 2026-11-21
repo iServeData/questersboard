@@ -26,6 +26,12 @@ def test_every_template_loop_in_a_select_is_sorted():
         for m in re.finditer(r"<select\b.*?</select>", f.read_text(), re.S):
             for loop in re.findall(r"\{%-?\s*for [^%]*%\}", m.group(0)):
                 if "|alpha" not in loop and " in (\"" not in loop and "(false, true)" not in loop \
-                        and "[(60," not in loop and " in ((" not in loop and "zs if" not in loop and "groups" not in loop:
+                        and "[(60," not in loop and " in ((" not in loop and "zs if" not in loop and "groups" not in loop and "difficulties" not in loop:
                     bad.append(f"{f.name}: {loop}")
     assert not bad, bad
+
+
+def test_subnav_is_a_to_z_and_difficulty_keeps_config_order():
+    sub = (TEMPLATES / "_subnav.html").read_text()
+    assert "sections|alpha(1)" in sub and "items|alpha(1)" in sub
+    assert "ed.difficulties|alpha" not in (TEMPLATES / "event_form.html").read_text()
