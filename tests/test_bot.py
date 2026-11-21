@@ -29,6 +29,9 @@ def test_command_payload_shape():
     vc = next(c for c in p if c["name"] == "voice")
     assert {o["name"] for o in vc["options"]} == {"invite", "kick", "ban", "unban"}
     assert vc.get("contexts") == [0]                                  # servers only, never in DMs
+    for sub in vc["options"]:                                         # every /voice command can pick the event
+        ev = next(o for o in sub["options"] if o["name"] == "event")
+        assert ev.get("autocomplete") and not ev.get("required")
     blob = json.dumps(p)
     assert "Example Community" not in blob and not re.search(r"\d{17,20}", blob)
 

@@ -33,7 +33,8 @@ from .actor import Actor
 from .errors import Invalid, NotFound, PermissionDenied
 from .permissions import is_event_manager, require_event_manager, require_member
 from .roster import ensure_member
-from .timeutil import now
+from ..sorting import alpha
+from .timeutil import as_local, now
 
 # Discord permission bits
 STREAM = 1 << 9
@@ -327,9 +328,32 @@ def command_actor(s: Session, cfg: Config, actor: Actor) -> Actor:
     return actor
 
 
-def event_for_command(s: Session, cfg: Config, actor: Actor, channel_id: str | None, manage: bool) -> int:
-    """Which running event a /voice command means: the one whose voice chat it was typed in, otherwise the
-    only running event (with voice open) this person can use or manage."""
+def running_choices(s: Session, cfg: Config, actor: Actor, manage: bool) -> list[tuple[int, str]]:
+    """Running events with an open voice channel this person can use (manage=True: host or co-host), A to Z,
+    for the /voice event option. Labels add the start time so two events with the same title can be told apart."""
+    if not cfg["voice"]["enabled"]:
+        return []
+    require_member(cfg, actor)
+    actor = ensure_member(s, actor)
+    out = []
+    for ev in s.scalars(select(Event).where(Event.state == "in_progress", Event.discord_voice_channel_id.is_not(None))):
+        if is_manager(s, cfg, actor, ev) if manage else can_join(s, cfg, actor, ev):
+            out.append((ev.id, f"{ev.title} · {as_local(ev.start_at, ev.timezone):%a %-d %b %H:%M}"))
+    return alpha(out, key=lambda r: r[1])
+
+
+def event_for_command(s: Session, cfg: Config, actor: Actor, channel_id: str | None, manage: bool,
+                      event_id: int | None = None) -> int:
+    """Which running event a /voice command means: the one picked in its event option, otherwise the one whose
+    voice chat it was typed in, otherwise the only running event (with voice open) this person can use or manage."""
+    if event_id is not None:
+        ev = s.get(Event, event_id)
+        if ev is None or ev.state != "in_progress" or not ev.discord_voice_channel_id:
+            raise Invalid("That event isn't running with an open voice channel.")
+        if not (is_manager(s, cfg, ensure_member(s, actor), ev) if manage
+                else can_join(s, cfg, ensure_member(s, actor), ev)):
+            raise Invalid("You're not hosting that event." if manage else "You're not in that event.")
+        return ev.id
     if channel_id:
         eid = s.scalar(select(Event.id).where(Event.discord_voice_channel_id == str(channel_id),
                                               Event.state == "in_progress"))
@@ -345,7 +369,7 @@ def event_for_command(s: Session, cfg: Config, actor: Actor, channel_id: str | N
     if not mine:
         raise Invalid("You're not in a running event with an open voice channel." if not manage else
                       "You're not hosting a running event with an open voice channel.")
-    raise Invalid("More than one event is running. Use this command in the event's voice channel chat.")
+    raise Invalid("More than one event is running. Pick one in the command's event option.")
 
 
 def reopen(s: Session, cfg: Config, actor: Actor, event_id: int) -> Event:

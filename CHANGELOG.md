@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Event choice on /voice.** `/voice invite`, `kick`, `ban` and `unban` take an optional `event` option
+  (autocomplete: running events with open voice that you're in, or host for kick, ban and unban, A to Z
+  with the start time). Discord's Integrations screen can't allow commands in a category, so the voice
+  chats of per-event channels may block commands; the option lets hosts pick the event from the bot
+  channel when more than one is running. No migration; re-register commands with `sync-commands`.
+
 - **Discord commands for boards, crafting, refresh and help.** `/board list` (board choice; open posts,
   counts and the most-people time, capped by `[commands] board_list_max`), `/board my` (your open posts on
   both boards, and open posts you answered), `/board post` (Adventure Board only: a modal with title,

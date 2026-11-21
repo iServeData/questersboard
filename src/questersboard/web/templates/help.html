@@ -126,7 +126,7 @@
     {% if hb.enabled %}<li>When the event starts, the host and co-hosts get a short direct message from the bot with the voice, chat and guest links, how to end the event and reopen voice, and the commands below.{% if hb.support_admin %} Admins get one when they press Support Admin.{% endif %}</li>{% endif %}
     <li>The host and co-hosts can manage who's in the event's voice channel with <code>/voice kick</code> (take someone out; they can come back if they still have access), <code>/voice ban</code> (take them out and keep them out until the event ends) and <code>/voice unban</code>.</li>
     <li>These only work for the event they're running, and only while it's running. A ban ends with the event.</li>
-    {% if vc.commands_in_voice_chat %}<li>You can type the <code>/voice</code> commands in the event's voice channel chat as well as the bot channel. When more than one event is running, use the event's voice chat so the bot knows which one you mean.</li>{% endif %}
+    <li>The <code>/voice</code> commands work in the bot channel{% if vc.commands_in_voice_chat %} and in the event's voice channel chat{% endif %}. When more than one event is running, pick the one you mean in the command's <strong>event</strong> option; it lists only the running events you're in, or for kick, ban and unban, the ones you host.</li>
     <li>Hosts can't kick or ban the server owner, community admins and officers, or the bot. Co-hosts can't kick or ban the event's host.</li>
     <li>Use these for this event's channel only. Anything bigger is for the community's moderators.</li>
   </ul>

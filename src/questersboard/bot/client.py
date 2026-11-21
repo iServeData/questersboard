@@ -23,7 +23,7 @@ from ..config import Config, ConfigError, ConfigHolder, load
 from ..db import Database, make_engine
 from ..domain import boards, catalog, commands, events, item_links, permissions, roster, signups, status, voice
 from ..domain.actor import Actor
-from ..domain.errors import DomainError
+from ..domain.errors import DomainError, Invalid
 from ..domain.timeutil import discord_ts, find_zone, now, resolve_local
 from ..models import Event, Member, Signup
 from ..secrets import SecretError, get_secret, setup_logging
@@ -756,16 +756,39 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
 
     vgroup = app_commands.Group(name="voice", description="Event voice channel")
 
+    def _voice_autocomplete(manage: bool):
+        async def ac(inter: discord.Interaction, current: str):
+            try:
+                actor = await build_actor(inter, "slash")
+                rows = await run_tx(voice.running_choices, Ctx.cfg(), actor, manage)
+            except DomainError:
+                return []
+            q = current.casefold()
+            return [app_commands.Choice(name=label[:100], value=str(eid)) for eid, label in rows
+                    if q in label.casefold()][:25]
+        return ac
+
+    def _eid(event: str | None) -> int | None:
+        if not event:
+            return None
+        if not event.isdigit():
+            raise Invalid("Pick the event from the list.")
+        return int(event)
+
+    EVENT_HELP = "Only needed when more than one event is running"
+
     @vgroup.command(name="invite", description="Get a guest link to this event's voice for someone you're playing with")
-    @app_commands.describe(new="Hosts: make a new link and stop every old guest link for this event working")
-    async def v_invite(inter: discord.Interaction, new: bool = False):
+    @app_commands.describe(new="Hosts: make a new link and stop every old guest link for this event working",
+                           event=EVENT_HELP)
+    @app_commands.autocomplete(event=_voice_autocomplete(False))
+    async def v_invite(inter: discord.Interaction, new: bool = False, event: str | None = None):
         async def go():
             cfg = Ctx.cfg()
             actor = await build_actor(inter, "slash")
 
             def q(s):
                 a = voice.command_actor(s, cfg, actor)
-                eid = voice.event_for_command(s, cfg, a, str(inter.channel_id), manage=False)
+                eid = voice.event_for_command(s, cfg, a, str(inter.channel_id), manage=False, event_id=_eid(event))
                 ev, code = voice.invite_for(s, cfg, a, eid, new=new)
                 return ev.title, code
             title, code = await run_tx(q)
@@ -775,7 +798,8 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
             await reply(inter, text)
         await guarded(inter, go())
 
-    async def _moderate(inter: discord.Interaction, member: discord.Member, action: str, done: str):
+    async def _moderate(inter: discord.Interaction, member: discord.Member, action: str, done: str,
+                        event: str | None = None):
         cfg = Ctx.cfg()
         actor = await build_actor(inter, "slash")
         owner = getattr(inter.guild, "owner_id", None)
@@ -785,26 +809,32 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
 
         def q(s):
             a = voice.command_actor(s, cfg, actor)
-            eid = voice.event_for_command(s, cfg, a, str(inter.channel_id), manage=True)
+            eid = voice.event_for_command(s, cfg, a, str(inter.channel_id), manage=True, event_id=_eid(event))
             return voice.moderate(s, cfg, a, eid, target, action).title
         title = await run_tx(q)
         await reply(inter, done.format(name=_md(member.display_name), title=_md(title)))
 
     @vgroup.command(name="kick", description="Take someone out of your event's voice channel")
-    async def v_kick(inter: discord.Interaction, member: discord.Member):
+    @app_commands.describe(event=EVENT_HELP)
+    @app_commands.autocomplete(event=_voice_autocomplete(True))
+    async def v_kick(inter: discord.Interaction, member: discord.Member, event: str | None = None):
         await guarded(inter, _moderate(inter, member, "kick",
                                        "Took **{name}** out of voice for **{title}**. They can rejoin if they "
-                                       "still have access; use `/voice ban` to keep them out."))
+                                       "still have access; use `/voice ban` to keep them out.", event))
 
     @vgroup.command(name="ban", description="Take someone out of your event's voice and keep them out until it ends")
-    async def v_ban(inter: discord.Interaction, member: discord.Member):
+    @app_commands.describe(event=EVENT_HELP)
+    @app_commands.autocomplete(event=_voice_autocomplete(True))
+    async def v_ban(inter: discord.Interaction, member: discord.Member, event: str | None = None):
         await guarded(inter, _moderate(inter, member, "ban",
-                                       "**{name}** is out of voice for **{title}** until the event ends."))
+                                       "**{name}** is out of voice for **{title}** until the event ends.", event))
 
     @vgroup.command(name="unban", description="Let someone back into your event's voice")
-    async def v_unban(inter: discord.Interaction, member: discord.Member):
+    @app_commands.describe(event=EVENT_HELP)
+    @app_commands.autocomplete(event=_voice_autocomplete(True))
+    async def v_unban(inter: discord.Interaction, member: discord.Member, event: str | None = None):
         await guarded(inter, _moderate(inter, member, "unban",
-                                       "**{name}** can use voice for **{title}** again if they have access."))
+                                       "**{name}** can use voice for **{title}** again if they have access.", event))
 
     board = app_commands.Group(name="board", description="Adventure Board and Profession help")
     craft = app_commands.Group(name="craft", description="Crafting")

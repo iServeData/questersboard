@@ -209,6 +209,16 @@ def test_host_moderation_and_protections(seeded, worker_db, monkeypatch):
         assert voice.event_for_command(s, cfg, ORG, None, manage=True) == eid
         with pytest.raises(Invalid):
             voice.event_for_command(s, cfg, actor(99), None, manage=True)
+        # the event option: picks the event from any channel, and only lists what you can use or manage
+        assert voice.event_for_command(s, cfg, ORG, None, manage=True, event_id=eid) == eid
+        assert [e for e, _ in voice.running_choices(s, cfg, ORG, manage=True)] == [eid]
+        assert voice.running_choices(s, cfg, actor(80), manage=True) == []
+        assert [e for e, _ in voice.running_choices(s, cfg, actor(80), manage=False)] == [eid]
+        assert "Mine run · " in voice.running_choices(s, cfg, actor(80), manage=False)[0][1]
+        with pytest.raises(Invalid, match="hosting that event"):
+            voice.event_for_command(s, cfg, actor(80), None, manage=True, event_id=eid)
+        with pytest.raises(Invalid, match="isn't running"):
+            voice.event_for_command(s, cfg, ORG, None, manage=True, event_id=eid + 999)
         events.end(s, cfg, ORG, eid)
         with pytest.raises(Invalid, match="running"):
             voice.moderate(s, cfg, ORG, eid, T(GUEST, frozenset()), "ban")

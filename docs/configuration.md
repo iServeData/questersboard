@@ -152,10 +152,11 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
   co-hosts and event moderators can run `/voice invite new:True` to make a new link: every old guest link for
   the event stops working (people who already joined stay; `/voice ban` removes someone).
   `commands_in_voice_chat` (true): `/voice` commands also work when typed in a running event's own voice
-  chat, even though it isn't in `[discord] allowed_command_channel_ids`; that's how hosts pick the event
-  when two are running. Other commands still only work in the command channels. Discord also has to offer
-  the commands there: Server Settings > Integrations > QuestersBoard > Channels, add the event voice
-  category (the channels come and go, so the category is what to allow).
+  chat, even though it isn't in `[discord] allowed_command_channel_ids`. Other commands still only work in
+  the command channels. Discord only offers the commands there if Server Settings > Integrations >
+  QuestersBoard > Channels allows that channel; that screen lists single channels (not categories), and
+  event voice channels come and go, so usually it doesn't. When two events are running, the `/voice`
+  commands' `event` option picks one from any command channel.
 - **Group sizes** (`[signups.party_size_max]`): the largest group per activity type (quest 5, dungeon 5,
   arena 5, raid 40, battleground 40; others 80). The participant limit can't go above it, a blank limit
   becomes it, and an event's role "How many" numbers can't add up to more than the limit. Live setting.
