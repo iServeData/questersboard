@@ -33,5 +33,5 @@ def test_every_template_loop_in_a_select_is_sorted():
 
 def test_subnav_is_a_to_z_and_difficulty_keeps_config_order():
     sub = (TEMPLATES / "_subnav.html").read_text()
-    assert "sections|alpha(1)" in sub and "items|alpha(1)" in sub
+    assert '"help")|list|alpha(1)' in sub and "items|alpha(1)" in sub   # Help is placed last, the rest A to Z
     assert "ed.difficulties|alpha" not in (TEMPLATES / "event_form.html").read_text()

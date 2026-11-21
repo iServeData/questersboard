@@ -49,6 +49,8 @@ def test_member_page_submenu(app):  # noqa: F811
     assert ">Quests<" not in menu and ">Chronicle<" not in menu   # moved into the submenu
     for label in ("Quests", "Characters", "Chronicle", "Help"):
         assert f">{label}" in sub
+    order = re.findall(r'aria-controls="wq-dd-(\w+)"', sub)
+    assert order == ["characters", "chronicle", "quests", "help"]   # A to Z, Help always last
     chars = _section(sub, "characters")
     assert 'class="wq-dd-btn is-cur"' in chars and '(current section)' in chars
     assert 'href="/wow/quester/characters" aria-current="page">Mine<' in chars

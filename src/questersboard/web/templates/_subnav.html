@@ -37,7 +37,9 @@
   {%- endif %}
   {% if b.subnav_label %}<span class="sub-label">{% if b.subnav_label_url %}<a href="{{ b.subnav_label_url }}">{{ b.subnav_label }}</a>{% else %}{{ b.subnav_label }}{% endif %}</span>{% endif %}
   <ul class="wq-dd" data-subnav>
-    {%- for key, label, items in sections|alpha(1) %}
+    {#- Sections A to Z, except Help, which always comes last. -#}
+    {%- set ordered = (sections|rejectattr(0, "equalto", "help")|list|alpha(1)) + (sections|selectattr(0, "equalto", "help")|list) %}
+    {%- for key, label, items in ordered %}
     {%- set links = (items|alpha(1)) + ((guilds|alpha(1)) if key == "characters" else []) %}
     <li><button type="button" class="wq-dd-btn{% if key == cur %} is-cur{% endif %}" aria-expanded="false" aria-controls="wq-dd-{{ key }}">{{ label }}{% if key == cur %}<span class="sr-only"> (current section)</span>{% endif %}</button>
       <div class="wq-dd-panel" id="wq-dd-{{ key }}"><ul>
