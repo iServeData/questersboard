@@ -16,7 +16,7 @@
 {% if th.enabled %}{% set toc = toc + [("chat", "Event chat", [])] %}{% endif %}
 {% if vc.enabled %}{% set toc = toc + [("voice", "Event voice", vsubs)] %}{% endif %}
 {% set toc = toc + [("chronicle", "Chronicle stories", []), ("privacy", "Privacy and Remove me", []),
-  ("limits", "Good to know", [])] %}
+  ("commands", "Discord commands", []), ("limits", "Good to know", [])] %}
 <div class="wq-legal-layout">
 {{ legal_toc(toc, mp ~ "/privacy", "Privacy") }}
 <article class="panel wq-legal">
@@ -166,6 +166,17 @@
   <ul>
     <li>QuestersBoard keeps only what it needs to run events. The <a href="{{ mp }}/privacy">Privacy</a> page explains what that is and how long it's kept.</li>
     <li>Under My settings, <a href="{{ mp }}/me/remove">Remove me</a> deletes your QuestersBoard profile, characters, imported character details, signups, and board posts and answers. It doesn't remove you from the Discord server or touch anything you've posted there.</li>
+  </ul>
+
+  <h2 class="sub" id="commands">Discord commands</h2>
+  <p>Type <code>/</code> in the bot channel or a direct message to the bot. Replies are only shown to you. <code>/questersboard help</code> lists them all in Discord.</p>
+  <ul>
+    <li><strong>Characters</strong>: <code>/character add</code>, <code>/character list</code>, <code>/character edit</code> and <code>/character remove</code>.{% if bz_on %} <code>/character refresh</code> refreshes a character from Blizzard with the same sharing choices, like <strong>Refresh from Blizzard</strong> on its page; it lists characters whose details you've already brought in, and a character refreshed in the last {{ cfg["commands"]["refresh_again_minutes"] }} minutes isn't asked for again.{% endif %}</li>
+    <li><strong>Events</strong>: <code>/quest list</code>, <code>/quest my</code>, <code>/quest join</code>, <code>/quest leave</code> and <code>/quest create</code> (saved as a draft you finish here).</li>
+    {% if ad_on or pr_on %}<li><strong>Goals and crafting</strong>: <code>/board list</code> shows what's open on the {% if ad_on %}Adventure Board{% endif %}{% if ad_on and pr_on %} or {% endif %}{% if pr_on %}Profession help{% endif %}, with how many have answered and, for goals with times, the time that works for the most people. <code>/board my</code> shows your open posts and the ones you've answered.{% if ad_on %} <code>/board post</code> asks for a title, details and up to three times (one per line, 24-hour, like Sat 28 Nov 19:00-22:00, in your time zone), then gives you a link to the Post a goal form filled in; pick your character there and press <strong>Post goal</strong>. Nothing is posted until you do.{% endif %}</li>{% endif %}
+    {% if bz_on %}<li><code>/craft who</code> finds who can craft an item, from the same list as <a href="{{ mp }}/players#craft">Who can craft</a>: only characters whose owners share their professions with all members. It shows any open craft offer with what the crafter asks for{% if pr_on %}, and has an <strong>Ask for a craft</strong> button{% endif %}.</li>{% endif %}
+    {% if vc.enabled %}<li><strong>Event voice</strong>: <code>/voice invite</code>, and for hosts <code>/voice kick</code>, <code>/voice ban</code> and <code>/voice unban</code> (see <a href="#voice">Event voice</a>).</li>{% endif %}
+    <li>Buttons on the bot's posts do the rest: join or leave an event, and answer goals and craft posts.</li>
   </ul>
 
   <h2 class="sub" id="limits">Good to know</h2>

@@ -12,9 +12,9 @@
   <h2 class="sub" id="prof-{{ key }}-title">{{ title }}</h2>
   {% if form_error and open_d == key %}<p class="caveat" role="alert" id="prof-{{ key }}-error">{{ form_error }}</p>{% endif %}{% endmacro %}
 {% macro mark(key, name) %}{% if form_error and open_d == key and bad == name %} class="is-bad" aria-invalid="true" aria-describedby="prof-{{ key }}-error"{% endif %}{% endmacro %}
-{% macro val(key, name) %}{{ form[name] if form_error and open_d == key else "" }}{% endmacro %}
-{% macro char_opts(key) %}{% for c in chars|alpha("name") %}<option value="{{ c.id }}"{% if form_error and open_d == key and form.character_id == c.id|string %} selected{% endif %}>{{ c.name }}</option>{% endfor %}{% endmacro %}
-{% macro prof_opts(key) %}{% for n in sec.names|alpha %}<option{% if form_error and open_d == key and form.profession == n %} selected{% endif %}>{{ n }}</option>{% endfor %}{% endmacro %}
+{% macro val(key, name) %}{{ form[name] if (form_error or prefill) and open_d == key else "" }}{% endmacro %}
+{% macro char_opts(key) %}{% for c in chars|alpha("name") %}<option value="{{ c.id }}"{% if (form_error or prefill) and open_d == key and form.character_id == c.id|string %} selected{% endif %}>{{ c.name }}</option>{% endfor %}{% endmacro %}
+{% macro prof_opts(key) %}{% for n in sec.names|alpha %}<option{% if (form_error or prefill) and open_d == key and form.profession == n %} selected{% endif %}>{{ n }}</option>{% endfor %}{% endmacro %}
 {% set can_post = chars and open_n < sec.max_open_per_member %}
 <dialog class="wq-dialog ab-dialog" id="prof-need" aria-labelledby="prof-need-title" data-board-dialog{% if open_d == "need" %} open{% endif %}>
   {{ dialog_head("need", "Ask for a craft") }}{{ gate() }}

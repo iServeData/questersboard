@@ -32,7 +32,7 @@ sudo -u questersboard /opt/questersboard/current/venv/bin/questersboard-admin ch
 
 | Section | Applies |
 | --- | --- |
-| `[roles]`, `[scheduling]`, `[signups]`, `[reminders]`, `[chronicle]`, `[solo_stories]`, `[rate_limits]`, `[event_posts]`, `[public_voice]`, `[adventures]`, `[professions]` | **Live**: re-read about every 30 s when the file changes, only if the whole file validates. A bad edit is logged and the old settings stay in force. |
+| `[roles]`, `[scheduling]`, `[signups]`, `[reminders]`, `[chronicle]`, `[solo_stories]`, `[rate_limits]`, `[event_posts]`, `[public_voice]`, `[adventures]`, `[professions]`, `[commands]` | **Live**: re-read about every 30 s when the file changes, only if the whole file validates. A bad edit is logged and the old settings stay in force. |
 | everything else (`[community]`, `[discord]`, `[web]`, `[database]`, `[blizzard]`, `[ai]`, `[uploads]`, `[feeds]`, `[calendar]`, `[branding]`, `[retention]`, `[event_threads]`, `[voice]`, `[support_admin]`, `[item_links]`, `[page_art]`, `[[editions]]`, presets, activities) | **Restart**: `sudo systemctl restart questersboard-web questersboard-bot questersboard-worker`. The services log which changed sections still need a restart. |
 
 Each applied change is recorded in `config_changes` (section hashes, not values).
@@ -165,6 +165,10 @@ Each applied change is recorded in `config_changes` (section hashes, not values)
 - **AI** (`[ai]`): off by default. When on, only publication-safe text is sent (no Discord IDs,
   no opted-out names), output is only ever a draft suggestion, and any failure falls back to the
   built-in template.
+- **Slash commands** (`[commands]`, live): `board_list_max` (10) and `craft_who_max` (10) cap the
+  `/board list` and `/craft who` replies; `/character refresh` asks the worker to refresh from Blizzard
+  (the bot has no Blizzard credentials) and waits `refresh_wait_seconds` (20) for it, and a character
+  refreshed in the last `refresh_again_minutes` (5) isn't asked for again.
 - **Item cards** (`[item_links]`): off by default. When on, a message in a `watch_channels` channel
   that names items in [square brackets] gets one card per item (at most `max_per_message`), posted by a
   webhook the bot creates in that channel (or `post_channel`) called `webhook_name`. Webhook posts,

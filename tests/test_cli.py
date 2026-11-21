@@ -47,7 +47,7 @@ def test_sync_commands_is_dry_run_without_approval(cfg_file, capsys, monkeypatch
                         lambda *a, **k: called.append(a) or [])
     assert cli.main(["--config", cfg_file, "sync-commands"]) == 0
     out = capsys.readouterr()
-    assert json.loads(out.out)[0]["name"] in ("quest", "character") and "needs approval" in out.err
+    assert {"quest", "character", "board"} <= {c["name"] for c in json.loads(out.out)} and "needs approval" in out.err
     assert cli.main(["--config", cfg_file, "sync-commands", "--yes"]) == 3      # --yes alone is not enough
     assert not called
 

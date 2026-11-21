@@ -70,12 +70,15 @@ class Worker:
 
     # ------------------------------------------------------------------ outbox
     def claim(self) -> list[dict]:
+        # web.* jobs need what only the web service holds (Blizzard refreshes write imported details,
+        # which this role can't read); the web service runs them (web/web_jobs.py).
         with self.db.tx() as s:
             rows = s.execute(text("""
                 UPDATE outbox SET locked_until = now() + interval '2 minutes', attempts = attempts + 1
                  WHERE id IN (SELECT id FROM outbox
                                WHERE done_at IS NULL AND dead_at IS NULL AND run_after <= now()
                                  AND (locked_until IS NULL OR locked_until < now())
+                                 AND left(kind, 4) <> 'web.'
                                ORDER BY run_after LIMIT :n FOR UPDATE SKIP LOCKED)
              RETURNING id, kind, key, payload, attempts"""), {"n": BATCH}).mappings().all()
         return [dict(r) for r in rows]

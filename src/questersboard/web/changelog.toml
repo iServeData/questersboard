@@ -9,6 +9,18 @@ date = "2026-11-20"
 title = "The Adventure Board and Profession help"
 [[release.change]]
 area = "Events"
+kind = "new"
+text = "New Discord commands: /board list shows what's open on the Adventure Board or Profession help, /board my shows your posts and the ones you answered, and /board post starts a goal and gives you a link to finish it here."
+[[release.change]]
+area = "Characters"
+kind = "new"
+text = "/craft who finds who can craft an item, with any open offer and what the crafter asks for, and /character refresh refreshes a character from Blizzard without leaving Discord."
+[[release.change]]
+area = "Site"
+kind = "new"
+text = "/questersboard help lists every command, and How it works has a new Discord commands section."
+[[release.change]]
+area = "Events"
 kind = "improved"
 text = "When you answer a goal, tick which of its times work for you (on the page, or with the Discord card's Times that work for me menu). Each time shows how many people it works for, and Turn into an event starts at the most popular one."
 [[release.change]]

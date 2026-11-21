@@ -448,6 +448,8 @@ def main() -> int:  # pragma: no cover - service entry point
         log.warning("discord-bot-token not installed: logins can't verify guild membership")
     holder = ConfigHolder(cfg)
     app = create_app(holder, db, oauth, rest)
+    from . import web_jobs
+    web_jobs.start(app.state.web)          # /character refresh asks from Discord (web/web_jobs.py)
     bind = cfg["web"]["bind"]
     if bind.startswith("fd:"):            # socket passed by questersboard-web.socket (systemd)
         kw = {"fd": int(bind[3:])}

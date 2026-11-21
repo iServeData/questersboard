@@ -64,6 +64,7 @@ Test file names refer to `tests/`.
 | Full audit trail | Done, tested | every domain change calls `audit.record`; app role INSERT-only (`test_app_cannot_rewrite_audit_log`) |
 | One canonical Discord post, edited in place, recreated if deleted, persistent buttons | Done, fixture-tested | `test_worker.py::test_canonical_post_is_edited_and_reposted_when_deleted`, `test_bot.py::test_persistent_custom_id_matches_render` |
 | Slash commands (`/quest`, `/character`), edition autocomplete | Done, fixture-tested | `test_bot.py::test_command_payload_shape`; registration is dry-run until approved |
+| `/board list`, `/board my`, `/board post`, `/craft who`, `/character refresh`, `/questersboard help` | Done, fixture-tested | `test_bot_commands.py` (time parsing, prefill links, crafter list, refresh owner/gap, web-run refresh job, tree); registration needs approval |
 | Live Discord gateway, posting, DMs, command registration | Externally unverified | needs the bot token, guild and approval |
 
 ## Chronicle

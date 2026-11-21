@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -33,6 +34,9 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
     def _page(request: Request, board: str, form_error: str = "", form: dict | None = None, bad: str = ""):
         sess, a = session_or_login(request)
         w = W(request)
+        prefill = False
+        if form is None and request.query_params.get("new", "") in ("1", "need"):
+            form, prefill = _prefill(request.query_params), True   # /board post and /craft who links
         with w.db.tx() as s:
             a = roster.ensure_member(s, a)
             if not boards.enabled(w.cfg, board):
@@ -52,6 +56,7 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
                                                           for k, lbl in chips],
                    "mine": boards.my_posts(s, a, board), "open_n": boards.open_count(s, a.member_id, board),
                    "sec": sec, "fee_kinds": boards.FEE_KINDS, "editions": w.cfg.editions, "tz": tz, "form_error": form_error, "form": form or {}, "bad": bad,
+                   "prefill": prefill,
                    "open_form": bool(form_error) or request.query_params.get("new", "") in ("1", "need_crafted", "can_craft", "ask"),
                    "new_q": request.query_params.get("new", ""),
                    "at_text": boards.at_text, "time_pattern": TIME_PATTERN,
@@ -89,6 +94,17 @@ def add(r, mp: str, W, session_or_login, post_guard, render, redirect, local_dt)
             if end <= start:
                 end += timedelta(days=1)          # 22:00 to 01:00 runs past midnight
             out.append((start, end, i))
+        return out
+
+    def _prefill(q) -> dict:
+        """A new post's form filled in from the address (nothing is saved until the member posts it).
+        Only the form's own text fields, each cut to its form length; the form checks them again on Post."""
+        lim = {"kind": 20, "title": 120, "body": 500, "timezone": 64, "profession": 40}
+        lim.update({f"{k}_{i}": 10 for i in range(boards.MAX_WINDOWS) for k in ("date", "from", "to")})
+        out = {k: str(q.get(k) or "")[:n] for k, n in lim.items()}
+        if out["timezone"] and not re.fullmatch(r"[A-Za-z_]+(/[A-Za-z0-9_+-]+){0,2}", out["timezone"]):
+            out["timezone"] = ""
+        out["tags"] = []
         return out
 
     def _keep(form) -> dict:

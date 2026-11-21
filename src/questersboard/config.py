@@ -40,7 +40,7 @@ EMOJI_NAME = re.compile(r"^[A-Za-z0-9_]{2,32}$")
 COVER_NAME = re.compile(r"^[A-Za-z0-9_-]{1,60}\.(webp|png|jpg|jpeg)$")
 
 LIVE_SECTIONS = ("roles", "publishing", "scheduling", "signups", "reminders", "chronicle", "rate_limits", "status",
-                 "event_posts", "solo_stories", "public_voice", "adventures", "professions")
+                 "event_posts", "solo_stories", "public_voice", "adventures", "professions", "commands")
 API_STATUSES = ("verified", "unverified", "unsupported")
 API_CAPS = ("reference", "character", "quests", "locations", "ownership")
 
@@ -998,6 +998,16 @@ def _item_links(r: dict) -> None:
                          "footer_text", "footer_fallback_text", "professions", "crafted_text"}
     if unknown:
         raise ConfigError(f"[item_links] unknown setting(s): {', '.join(sorted(unknown))}")
+    # [commands]: the /board, /craft who and /character refresh slash commands (live).
+    cm = r.setdefault("commands", {})
+    for k, dflt, lo, hi in (("board_list_max", 10, 1, 20), ("craft_who_max", 10, 1, 20),
+                            ("refresh_wait_seconds", 20, 5, 60), ("refresh_again_minutes", 5, 0, 1440)):
+        v = cm.setdefault(k, dflt)
+        if isinstance(v, bool) or not isinstance(v, int) or not lo <= v <= hi:
+            raise ConfigError(f"[commands] {k} must be a whole number from {lo} to {hi}")
+    unknown = set(cm) - {"board_list_max", "craft_who_max", "refresh_wait_seconds", "refresh_again_minutes"}
+    if unknown:
+        raise ConfigError(f"[commands] unknown setting(s): {', '.join(sorted(unknown))}")
 
 
 def _link_template(v: Any, where: str) -> str:

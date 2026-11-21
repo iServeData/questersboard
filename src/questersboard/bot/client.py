@@ -21,7 +21,7 @@ from sqlalchemy import func, select
 
 from ..config import Config, ConfigError, ConfigHolder, load
 from ..db import Database, make_engine
-from ..domain import catalog, events, item_links, permissions, roster, signups, status, voice
+from ..domain import boards, catalog, commands, events, item_links, permissions, roster, signups, status, voice
 from ..domain.actor import Actor
 from ..domain.errors import DomainError
 from ..domain.timeutil import discord_ts, find_zone, now, resolve_local
@@ -493,6 +493,35 @@ class CreateModal(discord.ui.Modal, title="Plan a WoW event"):
         await guarded(inter, go())
 
 
+class BoardPostModal(discord.ui.Modal, title="Post a goal"):
+    """/board post: the words and times; the Adventure Board form on the site does the rest."""
+    goal = discord.ui.TextInput(label="Title", min_length=3, max_length=120,
+                                placeholder="For example: Deadmines run, need a healer")
+    details = discord.ui.TextInput(label="Details", style=discord.TextStyle.paragraph, required=False,
+                                   max_length=500, placeholder="What you're after, who you need")
+    times = discord.ui.TextInput(label="Times, one per line, up to 3 (24-hour)", style=discord.TextStyle.paragraph,
+                                 required=False, max_length=200, placeholder="Sat 28 Nov 19:00-22:00")
+
+    def __init__(self, kind: str, tz: str):
+        super().__init__()
+        self.kind, self.tz = kind, tz
+
+    async def on_submit(self, inter: discord.Interaction):
+        async def go():
+            permissions.require_member(Ctx.cfg(), await build_actor(inter, "slash" if inter.guild_id else "dm"))
+            await reply(inter, commands.post_reply(Ctx.cfg(), self.kind, self.goal.value, self.details.value or "",
+                                                   self.times.value or "", self.tz))
+        await guarded(inter, go())
+
+
+class LinksView(discord.ui.View):
+    """Link buttons only (no callbacks)."""
+    def __init__(self, *links: tuple[str, str]):
+        super().__init__(timeout=None)
+        for label, url in links:
+            self.add_item(discord.ui.Button(label=label, url=url))
+
+
 class CharacterModal(discord.ui.Modal, title="Add a WoW character"):
     name = discord.ui.TextInput(label="Character name", max_length=24)
     race_class = discord.ui.TextInput(label="Race and class", placeholder="orc warrior", max_length=40)
@@ -777,6 +806,111 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
         await guarded(inter, _moderate(inter, member, "unban",
                                        "**{name}** can use voice for **{title}** again if they have access."))
 
+    board = app_commands.Group(name="board", description="Adventure Board and Profession help")
+    craft = app_commands.Group(name="craft", description="Crafting")
+    qb = app_commands.Group(name="questersboard", description="QuestersBoard")
+    board_choices = [app_commands.Choice(name=boards.BOARD_LABEL[b], value=b) for b in ("adventure", "profession")]
+    kind_choices = [app_commands.Choice(name=label, value=k) for k, label in alpha(commands.ADVENTURE_KINDS.items(),
+                                                                                    lambda kv: kv[1])]
+
+    def _src(inter):
+        return "slash" if inter.guild_id else "dm"
+
+    @board.command(name="list", description="Open goals or craft posts")
+    @app_commands.describe(board="Which board")
+    @app_commands.choices(board=board_choices)
+    async def b_list(inter: discord.Interaction, board: app_commands.Choice[str]):
+        async def go():
+            actor = await build_actor(inter, _src(inter))
+            await reply(inter, await run_tx(commands.board_list, Ctx.cfg(), actor, board.value))
+        await guarded(inter, go())
+
+    @board.command(name="my", description="Your open posts and the ones you answered")
+    async def b_my(inter: discord.Interaction):
+        async def go():
+            actor = await build_actor(inter, _src(inter))
+            await reply(inter, await run_tx(commands.board_my, Ctx.cfg(), actor))
+        await guarded(inter, go())
+
+    @board.command(name="post", description="Start an Adventure Board goal; you finish it on the site")
+    @app_commands.describe(kind="What kind of goal")
+    @app_commands.choices(kind=kind_choices)
+    async def b_post(inter: discord.Interaction, kind: app_commands.Choice[str]):
+        cfg = Ctx.cfg()
+        if not boards.enabled(cfg, "adventure"):
+            await reply(inter, "The Adventure Board is turned off.")
+            return
+        saved = await run_tx(lambda s: s.scalar(select(Member.timezone).where(
+            Member.discord_id == str(inter.user.id), Member.erased_at.is_(None))))
+        await inter.response.send_modal(BoardPostModal(kind.value, saved or cfg["community"]["default_timezone"]))
+
+    async def item_autocomplete(inter: discord.Interaction, current: str):
+        try:
+            actor = await build_actor(inter, _src(inter))
+            rows = await run_tx(commands.craft_suggest, Ctx.cfg(), actor, current)
+        except DomainError:
+            return []
+        return [app_commands.Choice(name=f"{n} \u00b7 {p}"[:100], value=n[:100]) for n, p in rows]
+
+    @craft.command(name="who", description="Who can craft an item")
+    @app_commands.describe(item="Start typing the item's name")
+    @app_commands.autocomplete(item=item_autocomplete)
+    async def cr_who(inter: discord.Interaction, item: str):
+        async def go():
+            cfg = Ctx.cfg()
+            actor = await build_actor(inter, _src(inter))
+            text, ask = await run_tx(commands.craft_who, cfg, actor, item)
+            links = [("Open Who can craft", commands.craft_page(cfg, item))]
+            if boards.enabled(cfg, "profession"):
+                links.insert(0, ("Ask for a craft", ask))
+            await reply(inter, text, LinksView(*links))
+        await guarded(inter, go())
+
+    async def refresh_autocomplete(inter: discord.Interaction, current: str):
+        try:
+            actor = await build_actor(inter, _src(inter))
+            rows = await run_tx(commands.refresh_choices, Ctx.cfg(), actor)
+        except DomainError:
+            return []
+        q = current.casefold()
+        return [app_commands.Choice(name=label[:100], value=str(cid)) for cid, label in rows if q in label.casefold()]
+
+    @character.command(name="refresh", description="Refresh from Blizzard")
+    @app_commands.describe(character="One of your characters with Blizzard details")
+    @app_commands.autocomplete(character=refresh_autocomplete)
+    async def c_refresh(inter: discord.Interaction, character: str):
+        async def go():
+            await inter.response.defer(ephemeral=True, thinking=True)   # Blizzard can take a while
+            cfg = Ctx.cfg()
+            actor = await build_actor(inter, _src(inter))
+            rows = await run_tx(commands.refresh_choices, cfg, actor)
+            if not rows:
+                await reply(inter, "None of your characters has Blizzard details yet. Use **Refresh from Blizzard** "
+                                   f"on My characters first: <{member_url(cfg, 'characters')}>")
+                return
+            cid = next((c for c, label in rows if str(c) == character.strip()
+                        or label.split(" \u00b7 ")[0].casefold() == character.strip().casefold()), None)
+            if cid is None:
+                await reply(inter, "Pick one of your characters from the list.")
+                return
+            state, name, before = await run_tx(commands.refresh_request, cfg, actor, cid)
+            if state == "recent":
+                await reply(inter, f"**{_md(name)}** was refreshed from Blizzard a few minutes ago. Try again in "
+                                   f"{cfg['commands']['refresh_again_minutes']} minutes. "
+                                   f"<{member_url(cfg, 'characters', str(cid), 'view')}>")
+                return
+            text = await wait_refresh(cfg, cid, before, name)
+            await reply(inter, text)
+        await guarded(inter, go())
+
+    @qb.command(name="help", description="A quick guide to every command")
+    async def qb_help(inter: discord.Interaction):
+        await reply(inter, commands.help_text(Ctx.cfg()))
+
+    for cmd in (board, craft, qb):
+        cmd.allowed_contexts = app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=False)
+        cmd.allowed_installs = app_commands.AppInstallationType(guild=True, user=False)
+        tree.add_command(cmd)
     for cmd in (quest, character):
         cmd.allowed_contexts = app_commands.AppCommandContext(guild=True, dm_channel=True, private_channel=False)
         cmd.allowed_installs = app_commands.AppInstallationType(guild=True, user=False)
@@ -785,6 +919,23 @@ def build_tree(client: discord.Client) -> app_commands.CommandTree:
     vgroup.allowed_installs = app_commands.AppInstallationType(guild=True, user=False)
     tree.add_command(vgroup)
     return tree
+
+
+async def wait_refresh(cfg: Config, cid: int, before, name: str) -> str:
+    """Wait up to [commands] refresh_wait_seconds for the worker's refresh, checking every 2 seconds."""
+    loop = asyncio.get_running_loop()
+    end = loop.time() + cfg["commands"]["refresh_wait_seconds"]
+    while True:
+        state = await run_tx(commands.refresh_state, cid, before)
+        if state == "done":
+            return await run_tx(commands.refresh_done_text, cfg, cid)
+        if state == "failed":
+            return (f"Blizzard couldn't refresh **{_md(name)}** just now. Nothing was changed. Try "
+                    f"**Refresh from Blizzard** on the character page: <{member_url(cfg, 'characters', str(cid), 'view')}>")
+        if loop.time() >= end:
+            return (f"Asked Blizzard to refresh **{_md(name)}**; it hasn't answered yet. Check the character page "
+                    f"in a minute: <{member_url(cfg, 'characters', str(cid), 'view')}>")
+        await asyncio.sleep(2)
 
 
 class _Titled:

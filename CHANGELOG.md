@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **Discord commands for boards, crafting, refresh and help.** `/board list` (board choice; open posts,
+  counts and the most-people time, capped by `[commands] board_list_max`), `/board my` (your open posts on
+  both boards, and open posts you answered), `/board post` (Adventure Board only: a modal with title,
+  details and up to 3 times in 24-hour form, read in your saved time zone; replies with a link that opens
+  Post a goal filled in from the address, nothing saved until Post goal; profession posts need recipe picks
+  and stay on the site), `/craft who item:` (autocomplete; the same rows as Who can craft, open Can craft
+  offers with their fee, Ask for a craft and Who can craft link buttons), `/character refresh` (your
+  characters with imported details; the bot has no Blizzard credentials and the worker's role can't read
+  imported details, so it queues a `web.blizzard_refresh` outbox job that the web service runs in a small
+  thread, `web/web_jobs.py`, never retried; the worker skips `web.*` kinds; the bot waits
+  `refresh_wait_seconds` and refuses within `refresh_again_minutes`) and `/questersboard help`. Replies stay
+  plain ephemeral text like the other commands. New live `[commands]` section. The professions Ask for a
+  craft form also opens filled in from `?new=need&title=`. No migration. Registering the commands is
+  `questersboard-admin sync-commands --yes` (needs approval).
+
 - **Pick which times work (Adventure Board).** Answers on a goal with times (I'm in, I need this too,
   I can help, Ask for help) say which times work: ticks on the web, or the card's "Times that work for
   me" menu in Discord (`wq:bt:<post_id>`, a persistent select; on a goal with two buttons it asks you to

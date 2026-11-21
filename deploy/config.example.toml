@@ -324,6 +324,12 @@ web_requests_per_minute = 120
 icon_requests_per_minute = 600                # pictures and page files per person and per address: gear and talent icons (talent trees can be 100+), portraits, screenshots
 actions_per_minute = 30
 
+[commands]                                    # [live] optional; these are the defaults. /board, /craft who, /character refresh
+board_list_max = 10                           # goals or posts listed by /board list
+craft_who_max = 10                            # crafters listed by /craft who
+refresh_wait_seconds = 20                     # /character refresh waits this long for Blizzard before saying it's still working
+refresh_again_minutes = 5                     # a character refreshed this recently isn't asked for again
+
 [item_links]                                  # restart. Item cards for names in [brackets] (off until approved)
 # The bot reads new messages in watch_channels, finds names in [brackets] and posts a card for each
 # item (details and icon from Blizzard, no link) through a webhook it creates itself. Webhook posts

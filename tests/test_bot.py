@@ -17,7 +17,13 @@ def test_command_payload_shape():
     cfg = make_cfg()
     p = bc.command_payload(cfg)
     names = {c["name"] for c in p}
-    assert names == {"quest", "character", "voice"}
+    assert names == {"quest", "character", "voice", "board", "craft", "questersboard"}
+    sub = {c["name"]: {o["name"] for o in c["options"]} for c in p}
+    assert sub["board"] == {"list", "my", "post"} and sub["craft"] == {"who"} and sub["questersboard"] == {"help"}
+    assert "refresh" in sub["character"]
+    board = next(c for c in p if c["name"] == "board")
+    kinds = next(o for o in board["options"] if o["name"] == "post")["options"][0]["choices"]
+    assert [k["name"] for k in kinds] == ["Happy to help", "Looking for company", "Looking for help"]
     quest = next(c for c in p if c["name"] == "quest")
     assert {o["name"] for o in quest["options"]} == {"list", "my", "join", "leave", "create"}
     vc = next(c for c in p if c["name"] == "voice")
